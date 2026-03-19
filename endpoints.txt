@@ -1,0 +1,108 @@
+
+=== AdminController ===
+[HttpGet("get-all-users")]
+  public async Task<IActionResult> GetAllUsers()
+[HttpGet("get-announcements")]
+  public async Task<IActionResult> GetAnnouncements()
+[HttpGet("my-conversations")]
+  public async Task<IActionResult> GetMyConversations()
+[HttpGet("group-members/{convId}")]
+  public async Task<IActionResult> GetGroupMembers(int convId)
+[HttpGet("chat-history/{convId}")]
+  public async Task<IActionResult> GetChatHistory(int convId)
+[HttpPost("create-group")]
+  public async Task<IActionResult> CreateGroup([FromBody] string groupName) // Nhận string từ body
+[HttpPost("add-member-to-group")]
+  public async Task<IActionResult> AddMemberToGroup(int conversationId, int userId)
+
+=== AnnouncementsController ===
+[HttpGet]
+  public async Task<IActionResult> GetAnnouncements()
+[HttpPost]
+  public async Task<IActionResult> CreateAnnouncement([FromBody] CreateAnnouncementDto request)
+
+=== AttachmentsController ===
+[HttpPost("upload")]
+  public async Task<IActionResult> Upload([FromForm] IFormFile file, [FromForm] int? messageId, [FromForm] int? conversationId)
+[HttpGet("{id}")]
+  public async Task<IActionResult> Get(int id)
+[HttpDelete("{id}")]
+  public async Task<IActionResult> Delete(int id)
+[HttpGet("{id}/download")]
+  public async Task<IActionResult> Download(int id)
+
+=== AuthController ===
+[HttpPost("register")]
+  public async Task<IActionResult> Register([FromBody] RegisterDto request)
+[HttpPost("login")]
+  public async Task<IActionResult> Login([FromBody] LoginDto request)
+[HttpPost("logout-all")]
+  public async Task<IActionResult> LogoutAll()
+[HttpGet("profile")]
+  public IActionResult GetProfile()
+[HttpPost("refresh-token")]
+  public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto request)
+[HttpGet("me")]
+  public async Task<IActionResult> GetMe()
+[HttpGet("current-user")]
+  public async Task<IActionResult> GetCurrentUser()
+
+=== ConversationsController ===
+[HttpGet("my")]
+  public async Task<IActionResult> GetMyConversations()
+[HttpPost("private")]
+  public async Task<IActionResult> CreatePrivate([FromBody] CreatePrivateConversationDto request)
+[HttpGet("{id}")]
+  public async Task<IActionResult> GetConversation(int id)
+[HttpGet("{id}/members")]
+  public async Task<IActionResult> GetMembers(int id)
+[HttpPut("{id}/name")]
+  public async Task<IActionResult> RenameConversation(int id, [FromBody] RenameConversationDto request)
+[HttpPost("{id}/leave")]
+  public async Task<IActionResult> LeaveConversation(int id)
+[HttpDelete("{id}/members/{userId}")]
+  public async Task<IActionResult> RemoveMember(int id, int userId)
+[HttpPost("{id}/disband")]
+  public async Task<IActionResult> DisbandConversation(int id)
+
+=== GroupsController ===
+[HttpPost]
+  public async Task<IActionResult> CreateGroup([FromBody] CreateGroupConversationDto request)
+[HttpDelete("{id}")]
+  public async Task<IActionResult> DeleteGroup(int id)
+[HttpPost("{id}/members")]
+  public async Task<IActionResult> AddMember(int id, [FromBody] int userIdToAdd)
+[HttpGet("{id}/members")]
+  public async Task<IActionResult> GetMembers(int id)
+
+=== MeetingsController ===
+[HttpGet("conversation/{conversationId}")]
+  public async Task<IActionResult> GetByConversation(int conversationId)
+[HttpGet("{meetingId}/participants")]
+  public async Task<IActionResult> GetParticipants(int meetingId)
+[HttpGet("{meetingId}/recordings")]
+  public async Task<IActionResult> GetRecordings(int meetingId)
+
+=== MessagesController ===
+[HttpPost]
+  public async Task<IActionResult> PostMessage([FromBody] CreateMessageDto request)
+[HttpGet("/api/conversations/{conversationId}/messages")]
+  public async Task<IActionResult> GetMessagesForConversation(int conversationId)
+[HttpDelete("{id}")]
+  public async Task<IActionResult> DeleteMessage(int id)
+[HttpPost("{id}/read")]
+  public async Task<IActionResult> MarkMessageRead(int id, [FromBody] MarkMessageReadDto request)
+
+=== UsersController ===
+[HttpGet]
+  public async Task<IActionResult> GetUsers()
+[HttpGet("{id}")]
+  public async Task<IActionResult> GetUser(int id)
+[HttpGet("online")]
+  public async Task<IActionResult> GetOnlineUsers()
+[HttpGet("me")]
+  public async Task<IActionResult> GetCurrentUser()
+[HttpPut("{id}")]
+  public async Task<IActionResult> UpdateUser(int id, [FromBody] Lumi.Application.DTOs.UpdateUserDto request)
+[HttpPatch("{id}/status")]
+  public async Task<IActionResult> ToggleStatus(int id, [FromBody] Lumi.Application.DTOs.UserStatusDto request)
