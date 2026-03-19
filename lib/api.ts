@@ -1,9 +1,3 @@
-/**
- * API client - khớp với Backend Lumi.WebAPI (fullBE.txt)
- * Base URL: http://localhost:7082/api
- * Request body: PascalCase (theo C# DTO)
- * Response: ASP.NET Core mặc định trả camelCase
- */
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://lumi-chat-api.runasp.net/api'
 
