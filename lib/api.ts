@@ -5,7 +5,7 @@
  * Response: ASP.NET Core mặc định trả camelCase
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:7082/api'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://lumi-chat-api.runasp.net/api'
 
 interface ApiOptions extends RequestInit {
   token?: string

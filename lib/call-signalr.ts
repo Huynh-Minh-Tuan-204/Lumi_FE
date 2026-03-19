@@ -6,12 +6,12 @@ function buildCallHubUrl(): string {
   const callHubUrl = process.env.NEXT_PUBLIC_CALL_HUB_URL
   if (callHubUrl) return callHubUrl
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://localhost:7082/api'
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lumi-chat-api.runasp.net/api'
   try {
     const u = new URL(apiUrl)
     return `${u.origin}/callhub`
   } catch {
-    return 'https://localhost:7082/callhub'
+    return 'https://lumi-chat-api.runasp.net/callhub'
   }
 }
 

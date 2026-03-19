@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useState, createContext, useContext } f
 import * as signalR from '@microsoft/signalr'
 import { useAuth } from '@/lib/auth-context'
 
-const HUB_URL = process.env.NEXT_PUBLIC_SIGNALR_HUB_URL || 'https://localhost:7082/chatHub'
+const HUB_URL = process.env.NEXT_PUBLIC_SIGNALR_HUB_URL || 'https://lumi-chat-api.runasp.net/chatHub'
 
 export interface ChatMessage {
   id: number
