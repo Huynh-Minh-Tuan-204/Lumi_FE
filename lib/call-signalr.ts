@@ -6,12 +6,12 @@ function buildCallHubUrl(): string {
   const callHubUrl = process.env.NEXT_PUBLIC_CALL_HUB_URL
   if (callHubUrl) return callHubUrl
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://lumi-chat-api.runasp.net/api'
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api';
   try {
     const u = new URL(apiUrl)
     return `${u.origin}/callhub`
   } catch {
-    return 'https://lumi-chat-api.runasp.net/callhub'
+    return 'https://mintuan-001-site1.ktempurl.com/callhub';
   }
 }
 

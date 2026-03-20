@@ -1,5 +1,5 @@
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://lumi-chat-api.runasp.net/api'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api';
 
 interface ApiOptions extends RequestInit {
   token?: string
