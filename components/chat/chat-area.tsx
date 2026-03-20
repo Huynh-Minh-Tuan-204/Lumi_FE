@@ -492,10 +492,10 @@ export function ChatArea({
                                 <div className="space-y-2">
                                   {msg.attachments && msg.attachments.length > 0 ? (
                                     msg.attachments.map((at, idx) => {
-                                      const fileName = at.fileName || at.FileName || 'File'
-                                      const mimeType = at.mimeType || at.MimeType || ''
-                                      const filePath = at.encryptedFilePath || at.EncryptedFilePath || ''
-                                      const id = at.id || at.Id || `at-${idx}`
+                                      const fileName = at.fileName || at.fileName || 'File'
+                                      const mimeType = at.mimeType || at.mimeType || ''
+                                      const filePath = at.encryptedFilePath || at.encryptedFilePath || ''
+                                      const id = at.id || at.id || `at-${idx}`
 
                                       const isImage = mimeType.startsWith('image/')
                                       const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api$/, '').replace(/\/$/, '')
@@ -522,7 +522,7 @@ export function ChatArea({
                                             href={url} 
                                             target="_blank" 
                                             rel="noopener noreferrer"
-                                            className="text-sm font-medium hover:underline underline-offset-2 truncate max-w-[200px] text-white"
+                                            className="text-sm font-medium hover:underline underline-offset-2 truncate max-w-50 text-white"
                                           >
                                             {fileName}
                                           </a>
@@ -531,7 +531,7 @@ export function ChatArea({
                                     })
                                   ) : null}
                                   {msg.encryptedContent && msg.encryptedContent !== '[Attachment]' && (
-                                    <p className="text-sm whitespace-pre-wrap break-words">
+                                    <p className="text-sm whitespace-pre-wrap wrap-break-word">
                                       {msg.encryptedContent}
                                     </p>
                                   )}
