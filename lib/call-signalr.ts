@@ -21,8 +21,8 @@ export interface CallSignalRHandlers {
   onReceiveOffer?: (offer: RTCSessionDescriptionInit, fromUserId: number) => void
   onReceiveAnswer?: (answer: RTCSessionDescriptionInit, fromUserId: number) => void
   onReceiveIceCandidate?: (candidate: RTCIceCandidateInit, fromUserId: number) => void
-  onUserJoined?: (connectionId: string, displayName: string) => void
-  onUserLeft?: (connectionId: string, displayName: string) => void
+  onUserJoined?: (connectionId: string, userId: number, displayName: string) => void
+  onUserLeft?: (connectionId: string, userId: number, displayName: string) => void
   onConnectionStateChange?: (state: signalR.HubConnectionState) => void
 }
 
@@ -65,12 +65,12 @@ export class CallSignalR {
       this.handlers.onReceiveIceCandidate?.(candidate, fromUserId)
     })
 
-    connection.on('UserJoined', (connectionId: string, displayName: string) => {
-      this.handlers.onUserJoined?.(connectionId, displayName)
+    connection.on('UserJoined', (connectionId: string, userId: number, displayName: string) => {
+      this.handlers.onUserJoined?.(connectionId, userId, displayName)
     })
 
-    connection.on('UserLeft', (connectionId: string, displayName: string) => {
-      this.handlers.onUserLeft?.(connectionId, displayName)
+    connection.on('UserLeft', (connectionId: string, userId: number, displayName: string) => {
+      this.handlers.onUserLeft?.(connectionId, userId, displayName)
     })
 
     connection.onreconnected(() => {
@@ -119,18 +119,18 @@ export class CallSignalR {
     await this.connection.invoke('LeaveCall', callId).catch(() => undefined)
   }
 
-  async sendOffer(callId: string, offer: RTCSessionDescriptionInit): Promise<void> {
+  async sendOffer(callId: string, targetUserId: number, offer: RTCSessionDescriptionInit): Promise<void> {
     if (!this.isConnected) return
-    await this.connection?.invoke('SendOffer', callId, offer)
+    await this.connection?.invoke('SendOffer', callId, targetUserId, offer)
   }
 
-  async sendAnswer(callId: string, answer: RTCSessionDescriptionInit): Promise<void> {
+  async sendAnswer(callId: string, targetUserId: number, answer: RTCSessionDescriptionInit): Promise<void> {
     if (!this.isConnected) return
-    await this.connection?.invoke('SendAnswer', callId, answer)
+    await this.connection?.invoke('SendAnswer', callId, targetUserId, answer)
   }
 
-  async sendIceCandidate(callId: string, candidate: RTCIceCandidateInit): Promise<void> {
+  async sendIceCandidate(callId: string, targetUserId: number, candidate: RTCIceCandidateInit): Promise<void> {
     if (!this.isConnected) return
-    await this.connection?.invoke('SendIceCandidate', callId, candidate)
+    await this.connection?.invoke('SendIceCandidate', callId, targetUserId, candidate)
   }
 }

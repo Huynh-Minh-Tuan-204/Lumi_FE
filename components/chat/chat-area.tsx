@@ -492,16 +492,14 @@ export function ChatArea({
                                 <div className="space-y-2">
                                   {msg.attachments && msg.attachments.length > 0 ? (
                                     msg.attachments.map((at, idx) => {
-                                      const fileName = at.fileName || at.fileName || 'File'
-                                      const mimeType = at.mimeType || at.mimeType || ''
-                                      const filePath = at.encryptedFilePath || at.encryptedFilePath || ''
-                                      const id = at.id || at.id || `at-${idx}`
+                                      const fileName = at.fileName || 'File'
+                                      const mimeType = at.mimeType || ''
+                                      const id = at.id || `at-${idx}`
 
                                       const isImage = mimeType.startsWith('image/')
-                                      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api$/, '').replace(/\/$/, '')
-                                      const url = filePath.startsWith('http') 
-                                        ? filePath 
-                                        : `${baseUrl}/${filePath.replace(/^\//, '')}`
+                                      // Sử dụng endpoint download chính thống từ backend thay vì truy cập trực tiếp static file
+                                      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
+                                      const url = `${baseUrl}/Attachments/${at.id}/download`
                                       
                                       if (isImage) {
                                         return (
