@@ -25,6 +25,7 @@ import {
   User as UserIcon,
   Wifi,
   WifiOff,
+  Globe,
 } from 'lucide-react'
 import { useAuth, type User } from '@/lib/auth-context'
 import { ThemeToggle } from '@/components/theme-toggle'
@@ -152,45 +153,6 @@ export function ChatSidebar({
             </div>
           </div>
         </div>
-        
-        <div className="flex items-center gap-1">
-          <ThemeToggle />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-sidebar-foreground hover:bg-sidebar-accent">
-                <Settings className="h-5 w-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="flex items-center gap-3 p-2">
-                <Avatar className="h-10 w-10">
-                  <AvatarImage src={user?.avatarPath} />
-                  <AvatarFallback>{user?.fullName ? getInitials(user.fullName) : 'U'}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{user?.fullName}</p>
-                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                </div>
-              </div>
-              <DropdownMenuSeparator />
-              {(user?.role === 'Admin' || user?.role === 'Manager') && (
-                <>
-                  <DropdownMenuItem asChild>
-                    <a href="/dashboard" className="cursor-pointer flex items-center w-full">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Dashboard
-                    </a>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              )}
-              <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
-                <LogOut className="mr-2 h-4 w-4" />
-                Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       </div>
 
       {/* Search */}
@@ -282,6 +244,70 @@ export function ChatSidebar({
           </div>
         )}
       </ScrollArea>
+
+      {/* Bottom Profile Info */}
+      <div className="p-3 border-t border-sidebar-border shrink-0">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-sidebar-accent transition-colors text-left outline-none group relative">
+              <div className="relative">
+                <Avatar className="h-10 w-10 border-2 border-background shrink-0">
+                  <AvatarImage src={user?.avatarPath} />
+                  <AvatarFallback className="bg-primary/20 text-primary font-medium">{user?.fullName ? getInitials(user.fullName) : 'U'}</AvatarFallback>
+                </Avatar>
+                {isConnected && (
+                  <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-online border-2 border-sidebar" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-sm truncate">{user?.fullName}</p>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-online shrink-0" />
+                  <p className="text-xs text-muted-foreground truncate">
+                    {user?.role || 'Employee'}
+                  </p>
+                </div>
+              </div>
+              <Settings className="h-4 w-4 text-sidebar-foreground/40 group-hover:text-sidebar-foreground transition-colors shrink-0" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="w-56 mb-2">
+            <div className="flex items-center justify-between p-2">
+              <span className="text-xs font-medium text-muted-foreground">Appearance</span>
+              <ThemeToggle />
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <a href="/dashboard/settings" className="cursor-pointer flex items-center w-full">
+                <UserIcon className="mr-2 h-4 w-4" />
+                Edit Profile
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a href="/dashboard/settings" className="cursor-pointer flex items-center w-full">
+                <Globe className="mr-2 h-4 w-4" />
+                Language
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {(user?.role === 'Admin' || user?.role === 'Manager') && (
+              <>
+                <DropdownMenuItem asChild>
+                  <a href="/dashboard" className="cursor-pointer flex items-center w-full">
+                    <LogOut className="mr-2 h-4 w-4 rotate-180" />
+                    Admin Dashboard
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   )
 }

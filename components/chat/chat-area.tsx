@@ -438,7 +438,7 @@ export function ChatArea({
                     {/* Messages */}
                     <div className="space-y-3">
                       {msgs.map((msg) => {
-                        const isOwn = msg.senderId === user?.id
+                        const isOwn = msg.senderId === user?.id || (msg.senderId === 0 && msg.senderName === user?.fullName) || (!msg.senderId && msg.senderName === user?.fullName)
                         const isSystem = msg.messageType === 'Announcement'
 
                         if (isSystem) {

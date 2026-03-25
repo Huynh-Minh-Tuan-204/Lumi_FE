@@ -54,14 +54,36 @@ export default function ChatPage() {
   useEffect(() => {
     if (realtimeMessages.length > 0) {
       const lastMsg = realtimeMessages[realtimeMessages.length - 1]
-      if (lastMsg && selectedConversation?.id !== lastMsg.conversationId) {
-        setUnreadCounts(prev => ({
-          ...prev,
-          [lastMsg.conversationId]: (prev[lastMsg.conversationId] || 0) + 1
-        }))
+      if (lastMsg) {
+        if (selectedConversation?.id !== lastMsg.conversationId && lastMsg.sender !== user?.fullName) {
+          setUnreadCounts(prev => ({
+            ...prev,
+            [lastMsg.conversationId]: (prev[lastMsg.conversationId] || 0) + 1
+          }))
+        }
+
+        // Optimistically update conversation list sorting and lastMessage content
+        setConversations(prev => {
+          const newConvs = [...prev]
+          const targetIdx = newConvs.findIndex(c => c.id === lastMsg.conversationId)
+          if (targetIdx !== -1) {
+            newConvs[targetIdx] = {
+              ...newConvs[targetIdx],
+              lastMessage: {
+                encryptedContent: lastMsg.message,
+                createdAt: lastMsg.time instanceof Date ? lastMsg.time.toISOString() : lastMsg.time
+              },
+              lastMessageAt: lastMsg.time instanceof Date ? lastMsg.time.toISOString() : lastMsg.time
+            }
+            // Move to top
+            const target = newConvs.splice(targetIdx, 1)[0]
+            newConvs.unshift(target)
+          }
+          return newConvs
+        })
       }
     }
-  }, [realtimeMessages, selectedConversation])
+  }, [realtimeMessages, selectedConversation, user])
 
   const handleSelectConversation = (conversation: Conversation) => {
     setSelectedConversation(conversation)
@@ -108,12 +130,14 @@ export default function ChatPage() {
         />
         
         {/* Right sidebar - Members */}
-        {selectedConversation && selectedConversation.type === 'Group' && showDesktopMembers && (
-          <MembersSidebar
-            conversationId={selectedConversation.id}
-            conversationName={selectedConversation.name}
-            onlineUsers={onlineUsers}
-          />
+        {selectedConversation && selectedConversation.type === 'Group' && (
+          <div className={`transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${showDesktopMembers ? 'w-80 border-l opacity-100' : 'w-0 border-none opacity-0'}`}>
+            <MembersSidebar
+              conversationId={selectedConversation.id}
+              conversationName={selectedConversation.name}
+              onlineUsers={onlineUsers}
+            />
+          </div>
         )}
       </div>
 
