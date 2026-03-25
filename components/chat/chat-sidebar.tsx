@@ -96,10 +96,10 @@ export function ChatSidebar({
   )
 
   const filteredUsers = searchQuery.length >= 2 
-    ? allUsers.filter(u => 
+    ? Array.from(new Map(allUsers.filter(u => 
         (u.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (u.username || '').toLowerCase().includes(searchQuery.toLowerCase())
-      ).filter(u => !conversations.some(c => c.otherUserId === u.id))
+      ).filter(u => !conversations.some(c => c.otherUserId === u.id)).map(u => [u.id, u])).values())
     : []
 
   const privateChats = filteredConversations.filter((c) => c.type === 'Private')
@@ -323,13 +323,12 @@ export function ChatSidebar({
               <ThemeToggle />
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              className="cursor-pointer"
-              onSelect={() => router.push('/dashboard/settings')}
-            >
-              <UserIcon className="mr-2 h-4 w-4" />
-              Edit Profile
-            </DropdownMenuItem>
+            <Link href="/dashboard/settings" className="w-full">
+              <DropdownMenuItem className="cursor-pointer">
+                <UserIcon className="mr-2 h-4 w-4" />
+                Edit Profile
+              </DropdownMenuItem>
+            </Link>
             
             {(user?.role === 'Admin' || user?.role === 'Manager') && (
               <DropdownMenuItem 
