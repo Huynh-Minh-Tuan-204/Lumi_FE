@@ -24,8 +24,10 @@ export default function ChatPage() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [showMobileChat, setShowMobileChat] = useState(false)
   const [showMobileMembers, setShowMobileMembers] = useState(false)
+  const [showDesktopMembers, setShowDesktopMembers] = useState(false)
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
-  const { isConnected, onlineUsers } = useSignalR()
+  const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({})
+  const { isConnected, onlineUsers, messages: realtimeMessages } = useSignalR()
 
   useEffect(() => {
     const loadConversations = async () => {
@@ -49,8 +51,21 @@ export default function ChatPage() {
 
   }, [token])
 
+  useEffect(() => {
+    if (realtimeMessages.length > 0) {
+      const lastMsg = realtimeMessages[realtimeMessages.length - 1]
+      if (lastMsg && selectedConversation?.id !== lastMsg.conversationId) {
+        setUnreadCounts(prev => ({
+          ...prev,
+          [lastMsg.conversationId]: (prev[lastMsg.conversationId] || 0) + 1
+        }))
+      }
+    }
+  }, [realtimeMessages, selectedConversation])
+
   const handleSelectConversation = (conversation: Conversation) => {
     setSelectedConversation(conversation)
+    setUnreadCounts(prev => ({ ...prev, [conversation.id]: 0 }))
     setShowMobileChat(true)
     setShowMobileMembers(false)
   }
@@ -62,6 +77,7 @@ export default function ChatPage() {
 
   const handleShowMembers = () => {
     setShowMobileMembers(true)
+    setShowDesktopMembers(prev => !prev)
   }
 
   const handleHideMembers = () => {
@@ -81,6 +97,7 @@ export default function ChatPage() {
           isConnected={isConnected}
           user={user}
           onlineUsers={onlineUsers}
+          unreadCounts={unreadCounts}
         />
         
         {/* Main chat area */}
@@ -91,7 +108,7 @@ export default function ChatPage() {
         />
         
         {/* Right sidebar - Members */}
-        {selectedConversation && selectedConversation.type === 'Group' && (
+        {selectedConversation && selectedConversation.type === 'Group' && showDesktopMembers && (
           <MembersSidebar
             conversationId={selectedConversation.id}
             conversationName={selectedConversation.name}
@@ -111,6 +128,7 @@ export default function ChatPage() {
             isConnected={isConnected}
             user={user}
             onlineUsers={onlineUsers}
+            unreadCounts={unreadCounts}
             isMobile
           />
         ) : showMobileMembers && selectedConversation ? (

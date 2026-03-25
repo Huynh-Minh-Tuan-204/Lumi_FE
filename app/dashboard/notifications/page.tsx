@@ -29,7 +29,7 @@ interface Announcement {
 
 export default function NotificationsPage() {
   const { token, user } = useAuth()
-  const { sendNotification, isConnected } = useSignalR()
+  const { sendNotification, isConnected, notifications: realtimeNotifications } = useSignalR()
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [newAnnouncement, setNewAnnouncement] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -178,7 +178,7 @@ export default function NotificationsPage() {
               <div className="flex items-center justify-center py-8">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
-            ) : announcements.length === 0 ? (
+            ) : [...realtimeNotifications.map(n => ({ sender: n.sender || '📢 HỆ THỐNG', message: n.message, isSystem: n.isSystem || true, time: n.time.toISOString() })).reverse(), ...announcements].length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <Bell className="h-12 w-12 mb-4 opacity-20" />
                 <p className="text-center">No announcements yet</p>
@@ -186,7 +186,7 @@ export default function NotificationsPage() {
             ) : (
               <ScrollArea className="h-100 pr-4">
                 <div className="space-y-4">
-                  {announcements.map((announcement, idx) => (
+                  {[...realtimeNotifications.map(n => ({ sender: n.sender || '📢 HỆ THỐNG', message: n.message, isSystem: n.isSystem || true, time: n.time.toISOString() })).reverse(), ...announcements].map((announcement, idx) => (
                     <div
                       key={idx}
                       className="flex gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"

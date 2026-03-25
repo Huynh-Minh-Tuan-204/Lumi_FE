@@ -39,6 +39,7 @@ interface ChatSidebarProps {
   isConnected: boolean
   user: User | null
   onlineUsers: Set<number>
+  unreadCounts: Record<number, number>
   isMobile?: boolean
 }
 
@@ -50,6 +51,7 @@ export function ChatSidebar({
   isConnected,
   user,
   onlineUsers,
+  unreadCounts,
   isMobile = false,
 }: ChatSidebarProps) {
   const { logout } = useAuth()
@@ -226,6 +228,7 @@ export function ChatSidebar({
                     formatTime={formatTime}
                     getInitials={getInitials}
                     isOnline={conv.otherUserId ? onlineUsers.has(conv.otherUserId) || (conv.otherUserId === user?.id) : false}
+                    unreadCount={unreadCounts[conv.id] || 0}
                   />
                 ))}
               </div>
@@ -290,6 +293,7 @@ interface ConversationItemProps {
   formatTime: (date: string) => string
   getInitials: (name: string) => string
   isOnline: boolean
+  unreadCount?: number
 }
 
 function ConversationItem({
@@ -299,6 +303,7 @@ function ConversationItem({
   formatTime,
   getInitials,
   isOnline,
+  unreadCount = 0,
 }: ConversationItemProps) {
   const isGroup = conversation.type === 'Group'
 
@@ -334,23 +339,30 @@ function ConversationItem({
             <span
               className={cn(
                 'text-xs shrink-0',
-                isSelected ? 'text-sidebar-primary-foreground/70' : 'text-sidebar-foreground/60'
+                isSelected ? 'text-sidebar-primary-foreground/70' : unreadCount > 0 ? 'text-destructive font-bold' : 'text-sidebar-foreground/60'
               )}
             >
               {formatTime(conversation.lastMessage.createdAt)}
             </span>
           )}
         </div>
-        {conversation.lastMessage && (
-          <p
-            className={cn(
-              'text-sm truncate mt-0.5',
-              isSelected ? 'text-sidebar-primary-foreground/70' : 'text-sidebar-foreground/60'
-            )}
-          >
-            {conversation.lastMessage.encryptedContent}
-          </p>
-        )}
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          {conversation.lastMessage && (
+            <p
+              className={cn(
+                'text-sm truncate',
+                isSelected ? 'text-sidebar-primary-foreground/70' : unreadCount > 0 ? 'text-sidebar-foreground font-semibold' : 'text-sidebar-foreground/60'
+              )}
+            >
+              {conversation.lastMessage.encryptedContent === '[Attachment]' ? '📎 Sent an attachment' : conversation.lastMessage.encryptedContent}
+            </p>
+          )}
+          {unreadCount > 0 && !isSelected && (
+            <span className="flex shrink-0 items-center justify-center h-5 w-5 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </div>
       </div>
     </button>
   )

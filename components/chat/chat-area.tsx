@@ -497,9 +497,10 @@ export function ChatArea({
                                       const id = at.id || `at-${idx}`
 
                                       const isImage = mimeType.startsWith('image/')
-                                      // Sử dụng endpoint download chính thống từ backend thay vì truy cập trực tiếp static file
-                                      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
-                                      const url = `${baseUrl}/Attachments/${at.id}/download${token ? `?access_token=${token}` : ''}`
+                                      // Fix properly: Use direct static file URL instead from wwwroot/uploads
+                                      const baseServerUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api').replace(/\/api\/?$/, '')
+                                      const urlFilePath = (at.encryptedFilePath || '').replace(/\\/g, '/').replace(/^\//, '')
+                                      const url = urlFilePath ? `${baseServerUrl}/${urlFilePath}` : '#'
                                       
                                       if (isImage) {
                                         return (
