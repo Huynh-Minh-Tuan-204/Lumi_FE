@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { cn } from '@/lib/utils'
+import { cn, getAvatarUrl } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,8 +28,10 @@ import {
   Globe,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useAuth, type User } from '@/lib/auth-context'
+import { useSignalR } from '@/hooks/use-signalr'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Conversation } from '@/app/chat/page'
 import { adminApi, conversationsApi } from '@/lib/api'
@@ -57,7 +59,10 @@ export function ChatSidebar({
   unreadCounts,
   isMobile = false,
 }: ChatSidebarProps) {
-  const { logout, token } = useAuth()
+  const logout = useAuth().logout;
+  const token = useAuth().token;
+  const router = useRouter()
+  const { lastUserUpdate } = useSignalR()
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [isSearchingUsers, setIsSearchingUsers] = useState(false)
 
@@ -73,6 +78,17 @@ export function ChatSidebar({
     }
     fetchUsers()
   }, [user, token])
+
+  useEffect(() => {
+    if (lastUserUpdate) {
+      setAllUsers(prev => prev.map(u => {
+        if (u.id === lastUserUpdate.userId) {
+          return { ...u, avatarPath: lastUserUpdate.avatarPath }
+        }
+        return u
+      }))
+    }
+  }, [lastUserUpdate])
 
   const filteredConversations = conversations.filter((conv) =>
     (conv.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -180,11 +196,30 @@ export function ChatSidebar({
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Conversations section */}
-            {(filteredConversations.length > 0 || !searchQuery) && (
+            {/* Groups section */}
+            {groupChats.length > 0 && (
               <div className="space-y-1">
-                {searchQuery && <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2">Recent Chats</p>}
-                {filteredConversations.map((conv) => (
+                <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2 mt-4">👥 Groups</p>
+                {groupChats.map((conv) => (
+                  <ConversationItem
+                    key={conv.id}
+                    conversation={conv}
+                    isSelected={selectedConversation?.id === conv.id}
+                    onClick={() => onSelectConversation(conv)}
+                    formatTime={formatTime}
+                    getInitials={getInitials}
+                    isOnline={false}
+                    unreadCount={unreadCounts[conv.id] || 0}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Private Chats section */}
+            {privateChats.length > 0 && (
+              <div className="space-y-1">
+                <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2 mt-4">💬 Private</p>
+                {privateChats.map((conv) => (
                   <ConversationItem
                     key={conv.id}
                     conversation={conv}
@@ -196,6 +231,14 @@ export function ChatSidebar({
                     unreadCount={unreadCounts[conv.id] || 0}
                   />
                 ))}
+              </div>
+            )}
+
+            {/* Empty state if nothing found yet and no search */}
+            {!searchQuery && groupChats.length === 0 && privateChats.length === 0 && (
+              <div className="py-20 text-center px-4">
+                <p className="text-sm text-sidebar-foreground/40 italic">No conversations yet.</p>
+                <p className="text-xs text-sidebar-foreground/20 mt-1">Search for people to start a chat!</p>
               </div>
             )}
 
@@ -255,7 +298,7 @@ export function ChatSidebar({
             <button className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-sidebar-accent transition-colors text-left outline-none group relative">
               <div className="relative">
                 <Avatar className="h-10 w-10 border-2 border-background shrink-0">
-                  <AvatarImage src={user?.avatarPath} />
+                  <AvatarImage src={getAvatarUrl(user?.avatarPath)} />
                   <AvatarFallback className="bg-primary/20 text-primary font-medium">{user?.fullName ? getInitials(user.fullName) : 'U'}</AvatarFallback>
                 </Avatar>
                 {isConnected && (
@@ -280,11 +323,12 @@ export function ChatSidebar({
               <ThemeToggle />
             </div>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/dashboard/settings" className="cursor-pointer flex items-center w-full">
-                <UserIcon className="mr-2 h-4 w-4" />
-                Edit Profile
-              </Link>
+            <DropdownMenuItem 
+              className="cursor-pointer"
+              onSelect={() => router.push('/dashboard/settings')}
+            >
+              <UserIcon className="mr-2 h-4 w-4" />
+              Edit Profile
             </DropdownMenuItem>
             
             {(user?.role === 'Admin' || user?.role === 'Manager') && (
@@ -365,9 +409,9 @@ function ConversationItem({
       )}
     >
       <div className="relative">
-        <Avatar className="h-12 w-12">
+        <Avatar className="h-12 w-12 shrink-0">
           {conversation.avatarPath && (
-            <AvatarImage src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''}${conversation.avatarPath}`} />
+            <AvatarImage src={getAvatarUrl(conversation.avatarPath)} />
           )}
           <AvatarFallback
             className={cn(

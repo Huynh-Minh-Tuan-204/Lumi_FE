@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { cn } from '@/lib/utils'
+import { cn, getAvatarUrl } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
+import { useSignalR } from '@/hooks/use-signalr'
 import { adminApi, conversationsApi } from '@/lib/api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Search, UserPlus, MoreHorizontal, Crown, Shield, Image as ImageIcon, ImagePlus } from 'lucide-react'
+import { ArrowLeft, Search, UserPlus, MoreHorizontal, Crown, Shield, Image as ImageIcon, ImagePlus, MessageSquare } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +45,7 @@ export function MembersSidebar({
   onlineUsers,
 }: MembersSidebarProps) {
   const { token, user } = useAuth()
+  const { lastUserUpdate } = useSignalR()
   const [members, setMembers] = useState<Member[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -75,6 +77,17 @@ export function MembersSidebar({
   useEffect(() => {
     loadMembers()
   }, [token, conversationId])
+
+  useEffect(() => {
+    if (lastUserUpdate) {
+      setMembers(prev => prev.map(m => {
+        if (m.userId === lastUserUpdate.userId) {
+          return { ...m, avatarPath: lastUserUpdate.avatarPath }
+        }
+        return m
+      }))
+    }
+  }, [lastUserUpdate])
 
   const handleAddMember = async () => {
     if (!token || !newMemberId.trim()) return
@@ -204,7 +217,7 @@ export function MembersSidebar({
                     if (e.target.files?.[0] && token) {
                       try {
                         await conversationsApi.uploadGroupAvatar(token, conversationId, e.target.files[0])
-                        toast.success('Avatar updated! Please refresh.')
+                        toast.success('Group avatar updated successfully!')
                       } catch (error) {
                         toast.error('Failed to update avatar')
                       }
@@ -228,7 +241,7 @@ export function MembersSidebar({
                     if (e.target.files?.[0] && token) {
                       try {
                         await conversationsApi.uploadGroupBackground(token, conversationId, e.target.files[0])
-                        toast.success('Background updated! Please refresh.')
+                        toast.success('Group background updated successfully!')
                       } catch (error) {
                         toast.error('Failed to update background')
                       }
@@ -277,6 +290,15 @@ export function MembersSidebar({
                       getInitials={getInitials}
                       canManage={canManageMembers}
                       onRemove={() => member.userId && handleRemoveMember(member.userId)}
+                      currentUserId={user?.id}
+                      onPrivateMessage={async (targetId) => {
+                        try {
+                          await conversationsApi.createPrivate(token!, targetId)
+                          window.location.reload()
+                        } catch (e) {
+                          toast.error('Failed to start private chat')
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -298,6 +320,15 @@ export function MembersSidebar({
                       getInitials={getInitials}
                       canManage={canManageMembers}
                       onRemove={() => member.userId && handleRemoveMember(member.userId)}
+                      currentUserId={user?.id}
+                      onPrivateMessage={async (targetId) => {
+                        try {
+                          await conversationsApi.createPrivate(token!, targetId)
+                          window.location.reload()
+                        } catch (e) {
+                          toast.error('Failed to start private chat')
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -322,14 +353,16 @@ interface MemberItemProps {
   getInitials: (name: string) => string
   canManage: boolean
   onRemove?: () => void
+  onPrivateMessage?: (userId: number) => void
+  currentUserId?: number
 }
 
-function MemberItem({ member, isOnline, getInitials, canManage, onRemove }: MemberItemProps) {
+function MemberItem({ member, isOnline, getInitials, canManage, onRemove, onPrivateMessage, currentUserId }: MemberItemProps) {
   return (
     <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 group">
       <div className="relative">
         <Avatar className="h-9 w-9">
-          <AvatarImage src={member.avatarPath} />
+          <AvatarImage src={getAvatarUrl(member.avatarPath)} />
           <AvatarFallback className="text-xs bg-secondary">
             {getInitials(member.fullName)}
           </AvatarFallback>
@@ -348,8 +381,8 @@ function MemberItem({ member, isOnline, getInitials, canManage, onRemove }: Memb
           {isOnline ? 'Online' : 'Offline'}
         </p>
       </div>
-      {canManage && (
-        <DropdownMenu modal={false}>
+
+      <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
@@ -361,14 +394,20 @@ function MemberItem({ member, isOnline, getInitials, canManage, onRemove }: Memb
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            {member.userId !== currentUserId && (
+              <DropdownMenuItem onClick={() => onPrivateMessage?.(Number(member.userId))}>
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Nhắn riêng
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={() => toast('Tính năng xem hồ sơ đang được phát triển')}>View profile</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toast('Tính năng gửi tin nhắn đang được phát triển')}>Send message</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={onRemove}>
-              Remove from group
-            </DropdownMenuItem>
+            {canManage && onRemove && (
+              <DropdownMenuItem className="text-destructive" onClick={onRemove}>
+                Remove from group
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
-      )}
     </div>
   )
 }

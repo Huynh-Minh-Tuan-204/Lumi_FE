@@ -7,14 +7,16 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { User, Globe, Moon, Shield, Save } from 'lucide-react'
+import { User, Globe, Moon, Shield, Save, Upload, Camera } from 'lucide-react'
 import { toast } from 'sonner'
-import { useState } from 'react'
-import { adminApi } from '@/lib/api'
+import { useState, useRef } from 'react'
+import { adminApi, authApi } from '@/lib/api'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 export default function SettingsPage() {
-  const { user, token } = useAuth()
+  const { user, token, updateUser } = useAuth()
   const [isSaving, setIsSaving] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [profile, setProfile] = useState({
     fullName: user?.fullName || '',
     email: user?.email || '',
@@ -34,6 +36,20 @@ export default function SettingsPage() {
       toast.error('Failed to update profile')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file || !token || !user) return
+
+    try {
+      toast.info('Uploading avatar...')
+      const res = await authApi.uploadAvatar(token, file)
+      updateUser({ avatarPath: `${res.avatarPath}?t=${Date.now()}` })
+      toast.success('Avatar updated successfully!')
+    } catch (e) {
+      toast.error('Failed to upload avatar')
     }
   }
 
@@ -58,7 +74,33 @@ export default function SettingsPage() {
               Update your personal information
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
+            <div className="flex items-center gap-6">
+              <div 
+                className="relative group cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Avatar className="h-24 w-24 border-2 border-primary/10 transition-colors group-hover:border-primary">
+                  <AvatarImage src={user?.avatarPath ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''}${user.avatarPath}` : ''} />
+                  <AvatarFallback className="text-2xl">{user?.fullName?.charAt(0) || 'U'}</AvatarFallback>
+                </Avatar>
+                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="h-6 w-6 text-white" />
+                </div>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  className="hidden" 
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handleAvatarChange}
+                />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-medium">Profile Picture</h3>
+                <p className="text-sm text-muted-foreground">Click the image to upload a new avatar (JPG, PNG, WEBP)</p>
+              </div>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="fullName">Full Name</Label>

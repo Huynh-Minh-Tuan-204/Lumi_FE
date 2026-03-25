@@ -31,7 +31,7 @@ export default function ChatPage() {
   const [showDesktopMembers, setShowDesktopMembers] = useState(false)
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({})
-  const { isConnected, onlineUsers, messages: realtimeMessages } = useSignalR()
+  const { isConnected, onlineUsers, lastMessage, lastGroupUpdate, lastUserUpdate, markAsRead } = useSignalR()
 
   useEffect(() => {
     const loadConversations = async () => {
@@ -62,53 +62,88 @@ export default function ChatPage() {
 
   }, [token])
 
-  const { markAsRead } = useSignalR()
+  useEffect(() => {
+    if (lastGroupUpdate) {
+      setConversations(prev => prev.map(c => {
+        if (c.id === lastGroupUpdate.conversationId) {
+          return {
+            ...c,
+            avatarPath: lastGroupUpdate.avatarPath || c.avatarPath,
+            backgroundPath: lastGroupUpdate.backgroundPath || c.backgroundPath
+          }
+        }
+        return c;
+      }))
+      
+      if (selectedConversation?.id === lastGroupUpdate.conversationId) {
+        setSelectedConversation(prev => prev ? {
+          ...prev,
+          avatarPath: lastGroupUpdate.avatarPath || prev.avatarPath,
+          backgroundPath: lastGroupUpdate.backgroundPath || prev.backgroundPath
+        } : null)
+      }
+    }
+  }, [lastGroupUpdate])
 
   useEffect(() => {
-    if (realtimeMessages.length > 0) {
-      const lastMsg = realtimeMessages[realtimeMessages.length - 1]
-      if (lastMsg) {
+    if (lastUserUpdate) {
+      setConversations(prev => prev.map(c => {
+        if (c.type === 'Private' && c.otherUserId === lastUserUpdate.userId) {
+          return {
+            ...c,
+            avatarPath: lastUserUpdate.avatarPath
+          }
+        }
+        return c;
+      }))
+      
+      if (selectedConversation?.type === 'Private' && selectedConversation?.otherUserId === lastUserUpdate.userId) {
+        setSelectedConversation(prev => prev ? {
+          ...prev,
+          avatarPath: lastUserUpdate.avatarPath
+        } : null)
+      }
+    }
+  }, [lastUserUpdate])
+
+  useEffect(() => {
+    if (lastMessage) {
         // Only increment unread if NOT the current conversation AND not own message
-        const isOwn = lastMsg.senderId === user?.id
+        const isOwn = lastMessage.senderId === user?.id
         
-        if (selectedConversation?.id !== lastMsg.conversationId && !isOwn) {
+        if (selectedConversation?.id !== lastMessage.conversationId && !isOwn) {
           setUnreadCounts(prev => ({
             ...prev,
-            [lastMsg.conversationId]: (prev[lastMsg.conversationId] || 0) + 1
+            [lastMessage.conversationId]: (prev[lastMessage.conversationId] || 0) + 1
           }))
-        } else if (selectedConversation?.id === lastMsg.conversationId && !isOwn) {
+        } else if (selectedConversation?.id === lastMessage.conversationId && !isOwn) {
           // If we ARE in the conversation, mark it as read immediately on backend
-          markAsRead(lastMsg.conversationId)
+          markAsRead(lastMessage.conversationId)
         }
 
         // Optimistically update conversation list sorting and lastMessage content
         setConversations(prev => {
           const newConvs = [...prev]
-          const targetIdx = newConvs.findIndex(c => c.id === lastMsg.conversationId)
+          const targetIdx = newConvs.findIndex(c => c.id === lastMessage.conversationId)
           if (targetIdx !== -1) {
             newConvs[targetIdx] = {
               ...newConvs[targetIdx],
               lastMessage: {
-                encryptedContent: lastMsg.message,
-                createdAt: lastMsg.time.toISOString(),
-                messageType: lastMsg.messageType,
-                senderId: lastMsg.senderId
+                encryptedContent: lastMessage.message,
+                createdAt: lastMessage.time.toISOString(),
+                messageType: lastMessage.messageType,
+                senderId: lastMessage.senderId
               },
-              lastMessageAt: lastMsg.time.toISOString()
+              lastMessageAt: lastMessage.time.toISOString()
             }
             // Move to top
             const target = newConvs.splice(targetIdx, 1)[0]
             newConvs.unshift(target)
-          } else {
-            // If it's a new conversation that wasn't in list (e.g. system broadcast or new invite)
-            // we should ideally fetch again, but for now we'll just wait for reload or 
-            // if it's private we can't easily construct the whole object without API
           }
           return newConvs
         })
-      }
     }
-  }, [realtimeMessages, selectedConversation, user, markAsRead])
+  }, [lastMessage, selectedConversation, user, markAsRead])
 
   const handleSelectConversation = async (conversation: Conversation) => {
     setSelectedConversation(conversation)

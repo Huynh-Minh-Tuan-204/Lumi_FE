@@ -20,6 +20,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   login: (username: string, password: string) => Promise<void>
   logout: () => void
+  updateUser: (data: Partial<User>) => void
   error: string | null
 }
 
@@ -40,6 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(REFRESH_TOKEN_KEY)
     window.location.href = '/' // Force redirect security
+  }, [])
+
+  const updateUser = useCallback((data: Partial<User>) => {
+    setUser(prev => prev ? { ...prev, ...data } : null)
   }, [])
 
   const tryRefreshToken = useCallback(async (): Promise<string | null> => {
@@ -114,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         login,
         logout,
+        updateUser,
         error,
       }}
     >

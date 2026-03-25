@@ -16,6 +16,7 @@ export interface ChatMessage {
   iv?: string
   messageType?: string
   attachments?: any[]
+  avatarPath?: string
   isSystem?: boolean
 }
 
@@ -23,7 +24,7 @@ export interface SignalRHookReturn {
   isConnected: boolean
   sendMessage: (conversationId:number, encryptedMessage:string, iv:string, parentMessageId?: number) => Promise<void>
   sendNotification: (message:string) => Promise<void>
-  messages: ChatMessage[]
+  lastMessage: ChatMessage | null
   notifications: ChatMessage[]
   onlineUsers: Set<number>
   incomingCall: { meetingId: number; callerName: string; callType: string; convName: string } | null
@@ -31,22 +32,29 @@ export interface SignalRHookReturn {
   callDeclined: { meetingId: number; declinerName: string } | null
   clearCallDeclined: () => void
   markAsRead: (conversationId: number) => Promise<void>
+  lastGroupUpdate: { conversationId: number, avatarPath?: string, backgroundPath?: string } | null
+  sendTyping: (conversationId: number) => Promise<void>
+  typingUsers: { conversationId: number, userId: number, userName: string }[]
+  lastUserUpdate: { userId: number, avatarPath: string } | null
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
 
 export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
-  const { token, user } = useAuth()
+  const { token, user, updateUser } = useAuth()
 
   const connectionRef = useRef<signalR.HubConnection | null>(null)
 
   const [isConnected,setIsConnected] = useState(false)
-  const [messages,setMessages] = useState<ChatMessage[]>([])
+  const [lastMessage,setLastMessage] = useState<ChatMessage | null>(null)
   const [notifications,setNotifications] = useState<ChatMessage[]>([])
   const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set())
   const [incomingCall, setIncomingCall] = useState<{ meetingId: number; callerName: string; callType: string; convName: string } | null>(null)
   const [callDeclined, setCallDeclined] = useState<{ meetingId: number; declinerName: string } | null>(null)
+  const [lastGroupUpdate, setLastGroupUpdate] = useState<{ conversationId: number, avatarPath?: string, backgroundPath?: string } | null>(null)
+  const [typingUsers, setTypingUsers] = useState<{ conversationId: number, userId: number, userName: string }[]>([])
+  const [lastUserUpdate, setLastUserUpdate] = useState<{ userId: number, avatarPath: string } | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -61,11 +69,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       .build()
 
     connection.on('ReceiveMessage', (data: any) => {
-      const { id, conversationId, senderId, senderName, content, iv, messageType, createdAt, attachments } = data;
+      const { id, conversationId, senderId, senderName, content, iv, messageType, createdAt, attachments, avatarPath } = data;
       
-      setMessages(prev => [
-        ...prev,
-        {
+      setLastMessage({
           id,
           conversationId,
           senderId,
@@ -75,9 +81,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           messageType,
           time: new Date(createdAt),
           attachments: attachments || [],
-          isSystem: false
+          isSystem: false,
+          avatarPath: avatarPath // Pass through avatar if available
         }
-      ])
+      )
     })
 
     connection.on('InitialOnlineUsers', (userIds: number[]) => {
@@ -136,6 +143,32 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       })
     })
 
+    connection.on('ReceiveGroupUpdate', (conversationId: number, avatarPath: string, backgroundPath: string) => {
+      console.log('SIGNALR: ReceiveGroupUpdate event received!', { conversationId, avatarPath, backgroundPath })
+      setLastGroupUpdate({ conversationId, avatarPath, backgroundPath })
+    })
+
+    connection.on('UserUpdated', (userId: number, avatarPath: string) => {
+      console.log('SIGNALR: UserUpdated event received!', { userId, avatarPath })
+      const pathWithTime = `${avatarPath}?v=${Date.now()}`
+      setLastUserUpdate({ userId, avatarPath: pathWithTime })
+      
+      // If CURRENT USER is updated, sync AuthContext immediately
+      if (user && userId === user.id) {
+        updateUser({ avatarPath: pathWithTime })
+      }
+    })
+
+    connection.on('UserTyping', (conversationId: number, userId: number, userName: string) => {
+      setTypingUsers(prev => {
+        const existing = prev.filter(t => t.userId !== userId || t.conversationId !== conversationId)
+        return [...existing, { conversationId, userId, userName }]
+      })
+      setTimeout(() => {
+        setTypingUsers(prev => prev.filter(t => t.userId !== userId || t.conversationId !== conversationId))
+      }, 3000)
+    })
+
     connection.start()
       .then(()=>setIsConnected(true))
       .catch(err=>console.error(err))
@@ -177,13 +210,19 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     }
   },[])
 
+  const sendTyping = useCallback(async(conversationId: number) => {
+    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+      await connectionRef.current.invoke('SendTyping', conversationId)
+    }
+  }, [])
+
   return (
     <SignalRContext.Provider
       value={{
         isConnected,
         sendMessage,
         sendNotification,
-        messages,
+        lastMessage,
         notifications,
         onlineUsers,
         incomingCall,
@@ -191,6 +230,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         callDeclined,
         clearCallDeclined: () => setCallDeclined(null),
         markAsRead,
+        lastGroupUpdate,
+        sendTyping,
+        typingUsers,
+        lastUserUpdate,
       }}
     >
 

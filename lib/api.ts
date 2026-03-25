@@ -221,6 +221,22 @@ export const authApi = {
 
   logoutAll: (token: string) =>
     request<{ message: string }>('/Auth/logout-all', { method: 'POST', token }),
+
+  uploadAvatar: (token: string, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return fetch(`${API_BASE_URL}/Users/avatar`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'ngrok-skip-browser-warning': 'true'
+      },
+      body: formData
+    }).then(async res => {
+      if (!res.ok) throw new ApiError(await res.text(), res.status);
+      return res.json() as Promise<{ avatarPath: string }>;
+    });
+  },
 }
 
 // ========== Admin API (api/Admin/*) ==========

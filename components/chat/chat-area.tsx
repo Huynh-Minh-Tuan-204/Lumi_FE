@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { cn } from '@/lib/utils'
+import { cn, getAvatarUrl } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { conversationsApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
@@ -88,7 +88,7 @@ export function ChatArea({
 }: ChatAreaProps) {
   const router = useRouter()
   const { token, user } = useAuth()
-  const { sendMessage, messages: realtimeMessages, isConnected } = useSignalR()
+  const { sendMessage, lastMessage, isConnected, lastUserUpdate, sendTyping, typingUsers } = useSignalR()
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -162,33 +162,25 @@ export function ChatArea({
 
   // Handle realtime messages
   useEffect(() => {
-    if (!conversation) return
-    const conversationMessages = realtimeMessages.filter(
-      (m) => m.conversationId === conversation.id
-    )
-    if (conversationMessages.length > 0) {
-      // Append new realtime messages
-      const existingIds = new Set(messages.map((m) => m.id))
-      const newMsgs = conversationMessages
-        .filter((m) => !existingIds.has(m.id))
-        .map((m) => ({
-          id: m.id,
-          senderId: m.senderId || 0,
-          encryptedContent: m.message,
-          iv: m.iv ?? '',
-          createdAt: (m.time instanceof Date ? m.time : new Date(m.time)).toISOString(),
-          messageType: m.messageType || (m.isSystem ? 'Announcement' : 'Text'),
-          senderName: m.sender,
-          avatarPath: undefined,
-          attachments: m.attachments || [],
-        }))
-      setMessages(prev => {
-        const existingIds = new Set(prev.map(m => m.id))
-        const filtered = newMsgs.filter(m => !existingIds.has(m.id))
-        return [...prev, ...filtered]
-      })
-    }
-  }, [realtimeMessages, conversation])
+    if (!lastMessage || !conversation || lastMessage.conversationId !== conversation.id) return
+    
+    setMessages(prev => {
+      if (prev.some(m => m.id === lastMessage.id)) return prev
+      
+      const newMsg: Message = {
+        id: lastMessage.id,
+        senderId: lastMessage.senderId || 0,
+        encryptedContent: lastMessage.message,
+        iv: lastMessage.iv ?? '',
+        createdAt: (lastMessage.time instanceof Date ? lastMessage.time : new Date(lastMessage.time)).toISOString(),
+        messageType: lastMessage.messageType || (lastMessage.isSystem ? 'Announcement' : 'Text'),
+        senderName: lastMessage.sender,
+        avatarPath: lastMessage.avatarPath,
+        attachments: lastMessage.attachments || [],
+      }
+      return [...prev, newMsg]
+    })
+  }, [lastMessage, conversation])
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -238,6 +230,18 @@ export function ChatArea({
       active = false
     }
   }, [isConnected, conversation, pendingQueue])
+
+  // Sync other users' avatars when they update
+  useEffect(() => {
+    if (lastUserUpdate && messages.length > 0) {
+      setMessages(prev => prev.map(m => {
+        if (m.senderId === lastUserUpdate.userId) {
+          return { ...m, avatarPath: lastUserUpdate.avatarPath }
+        }
+        return m
+      }))
+    }
+  }, [lastUserUpdate])
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !conversation || isSending) return
@@ -365,7 +369,7 @@ export function ChatArea({
           )}
           <Avatar className="h-10 w-10">
             {conversation.avatarPath && (
-              <AvatarImage src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''}${conversation.avatarPath}`} />
+              <AvatarImage src={getAvatarUrl(conversation.avatarPath)} />
             )}
             <AvatarFallback className="bg-primary/10 text-primary">
               {conversation.type === 'Group' ? (
@@ -416,7 +420,7 @@ export function ChatArea({
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => toast('Tính năng tùy chọn nhóm đang được phát triển')}>
+                <Button variant="ghost" size="icon" onClick={() => toast.info('Coming soon!')}>
                   <MoreVertical className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
@@ -482,7 +486,7 @@ export function ChatArea({
                           >
                             {!isOwn && (
                               <Avatar className="h-8 w-8 mt-1">
-                                {msg.avatarPath && <AvatarImage src={msg.avatarPath} />}
+                                {msg.avatarPath && <AvatarImage src={getAvatarUrl(msg.avatarPath)} />}
                                 <AvatarFallback className="text-xs bg-secondary">
                                   {msg.senderName ? getInitials(msg.senderName) : 'U'}
                                 </AvatarFallback>
@@ -582,6 +586,21 @@ export function ChatArea({
                     </div>
                   </div>
                 ))}
+                
+                {/* Typing indicators */}
+                {typingUsers.filter(t => t.conversationId === conversation?.id && t.userId !== user?.id).length > 0 && (
+                  <div className="flex items-center gap-2 mt-2 px-2 animate-pulse">
+                    <div className="flex gap-1">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.3s]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.15s]" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce" />
+                    </div>
+                    <span className="text-[10px] text-muted-foreground font-medium italic">
+                      {typingUsers.filter(t => t.conversationId === conversation?.id && t.userId !== user?.id).map(t => t.userName).join(', ')} {typingUsers.filter(t => t.conversationId === conversation?.id && t.userId !== user?.id).length > 1 ? 'are' : 'is'} typing...
+                    </span>
+                  </div>
+                )}
+
                 <div ref={scrollRef} />
               </div>
             )}
@@ -649,7 +668,10 @@ export function ChatArea({
           <Input
             placeholder="Type a message..."
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={(e) => {
+              setNewMessage(e.target.value)
+              if (conversation) sendTyping(conversation.id)
+            }}
             onKeyDown={handleKeyPress}
             className={cn("flex-1", !isConnected && "border-yellow-500/50 bg-yellow-500/5 focus-visible:ring-yellow-500/20")}
           />
