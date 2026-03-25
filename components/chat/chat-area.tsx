@@ -499,7 +499,7 @@ export function ChatArea({
                                       const isImage = mimeType.startsWith('image/')
                                       // Sử dụng endpoint download chính thống từ backend thay vì truy cập trực tiếp static file
                                       const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/$/, '')
-                                      const url = `${baseUrl}/Attachments/${at.id}/download`
+                                      const url = `${baseUrl}/Attachments/${at.id}/download${token ? `?access_token=${token}` : ''}`
                                       
                                       if (isImage) {
                                         return (
@@ -514,13 +514,13 @@ export function ChatArea({
                                         )
                                       }
                                       return (
-                                        <div key={id} className="flex items-center gap-2 p-2 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors">
-                                          <Paperclip className="h-4 w-4 shrink-0 text-blue-400" />
+                                        <div key={id} className="flex items-center gap-2 p-2 bg-black/5 dark:bg-white/5 rounded-lg border border-black/10 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
+                                          <Paperclip className="h-4 w-4 shrink-0 text-primary" />
                                           <a 
                                             href={url} 
                                             target="_blank" 
                                             rel="noopener noreferrer"
-                                            className="text-sm font-medium hover:underline underline-offset-2 truncate max-w-50 text-white"
+                                            className="text-sm font-medium hover:underline underline-offset-2 truncate max-w-50 text-foreground"
                                           >
                                             {fileName}
                                           </a>

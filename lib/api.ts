@@ -232,6 +232,26 @@ export const adminApi = {
       token,
     }),
 
+  updateUser: (token: string, id: number, data: { fullName?: string, email?: string, phone?: string, isActive?: boolean }) =>
+    request<{ message: string }>(`/Admin/update-user/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      token,
+    }),
+
+  changeRole: (token: string, id: number, roleId: number) =>
+    request<{ message: string }>(`/Admin/change-role/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ RoleId: roleId }),
+      token,
+    }),
+
+  deleteUser: (token: string, id: number) =>
+    request<{ message: string }>(`/Admin/delete-user/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
+
   getAnnouncements: (token: string) =>
     request<Array<{ sender: string; message: string; isSystem: boolean; time: string }>>(
       '/Admin/get-announcements',

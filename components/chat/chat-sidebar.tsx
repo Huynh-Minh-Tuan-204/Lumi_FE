@@ -171,6 +171,17 @@ export function ChatSidebar({
                 </div>
               </div>
               <DropdownMenuSeparator />
+              {(user?.role === 'Admin' || user?.role === 'Manager') && (
+                <>
+                  <DropdownMenuItem asChild>
+                    <a href="/dashboard" className="cursor-pointer flex items-center w-full">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Dashboard
+                    </a>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
                 Sign out

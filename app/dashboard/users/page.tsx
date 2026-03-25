@@ -161,6 +161,40 @@ export default function UsersPage() {
     }
   }
 
+  const handleDeleteUser = async (id: number) => {
+    if (!token) return
+    if (!window.confirm("Are you sure you want to disable this user?")) return
+    try {
+      await adminApi.deleteUser(token, id)
+      toast.success("User disabled successfully")
+      loadUsers()
+    } catch (error) {
+      console.error('Failed to delete user:', error)
+      toast.error('Failed to delete user')
+    }
+  }
+
+  const handleChangeRole = async (id: number, currentRole: string) => {
+    if (!token) return
+    const roles: Record<string, number> = { 'Admin': 1, 'Manager': 2, 'Employee': 3 }
+    const nextRoleName = currentRole === 'Admin' ? 'Manager' : currentRole === 'Manager' ? 'Employee' : 'Admin'
+    const newRoleId = roles[nextRoleName]
+    if (!window.confirm(`Change role context for this user to ${nextRoleName}?`)) return
+    
+    try {
+      await adminApi.changeRole(token, id, newRoleId)
+      toast.success("Role changed successfully")
+      loadUsers()
+    } catch (error) {
+      console.error('Failed to change role:', error)
+      toast.error('Failed to change role')
+    }
+  }
+
+  const handleEditUser = (user: UserData) => {
+    toast('Chức năng Edit User đang được phát triển!')
+  }
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -435,16 +469,16 @@ export default function UsersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditUser(userData)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleChangeRole(userData.id, userData.roleName)}>
                               <Shield className="mr-2 h-4 w-4" />
                               Change Role
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-destructive">
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteUser(userData.id)}>
                               <Trash2 className="mr-2 h-4 w-4" />
                               Delete
                             </DropdownMenuItem>
