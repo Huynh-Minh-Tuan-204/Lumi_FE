@@ -9,6 +9,7 @@ const HUB_URL = process.env.NEXT_PUBLIC_SIGNALR_HUB_URL || 'https://mintuan-001-
 export interface ChatMessage {
   id: number
   conversationId: number
+  senderId: number
   sender: string
   message: string
   time: Date
@@ -29,6 +30,7 @@ export interface SignalRHookReturn {
   clearIncomingCall: () => void
   callDeclined: { meetingId: number; declinerName: string } | null
   clearCallDeclined: () => void
+  markAsRead: (conversationId: number) => Promise<void>
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -58,24 +60,22 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       .configureLogging(signalR.LogLevel.None)
       .build()
 
-    connection.on('ReceiveMessage',(id: number, conversationId:number,sender:string,message:string,iv:string, messageType: string, time:string, attachmentsJson: string)=>{
-      let attachments = []
-      try {
-        attachments = JSON.parse(attachmentsJson)
-      } catch (e) {}
-
-      setMessages(prev=>[
+    connection.on('ReceiveMessage', (data: any) => {
+      const { id, conversationId, senderId, senderName, content, iv, messageType, createdAt, attachments } = data;
+      
+      setMessages(prev => [
         ...prev,
         {
           id,
           conversationId,
-          sender,
-          message,
+          senderId,
+          sender: senderName,
+          message: content,
           iv,
           messageType,
-          time: time ? new Date(time) : new Date(),
-          attachments,
-          isSystem:false
+          time: new Date(createdAt),
+          attachments: attachments || [],
+          isSystem: false
         }
       ])
     })
@@ -84,16 +84,18 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       setOnlineUsers(new Set(userIds))
     })
 
-    connection.on('ReceiveNotification',(sender:string,message:string,time:string)=>{
-      setNotifications(prev=>[
+    connection.on('ReceiveNotification', (data: any) => {
+      const { id, sender, message, createdAt, isSystem } = data;
+      setNotifications(prev => [
         ...prev,
         {
-          id: Date.now(), // Notification ID
-          conversationId:0,
-          sender,
-          message,
-          time:new Date(time),
-          isSystem:true
+          id: id || Date.now(),
+          conversationId: 0,
+          senderId: 0,
+          sender: sender || 'System',
+          message: message,
+          time: new Date(createdAt),
+          isSystem: isSystem || true
         }
       ])
     })
@@ -163,21 +165,19 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
   },[])
 
-  const sendNotification = useCallback(async(message:string)=>{
-
-    if(connectionRef.current?.state===signalR.HubConnectionState.Connected){
-
-      await connectionRef.current.invoke(
-        'SendNotification',
-        message
-      )
-
+  const markAsRead = useCallback(async(conversationId: number) => {
+    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+      await connectionRef.current.invoke('MarkAsRead', conversationId)
     }
+  }, [])
 
+  const sendNotification = useCallback(async(message:string)=>{
+    if(connectionRef.current?.state===signalR.HubConnectionState.Connected){
+      await connectionRef.current.invoke('SendNotification', message)
+    }
   },[])
 
-  return(
-
+  return (
     <SignalRContext.Provider
       value={{
         isConnected,
@@ -190,6 +190,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         clearIncomingCall: () => setIncomingCall(null),
         callDeclined,
         clearCallDeclined: () => setCallDeclined(null),
+        markAsRead,
       }}
     >
 

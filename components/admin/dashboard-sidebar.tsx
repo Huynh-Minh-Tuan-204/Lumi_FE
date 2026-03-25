@@ -15,12 +15,14 @@ import {
   Settings,
   LogOut,
   ChevronLeft,
+  Calendar,
 } from 'lucide-react'
 
 const adminNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Overview', exact: true },
   { href: '/dashboard/users', icon: Users, label: 'User Management' },
   { href: '/dashboard/groups', icon: MessageSquare, label: 'Group Management' },
+  { href: '/dashboard/schedule', icon: Calendar, label: 'Work Schedule' },
   { href: '/dashboard/notifications', icon: Bell, label: 'Notifications' },
   { href: '/dashboard/online', icon: Activity, label: 'Online Monitor' },
 ]
@@ -28,6 +30,7 @@ const adminNavItems = [
 const managerNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Overview', exact: true },
   { href: '/dashboard/groups', icon: MessageSquare, label: 'My Groups' },
+  { href: '/dashboard/schedule', icon: Calendar, label: 'Work Schedule' },
   { href: '/dashboard/notifications', icon: Bell, label: 'Announcements' },
 ]
 

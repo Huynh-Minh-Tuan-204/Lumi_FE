@@ -42,6 +42,8 @@ import {
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { useSearch } from './search-context'
+import { useSignalR } from '@/hooks/use-signalr'
+import { announcementsApi } from '@/lib/api'
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Overview',
@@ -63,6 +65,8 @@ const adminNavItems = [
 export function DashboardHeader() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
+  const { notifications } = useSignalR()
+  const token = useAuth().token // Ensure we get latest token
   const { searchQuery, setSearchQuery } = useSearch()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -149,29 +153,70 @@ export function DashboardHeader() {
         {/* Theme Toggle */}
         <ThemeToggle />
 
-        {/* Notifications Popover - ĐÃ SỬA TẠI ĐÂY */}
-        <Popover>
+        {/* Notifications Popover */}
+        <Popover onOpenChange={async (open) => {
+          if (open && token) {
+            try {
+              await announcementsApi.markAllRead(token);
+              // We could also clear local state if we want immediate feedback
+            } catch (e) {}
+          }
+        }}>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-destructive" />
+              {notifications.length > 0 && (
+                <span className="absolute top-1 right-1 h-3.5 w-3.5 flex items-center justify-center rounded-full bg-destructive text-[10px] text-white">
+                  {notifications.length > 9 ? '9+' : notifications.length}
+                </span>
+              )}
               <span className="sr-only">Toggle notifications</span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="end" className="w-80 p-0">
-            <div className="flex items-center justify-between border-b p-4">
-              <h4 className="font-semibold">Notifications</h4>
+          <PopoverContent align="end" className="w-80 p-0 shadow-xl border-sidebar-border">
+            <div className="flex items-center justify-between border-b p-4 bg-muted/20">
+              <h4 className="font-semibold text-sm">Notifications</h4>
               <Link 
                 href="/dashboard/notifications" 
-                className="text-xs text-primary hover:underline"
+                className="text-xs text-primary hover:underline font-medium"
               >
                 View all
               </Link>
             </div>
-            <div className="max-h-100 overflow-y-auto p-4 text-center text-sm text-muted-foreground">
-              {/* Bạn có thể thay đoạn này bằng <NotificationList /> của bạn */}
-              No new notifications
+            <div className="max-h-80 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="p-8 text-center text-sm text-muted-foreground">
+                  <Bell className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                  No new notifications
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {notifications.slice(0, 5).map((n) => (
+                    <div key={n.id} className="p-4 hover:bg-muted/50 transition-colors cursor-default">
+                      <div className="flex justify-between items-start gap-2 mb-1">
+                        <span className="text-xs font-bold text-primary truncate max-w-[150px]">
+                          {n.sender || 'System'}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">
+                          {new Date(n.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-foreground/80 line-clamp-2">
+                        {n.message}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
+            {notifications.length > 0 && (
+              <Link
+                href="/dashboard/notifications"
+                className="block p-3 text-center text-xs border-t font-semibold hover:bg-muted transition-colors text-muted-foreground"
+              >
+                See all notifications
+              </Link>
+            )}
           </PopoverContent>
         </Popover>
 

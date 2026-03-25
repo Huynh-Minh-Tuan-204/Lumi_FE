@@ -27,6 +27,8 @@ import {
   WifiOff,
   Globe,
 } from 'lucide-react'
+import Link from 'next/link'
+import { toast } from 'sonner'
 import { useAuth, type User } from '@/lib/auth-context'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Conversation } from '@/app/chat/page'
@@ -55,7 +57,7 @@ export function ChatSidebar({
   unreadCounts,
   isMobile = false,
 }: ChatSidebarProps) {
-  const { logout } = useAuth()
+  const { logout, token } = useAuth()
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [isSearchingUsers, setIsSearchingUsers] = useState(false)
 
@@ -63,14 +65,14 @@ export function ChatSidebar({
 
   useEffect(() => {
     const fetchUsers = async () => {
-      if (!user || !user.token) return
+      if (!user || !token) return
       try {
-        const data = await adminApi.getAllUsers(user.token)
+        const data = await adminApi.getAllUsers(token)
         setAllUsers(data.filter((u: any) => u.id !== user.id))
       } catch (e) {}
     }
     fetchUsers()
-  }, [user])
+  }, [user, token])
 
   const filteredConversations = conversations.filter((conv) =>
     (conv.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -89,7 +91,8 @@ export function ChatSidebar({
 
   const handleStartPrivateChat = async (userId: number) => {
     try {
-      await conversationsApi.createPrivate(user!.token, userId)
+      if (!token) return
+      await conversationsApi.createPrivate(token, userId)
       window.location.reload()
     } catch (e) {
       console.error(e)
@@ -278,29 +281,47 @@ export function ChatSidebar({
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <a href="/dashboard/settings" className="cursor-pointer flex items-center w-full">
+              <Link href="/dashboard/settings" className="cursor-pointer flex items-center w-full">
                 <UserIcon className="mr-2 h-4 w-4" />
                 Edit Profile
-              </a>
+              </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a href="/dashboard/settings" className="cursor-pointer flex items-center w-full">
-                <Globe className="mr-2 h-4 w-4" />
-                Language
-              </a>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
+            
             {(user?.role === 'Admin' || user?.role === 'Manager') && (
+              <DropdownMenuItem 
+                className="cursor-pointer"
+                onClick={() => window.location.href = '/dashboard/users'}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                Manage Users
+              </DropdownMenuItem>
+            )}
+
+            <DropdownMenuSeparator />
+            
+            {user?.role === 'Admin' && (
               <>
-                <DropdownMenuItem asChild>
-                  <a href="/dashboard" className="cursor-pointer flex items-center w-full">
-                    <LogOut className="mr-2 h-4 w-4 rotate-180" />
-                    Admin Dashboard
-                  </a>
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase">
+                  Admin Actions
+                </div>
+                <DropdownMenuItem 
+                  onClick={async () => {
+                    const newFullName = prompt("Enter new name:", user.fullName);
+                    if (newFullName && token) {
+                      try {
+                        await adminApi.updateUser(token, user.id, { fullName: newFullName });
+                        toast.success("Name updated! Refreshing...");
+                        window.location.reload();
+                      } catch (e) { toast.error("Failed to update name"); }
+                    }
+                  }}
+                >
+                  Change System Name
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
             )}
+
             <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
               Sign out
@@ -345,6 +366,9 @@ function ConversationItem({
     >
       <div className="relative">
         <Avatar className="h-12 w-12">
+          {conversation.avatarPath && (
+            <AvatarImage src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''}${conversation.avatarPath}`} />
+          )}
           <AvatarFallback
             className={cn(
               isSelected ? 'bg-sidebar-primary-foreground/20' : 'bg-sidebar-accent',

@@ -135,9 +135,12 @@ export interface ConversationsListItemResponse {
   id: number
   name: string
   type: string
+  avatarPath?: string
+  backgroundPath?: string
   lastMessageAt: string
-  lastMessage: { encryptedContent: string; createdAt: string } | null
+  lastMessage: { encryptedContent: string; createdAt: string; messageType?: string; senderId?: number } | null
   otherUserId?: number
+  unreadCount?: number
 }
 
 export interface MessageResponse {
@@ -253,12 +256,12 @@ export const adminApi = {
     }),
 
   getAnnouncements: (token: string) =>
-    request<Array<{ sender: string; message: string; isSystem: boolean; time: string }>>(
-      '/Admin/get-announcements',
+    request<Array<{ senderName: string; message: string; timestamp: string }>>(
+      '/Announcements',
       { token }
     ),
 sendAnnouncement: async (token: string, message: string) => {
-  const res = await fetch(`${API_BASE_URL}/Admin/send-announcement`, {
+  const res = await fetch(`${API_BASE_URL}/Announcements`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -321,6 +324,12 @@ export const conversationsApi = {
   getMessages: (token: string, conversationId: number) =>
     request<MessageResponse[]>(`/Conversations/${conversationId}/messages`, { token }),
 
+  markConversationRead: (token: string, conversationId: number) =>
+    request<void>(`/Conversations/${conversationId}/read`, {
+      method: 'POST',
+      token,
+    }),
+
   createPrivate: (token: string, otherUserId: number) =>
     request<{ id: number; name: string; type: string }>('/Conversations/private', {
       method: 'POST',
@@ -379,6 +388,38 @@ export const conversationsApi = {
     }),
     token
   }),
+
+  uploadGroupAvatar: (token: string, conversationId: number, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return fetch(`${API_BASE_URL}/Conversations/${conversationId}/avatar`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
+      },
+      body: formData
+    }).then(async res => {
+      if (!res.ok) throw new ApiError(await res.text(), res.status);
+      return res.json() as Promise<{ avatarPath: string }>;
+    });
+  },
+
+  uploadGroupBackground: (token: string, conversationId: number, file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return fetch(`${API_BASE_URL}/Conversations/${conversationId}/background`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
+      },
+      body: formData
+    }).then(async res => {
+      if (!res.ok) throw new ApiError(await res.text(), res.status);
+      return res.json() as Promise<{ backgroundPath: string }>;
+    });
+  },
 }
 
 // ========== Attachments API (api/Attachments/*) ==========
@@ -450,6 +491,55 @@ export const announcementsApi = {
     request<any>('/Announcements', {
       method: 'POST',
       body: JSON.stringify({ Message: message, IV: iv }),
+      token,
+    }),
+  markAllRead: (token: string) =>
+    request<any>('/Announcements/read', {
+      method: 'POST',
+      token,
+    }),
+}
+
+// ========== Work Schedules API (api/WorkSchedules/*) ==========
+export interface ScheduleParticipant {
+  userId: number;
+  fullName: string;
+  avatarPath: string;
+  status: string;
+}
+
+export interface WorkScheduleResponse {
+  id: number;
+  title: string;
+  description: string;
+  startTime: string;
+  endTime: string;
+  location: string;
+  userRole: string;
+  participants: ScheduleParticipant[];
+}
+
+export const schedulesApi = {
+  getMySchedules: (token: string) =>
+    request<WorkScheduleResponse[]>('/WorkSchedules', { token }),
+
+  create: (token: string, data: { title: string; description?: string; startTime: string; endTime: string; location?: string; participantIds?: number[] }) =>
+    request<{ message: string; id: number }>('/WorkSchedules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+      token,
+    }),
+
+  updateStatus: (token: string, id: number, status: string) =>
+    request<{ message: string }>(`/WorkSchedules/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify(status), // the backend expects [FromBody] string status but wait it's plain string. Let's send as json string: JSON.stringify(status) or just a JSON object. Actually [FromBody] string status in .NET means sending exactly `"Accepted"` with quotes. So JSON.stringify(status) works.
+      token,
+    }),
+
+  delete: (token: string, id: number) =>
+    request<void>(`/WorkSchedules/${id}`, {
+      method: 'DELETE',
       token,
     }),
 }

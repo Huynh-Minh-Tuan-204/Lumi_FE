@@ -173,7 +173,7 @@ export function ChatArea({
         .filter((m) => !existingIds.has(m.id))
         .map((m) => ({
           id: m.id,
-          senderId: 0,
+          senderId: m.senderId || 0,
           encryptedContent: m.message,
           iv: m.iv ?? '',
           createdAt: (m.time instanceof Date ? m.time : new Date(m.time)).toISOString(),
@@ -339,9 +339,24 @@ export function ChatArea({
   }
 
   return (
-    <div className={cn('flex flex-col bg-background overflow-hidden min-h-0', className)}>
+    <div 
+      className={cn('flex flex-col bg-background overflow-hidden min-h-0 relative', className)}
+    >
+      {/* Background Image if available */}
+      {conversation.backgroundPath && (
+        <div 
+          className="absolute inset-0 z-0 opacity-20 pointer-events-none"
+          style={{
+            backgroundImage: `url(${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''}${conversation.backgroundPath})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
+          }}
+        />
+      )}
+      
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b bg-card">
+      <header className="flex items-center justify-between px-4 py-3 border-b bg-card/95 backdrop-blur z-10">
         <div className="flex items-center gap-3">
           {isMobile && onBack && (
             <Button variant="ghost" size="icon" onClick={onBack} className="mr-1">
@@ -349,6 +364,9 @@ export function ChatArea({
             </Button>
           )}
           <Avatar className="h-10 w-10">
+            {conversation.avatarPath && (
+              <AvatarImage src={`${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''}${conversation.avatarPath}`} />
+            )}
             <AvatarFallback className="bg-primary/10 text-primary">
               {conversation.type === 'Group' ? (
                 <Hash className="h-5 w-5" />
@@ -409,7 +427,7 @@ export function ChatArea({
       </header>
 
       {/* Messages */}
-      <div className="flex-1 min-h-0 relative">
+      <div className="flex-1 min-h-0 relative z-10">
         <ScrollArea className="h-full w-full">
           <div className="p-4">
             {isLoading ? (

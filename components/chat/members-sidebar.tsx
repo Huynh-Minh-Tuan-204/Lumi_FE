@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Search, UserPlus, MoreHorizontal, Crown, Shield } from 'lucide-react'
+import { ArrowLeft, Search, UserPlus, MoreHorizontal, Crown, Shield, Image as ImageIcon, ImagePlus } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -183,6 +183,63 @@ export function MembersSidebar({
           </Dialog>
         )}
       </div>
+
+      {/* Group Assets Section */}
+      {canManageMembers && (
+        <div className="p-4 border-b space-y-3 bg-muted/30">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Group Assets</h3>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Label htmlFor="avatar-upload" className="cursor-pointer">
+                <div className="flex flex-col items-center gap-2 p-3 border-2 border-dashed rounded-lg hover:bg-muted transition-colors">
+                  <ImagePlus className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-center">Update Avatar</span>
+                </div>
+                <Input 
+                  id="avatar-upload" 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={async (e) => {
+                    if (e.target.files?.[0] && token) {
+                      try {
+                        await conversationsApi.uploadGroupAvatar(token, conversationId, e.target.files[0])
+                        toast.success('Avatar updated! Please refresh.')
+                      } catch (error) {
+                        toast.error('Failed to update avatar')
+                      }
+                    }
+                  }}
+                />
+              </Label>
+            </div>
+            <div className="flex-1">
+              <Label htmlFor="bg-upload" className="cursor-pointer">
+                <div className="flex flex-col items-center gap-2 p-3 border-2 border-dashed rounded-lg hover:bg-muted transition-colors">
+                  <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-center">Update Background</span>
+                </div>
+                <Input 
+                  id="bg-upload" 
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden" 
+                  onChange={async (e) => {
+                    if (e.target.files?.[0] && token) {
+                      try {
+                        await conversationsApi.uploadGroupBackground(token, conversationId, e.target.files[0])
+                        toast.success('Background updated! Please refresh.')
+                      } catch (error) {
+                        toast.error('Failed to update background')
+                      }
+                    }
+                  }}
+                />
+              </Label>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="p-3 border-b">

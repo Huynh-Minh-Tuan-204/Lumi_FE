@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { conversationsApi } from '@/lib/api'
 import { ChatSidebar } from '@/components/chat/chat-sidebar'
@@ -14,8 +15,11 @@ export interface Conversation {
   name: string
   type: string
   lastMessageAt: string
-  lastMessage: { encryptedContent: string; createdAt: string } | null
+  lastMessage: { encryptedContent: string; createdAt: string; messageType?: string; senderId?: number } | null
+  avatarPath?: string
+  backgroundPath?: string
   otherUserId?: number
+  unreadCount?: number
 }
 
 export default function ChatPage() {
@@ -35,8 +39,15 @@ export default function ChatPage() {
       try {
         const data = await conversationsApi.getMyConversations(token)
         setConversations(data)
+        
+        // Sync initial unread counts
+        const initialUnreads: Record<number, number> = {}
+        data.forEach(c => {
+          if (c.unreadCount) initialUnreads[c.id] = c.unreadCount
+        })
+        setUnreadCounts(initialUnreads)
 
-        if (data.length > 0) {
+        if (data.length > 0 && !selectedConversation) {
           setSelectedConversation(data[0])
         }
 
@@ -51,15 +62,23 @@ export default function ChatPage() {
 
   }, [token])
 
+  const { markAsRead } = useSignalR()
+
   useEffect(() => {
     if (realtimeMessages.length > 0) {
       const lastMsg = realtimeMessages[realtimeMessages.length - 1]
       if (lastMsg) {
-        if (selectedConversation?.id !== lastMsg.conversationId && lastMsg.sender !== user?.fullName) {
+        // Only increment unread if NOT the current conversation AND not own message
+        const isOwn = lastMsg.senderId === user?.id
+        
+        if (selectedConversation?.id !== lastMsg.conversationId && !isOwn) {
           setUnreadCounts(prev => ({
             ...prev,
             [lastMsg.conversationId]: (prev[lastMsg.conversationId] || 0) + 1
           }))
+        } else if (selectedConversation?.id === lastMsg.conversationId && !isOwn) {
+          // If we ARE in the conversation, mark it as read immediately on backend
+          markAsRead(lastMsg.conversationId)
         }
 
         // Optimistically update conversation list sorting and lastMessage content
@@ -71,25 +90,37 @@ export default function ChatPage() {
               ...newConvs[targetIdx],
               lastMessage: {
                 encryptedContent: lastMsg.message,
-                createdAt: lastMsg.time instanceof Date ? lastMsg.time.toISOString() : lastMsg.time
+                createdAt: lastMsg.time.toISOString(),
+                messageType: lastMsg.messageType,
+                senderId: lastMsg.senderId
               },
-              lastMessageAt: lastMsg.time instanceof Date ? lastMsg.time.toISOString() : lastMsg.time
+              lastMessageAt: lastMsg.time.toISOString()
             }
             // Move to top
             const target = newConvs.splice(targetIdx, 1)[0]
             newConvs.unshift(target)
+          } else {
+            // If it's a new conversation that wasn't in list (e.g. system broadcast or new invite)
+            // we should ideally fetch again, but for now we'll just wait for reload or 
+            // if it's private we can't easily construct the whole object without API
           }
           return newConvs
         })
       }
     }
-  }, [realtimeMessages, selectedConversation, user])
+  }, [realtimeMessages, selectedConversation, user, markAsRead])
 
-  const handleSelectConversation = (conversation: Conversation) => {
+  const handleSelectConversation = async (conversation: Conversation) => {
     setSelectedConversation(conversation)
     setUnreadCounts(prev => ({ ...prev, [conversation.id]: 0 }))
     setShowMobileChat(true)
     setShowMobileMembers(false)
+
+    if (token) {
+      try {
+        await conversationsApi.markConversationRead(token, conversation.id)
+      } catch (e) {}
+    }
   }
 
   const handleBackToList = () => {
@@ -131,12 +162,19 @@ export default function ChatPage() {
         
         {/* Right sidebar - Members */}
         {selectedConversation && selectedConversation.type === 'Group' && (
-          <div className={`transition-all duration-300 ease-in-out shrink-0 overflow-hidden ${showDesktopMembers ? 'w-80 border-l opacity-100' : 'w-0 border-none opacity-0'}`}>
-            <MembersSidebar
-              conversationId={selectedConversation.id}
-              conversationName={selectedConversation.name}
-              onlineUsers={onlineUsers}
-            />
+          <div 
+            className={cn(
+              "transition-all duration-300 ease-in-out shrink-0 overflow-hidden flex border-l bg-card",
+              showDesktopMembers ? "w-80 opacity-100" : "w-0 opacity-0 border-none"
+            )}
+          >
+            <div className="w-80 h-full">
+              <MembersSidebar
+                conversationId={selectedConversation.id}
+                conversationName={selectedConversation.name}
+                onlineUsers={onlineUsers}
+              />
+            </div>
           </div>
         )}
       </div>
