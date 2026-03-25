@@ -20,6 +20,7 @@ export interface Conversation {
   backgroundPath?: string
   otherUserId?: number
   unreadCount?: number
+  createdBy?: number
 }
 
 export default function ChatPage() {

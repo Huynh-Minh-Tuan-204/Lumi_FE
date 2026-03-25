@@ -436,6 +436,18 @@ export const conversationsApi = {
       return res.json() as Promise<{ backgroundPath: string }>;
     });
   },
+
+  disband: (token: string, id: number) =>
+    request<any>(`/Conversations/${id}/disband`, {
+      method: 'POST',
+      token,
+    }),
+
+  leave: (token: string, id: number, userId: number) =>
+    request<any>(`/Conversations/${id}/members/${userId}`, {
+      method: 'DELETE',
+      token,
+    }),
 }
 
 // ========== Attachments API (api/Attachments/*) ==========

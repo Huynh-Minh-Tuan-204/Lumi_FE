@@ -102,7 +102,10 @@ export function ChatSidebar({
       ).filter(u => !conversations.some(c => c.otherUserId === u.id)).map(u => [u.id, u])).values())
     : []
 
-  const privateChats = filteredConversations.filter((c) => c.type === 'Private')
+  const privateChats = Array.from(new Map(
+    filteredConversations.filter((c) => c.type === 'Private')
+    .map(c => [c.otherUserId, c])
+  ).values())
   const groupChats = filteredConversations.filter((c) => c.type === 'Group')
 
   const handleStartPrivateChat = async (userId: number) => {

@@ -22,6 +22,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
   ArrowLeft,
   Phone,
   Video,
@@ -38,6 +45,8 @@ import {
   Laugh,
   Angry,
   MessageSquare,
+  Trash,
+  LogOut,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Conversation } from '@/app/chat/page'
@@ -418,14 +427,45 @@ export function ChatArea({
               </Tooltip>
             )}
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" onClick={() => toast.info('Coming soon!')}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
                   <MoreVertical className="h-5 w-5" />
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>More options</TooltipContent>
-            </Tooltip>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="z-[9999]">
+                <DropdownMenuItem onClick={() => toast.info('Tính năng đang được phát triển')}>
+                  Group Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {(user?.role === 'Admin' || conversation.createdBy === user?.id) && (
+                  <DropdownMenuItem className="text-destructive" onClick={async () => {
+                    if (confirm('Are you sure you want to disband this group?')) {
+                      try {
+                        await conversationsApi.disband(token!, conversation.id)
+                        toast.success('Group disbanded')
+                        window.location.reload()
+                      } catch (e) { toast.error('Failed to disband') }
+                    }
+                  }}>
+                    <Trash className="mr-2 h-4 w-4" />
+                    Disband Group
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem className="text-destructive" onClick={async () => {
+                  if (confirm('Are you sure you want to leave this group?')) {
+                    try {
+                      await conversationsApi.leave(token!, conversation.id, user!.id)
+                      toast.success('Left group')
+                      window.location.reload()
+                    } catch (e) { toast.error('Failed to leave') }
+                  }
+                }}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Leave Group
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </TooltipProvider>
         </div>
       </header>
