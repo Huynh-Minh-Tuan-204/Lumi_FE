@@ -106,16 +106,6 @@ export function DashboardSidebar() {
         </nav>
       </ScrollArea>
 
-      <div className="p-4 border-t border-sidebar-border mt-auto">
-        <Button 
-          variant="ghost" 
-          onClick={logout} 
-          className="w-full justify-start gap-3 hover:bg-destructive/10 hover:text-destructive text-sidebar-foreground/80"
-        >
-          <LogOut className="h-5 w-5" />
-          <span className="font-medium">Sign Out</span>
-        </Button>
-      </div>
     </div>
   )
 }
