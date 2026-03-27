@@ -108,6 +108,13 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
     connection.on('ReceiveNotification', (data: any) => {
       const { id, sender, message, createdAt, isSystem } = data;
+      
+      // Show popup toast
+      toast.info(`📢 THÔNG BÁO: ${message}`, {
+        description: `Từ: ${sender || 'Admin'}`,
+        duration: 10000,
+      });
+
       setNotifications(prev => [
         ...prev,
         {

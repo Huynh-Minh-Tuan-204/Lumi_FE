@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
+  Bell,
   MessageSquare,
   Users,
   Search,
@@ -26,7 +27,13 @@ import {
   Wifi,
   WifiOff,
   Globe,
+  CheckCheck,
 } from 'lucide-react'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -34,7 +41,7 @@ import { useAuth, type User } from '@/lib/auth-context'
 import { useSignalR } from '@/hooks/use-signalr'
 import { ThemeToggle } from '@/components/theme-toggle'
 import type { Conversation } from '@/app/chat/page'
-import { adminApi, conversationsApi } from '@/lib/api'
+import { adminApi, conversationsApi, announcementsApi } from '@/lib/api'
 
 interface ChatSidebarProps {
   conversations: Conversation[]
@@ -62,12 +69,26 @@ export function ChatSidebar({
   const logout = useAuth().logout;
   const token = useAuth().token;
   const router = useRouter()
-  const { lastUserUpdate } = useSignalR()
+  const { lastUserUpdate, notifications } = useSignalR()
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [isSearchingUsers, setIsSearchingUsers] = useState(false)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [searchMode, setSearchMode] = useState<'chat' | 'global'>('chat')
+
+  // Count unread notifications (simple client-side logic for now)
+  useEffect(() => {
+    setUnreadNotifications(notifications.length)
+  }, [notifications])
+
+  const handleMarkNotificationsRead = async () => {
+    if (!token) return
+    try {
+      await announcementsApi.markAllRead(token)
+      setUnreadNotifications(0)
+    } catch (e) {}
+  }
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -142,7 +163,6 @@ export function ChatSidebar({
 
   const formatTime = (dateString: string) => {
     if (!dateString) return ''
-    console.log("Server time:", dateString)
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return '...'
     const now = new Date()
@@ -150,7 +170,7 @@ export function ChatSidebar({
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
 
     if (days === 0 && date.getDate() === now.getDate()) {
-      return date.toLocaleTimeString()
+      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     } else if (days === 1 || (days === 0 && date.getDate() !== now.getDate())) {
       return 'Yesterday'
     } else if (days < 7) {
@@ -189,6 +209,67 @@ export function ChatSidebar({
             </div>
           </div>
         </div>
+
+        {/* NOTIFICATION HUB */}
+        <Popover onOpenChange={(open) => {
+          if (open) handleMarkNotificationsRead()
+        }}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full bg-sidebar-accent/50 hover:bg-sidebar-accent border border-sidebar-border shadow-sm">
+              <Bell className="h-4 w-4" />
+              {unreadNotifications > 0 && (
+                <span className="absolute top-0 right-0 h-4 w-4 flex items-center justify-center rounded-full bg-destructive text-[10px] text-white font-black border-2 border-sidebar shadow-md animate-in zoom-in duration-300">
+                  {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                </span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-80 p-0 shadow-2xl border-sidebar-border rounded-xl overflow-hidden bg-card/95 backdrop-blur-xl">
+            <div className="flex items-center justify-between border-b p-4 bg-primary/5">
+              <h4 className="font-black text-xs uppercase tracking-widest text-primary">Thông báo Hệ thống</h4>
+              {unreadNotifications > 0 && (
+                 <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+                  {unreadNotifications} Mới
+                </span>
+              )}
+            </div>
+            <ScrollArea className="max-h-[70vh]">
+              <div className="divide-y divide-sidebar-border/50">
+                {notifications.length === 0 ? (
+                  <div className="p-10 text-center">
+                    <div className="bg-primary/5 h-12 w-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                       <Bell className="h-6 w-6 opacity-20 text-primary" />
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground/60">Không có thông báo nào</p>
+                  </div>
+                ) : (
+                  [...notifications].reverse().map((n) => (
+                    <div key={n.id} className="p-4 hover:bg-sidebar-accent/50 transition-colors group cursor-default">
+                      <div className="flex justify-between items-start gap-3 mb-1.5">
+                        <span className="text-[11px] font-black text-primary truncate">
+                          BY {n.sender?.toUpperCase() || 'SYSTEM'}
+                        </span>
+                        <span className="text-[9px] font-bold text-muted-foreground/60 tabular-nums">
+                          {formatTime(n.time.toISOString())}
+                        </span>
+                      </div>
+                      <p className="text-sm leading-relaxed text-foreground/80 font-medium">
+                        {n.message}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </ScrollArea>
+            {notifications.length > 0 && (
+              <div className="p-3 bg-muted/30 border-t flex justify-center">
+                <Button variant="ghost" size="sm" className="text-[10px] font-bold uppercase tracking-widest h-auto py-2 flex items-center gap-2" onClick={handleMarkNotificationsRead}>
+                  <CheckCheck className="h-3 w-3" /> Đánh dấu đã đọc
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Search & Modes */}
@@ -449,9 +530,7 @@ function ConversationItem({
     >
       <div className="relative">
         <Avatar className="h-12 w-12 shrink-0">
-          {conversation.avatarPath && (
-            <AvatarImage src={getAvatarUrl(conversation.avatarPath)} />
-          )}
+          <AvatarImage src={getAvatarUrl(conversation.avatarPath) || (isGroup ? '/icon.png' : '')} />
           <AvatarFallback
             className={cn(
               isSelected ? 'bg-sidebar-primary-foreground/20' : 'bg-sidebar-accent',

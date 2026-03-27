@@ -50,6 +50,8 @@ import {
   ChevronDown,
   Check,
   CheckCheck,
+  Settings,
+  ImagePlus as ImageasBgIcon,
 } from 'lucide-react'
 import {
   Tabs,
@@ -132,6 +134,8 @@ export function ChatArea({
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const groupAvatarInputRef = useRef<HTMLInputElement>(null)
+  const groupBackgroundInputRef = useRef<HTMLInputElement>(null)
 
   const pinnedList = useMemo(() => messages.filter(m => m.isPinned), [messages])
   const latestPin = pinnedList[pinnedList.length - 1]
@@ -157,6 +161,25 @@ export function ChatArea({
     } catch (error) {
       console.error('File upload failed:', error)
       toast.error('Failed to upload file.')
+    }
+  }
+
+  const handleGroupAssetUpload = async (event: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'background') => {
+    const file = event.target.files?.[0]
+    if (!file || !conversation || !token) return
+
+    try {
+      toast.info(`Uploading group ${type}...`)
+      if (type === 'avatar') {
+        await conversationsApi.uploadGroupAvatar(token, conversation.id, file)
+      } else {
+        await conversationsApi.uploadGroupBackground(token, conversation.id, file)
+      }
+      toast.success(`Group ${type} updated!`)
+      // SignalR should trigger a ReceiveGroupUpdate which updates the page state
+    } catch (error) {
+      console.error(`Group ${type} upload failed:`, error)
+      toast.error(`Failed to upload group ${type}.`)
     }
   }
 
@@ -446,9 +469,7 @@ export function ChatArea({
             </Button>
           )}
           <Avatar className="h-10 w-10">
-            {conversation.avatarPath && (
-              <AvatarImage src={getAvatarUrl(conversation.avatarPath)} />
-            )}
+            <AvatarImage src={getAvatarUrl(conversation.avatarPath) || (conversation.type === 'Group' ? '/icon.png' : '')} />
             <AvatarFallback className="bg-primary/10 text-primary">
               {conversation.type === 'Group' ? (
                 <Hash className="h-5 w-5" />
@@ -503,10 +524,39 @@ export function ChatArea({
                     <MoreVertical className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="z-[9999]">
-                  <DropdownMenuItem onClick={() => toast.info('Tính năng đang được phát triển')}>
+                <DropdownMenuContent align="end" className="z-[9999] w-56">
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Group Settings
+                  </div>
+                  <DropdownMenuItem onClick={() => {
+                    const name = prompt("Enter new group name:", conversation.name);
+                    if (name && token) {
+                      conversationsApi.renameConversation(token, conversation.id, name)
+                        .then(() => {
+                          toast.success("Group renamed!");
+                          window.location.reload();
+                        })
+                        .catch(() => toast.error("Failed to rename group"));
+                    }
+                  }}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Rename Group
                   </DropdownMenuItem>
+                  
+                  <DropdownMenuSeparator />
+                  
+                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Media & appearance
+                  </div>
+                  <DropdownMenuItem onClick={() => groupAvatarInputRef.current?.click()}>
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    Change Group Avatar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => groupBackgroundInputRef.current?.click()}>
+                    <ImageasBgIcon className="mr-2 h-4 w-4" />
+                    Change Chat Background
+                  </DropdownMenuItem>
+
                   <DropdownMenuSeparator />
                   {(user?.role === 'Admin' || conversation.createdBy === user?.id) && (
                     <DropdownMenuItem className="text-destructive" onClick={async () => {
@@ -539,6 +589,22 @@ export function ChatArea({
             )}
           </TooltipProvider>
         </div>
+
+        {/* Hidden inputs for Group Assets */}
+        <input 
+          type="file" 
+          ref={groupAvatarInputRef} 
+          className="hidden" 
+          accept="image/*" 
+          onChange={(e) => handleGroupAssetUpload(e, 'avatar')} 
+        />
+        <input 
+          type="file" 
+          ref={groupBackgroundInputRef} 
+          className="hidden" 
+          accept="image/*" 
+          onChange={(e) => handleGroupAssetUpload(e, 'background')} 
+        />
       </header>
 
       {/* Reconnecting Banner */}
