@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge'
 import { Bell, Send, Megaphone, Clock, CheckCircle } from 'lucide-react'
 
 interface Announcement {
+  id: number
   sender: string
   message: string
   isSystem: boolean
@@ -57,6 +58,7 @@ export default function NotificationsPage() {
     try {
       const data = await adminApi.getAnnouncements(token)
       const mapped = data.map(a => ({
+        id: a.id,
         sender: a.senderName || '📢 HỆ THỐNG',
         message: a.message,
         isSystem: true,
@@ -268,7 +270,19 @@ export default function NotificationsPage() {
             ) : (
               <ScrollArea className="h-100 pr-4">
                 <div className="space-y-4">
-                  {[...realtimeNotifications.map(n => ({ sender: n.sender || '📢 HỆ THỐNG', message: n.message, isSystem: n.isSystem || true, time: n.time.toISOString() })).reverse(), ...announcements].map((announcement, idx) => (
+                  {(() => {
+                    const all = [...realtimeNotifications.map(n => ({ 
+                      id: n.id,
+                      sender: n.sender || '📢 HỆ THỐNG', 
+                      message: n.message, 
+                      isSystem: n.isSystem || true, 
+                      time: n.time.toISOString() 
+                    })).reverse(), ...announcements];
+                    
+                    // Deduplicate by ID and Message to be sure
+                    const unique = Array.from(new Map(all.map(item => [`${item.id}_${item.message}`, item])).values());
+                    return unique;
+                  })().map((announcement, idx) => (
                     <div
                       key={idx}
                       className="flex gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"

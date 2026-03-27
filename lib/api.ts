@@ -272,7 +272,7 @@ export const adminApi = {
     }),
 
   getAnnouncements: (token: string) =>
-    request<Array<{ senderName: string; message: string; timestamp: string }>>(
+    request<Array<{ id: number; senderName: string; message: string; timestamp: string }>>(
       '/Announcements',
       { token }
     ),
