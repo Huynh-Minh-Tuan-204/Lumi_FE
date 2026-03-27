@@ -89,6 +89,7 @@ interface ChatAreaProps {
   conversation: Conversation | null
   onBack?: () => void
   onShowMembers?: () => void
+  onRefreshConversations?: () => void
   isMobile?: boolean
   className?: string
 }
@@ -106,6 +107,7 @@ export function ChatArea({
   conversation,
   onBack,
   onShowMembers,
+  onRefreshConversations,
   isMobile = false,
   className,
 }: ChatAreaProps) {
@@ -176,7 +178,8 @@ export function ChatArea({
         await conversationsApi.uploadGroupBackground(token, conversation.id, file)
       }
       toast.success(`Group ${type} updated!`)
-      // SignalR should trigger a ReceiveGroupUpdate which updates the page state
+      if (onRefreshConversations) onRefreshConversations();
+      // SignalR should trigger a ReceiveGroupUpdate which updates the page state for others
     } catch (error) {
       console.error(`Group ${type} upload failed:`, error)
       toast.error(`Failed to upload group ${type}.`)
@@ -452,7 +455,7 @@ export function ChatArea({
         <div 
           className="absolute inset-0 z-0 opacity-20 pointer-events-none"
           style={{
-            backgroundImage: `url(${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''}${conversation.backgroundPath})`,
+            backgroundImage: `url(${getAvatarUrl(conversation.backgroundPath)})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat'

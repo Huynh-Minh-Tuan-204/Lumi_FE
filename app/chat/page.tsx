@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { conversationsApi } from '@/lib/api'
@@ -34,34 +34,37 @@ export default function ChatPage() {
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({})
   const { isConnected, onlineUsers, lastMessage, lastGroupUpdate, lastUserUpdate, markAsRead } = useSignalR()
 
-  useEffect(() => {
-    const loadConversations = async () => {
-      if (!token) return
-      try {
-        const data = await conversationsApi.getMyConversations(token)
-        setConversations(data)
-        
-        // Sync initial unread counts
-        const initialUnreads: Record<number, number> = {}
-        data.forEach(c => {
-          if (c.unreadCount) initialUnreads[c.id] = c.unreadCount
-        })
-        setUnreadCounts(initialUnreads)
+  const loadConversations = useCallback(async () => {
+    if (!token) return
+    try {
+      const data = await conversationsApi.getMyConversations(token)
+      setConversations(data)
+      
+      // Sync initial unread counts
+      const initialUnreads: Record<number, number> = {}
+      data.forEach(c => {
+        if (c.unreadCount) initialUnreads[c.id] = c.unreadCount
+      })
+      setUnreadCounts(initialUnreads)
 
-        if (data.length > 0 && !selectedConversation) {
-          setSelectedConversation(data[0])
-        }
-
-      } catch (error) {
-        console.error('Failed to load conversations:', error)
-      } finally {
-        setIsLoadingConversations(false)
+      // If we have a selected conversation, update it from the new list too
+      if (selectedConversation) {
+        const updated = data.find(c => c.id === selectedConversation.id)
+        if (updated) setSelectedConversation(updated)
+      } else if (data.length > 0 && !selectedConversation) {
+        setSelectedConversation(data[0])
       }
+
+    } catch (error) {
+      console.error('Failed to load conversations:', error)
+    } finally {
+      setIsLoadingConversations(false)
     }
+  }, [token, selectedConversation])
 
+  useEffect(() => {
     loadConversations()
-
-  }, [token])
+  }, [loadConversations])
 
   useEffect(() => {
     if (lastGroupUpdate) {
@@ -193,6 +196,7 @@ export default function ChatPage() {
         <ChatArea
           conversation={selectedConversation}
           onShowMembers={handleShowMembers}
+          onRefreshConversations={loadConversations}
           className="flex-1"
         />
         
@@ -242,6 +246,7 @@ export default function ChatPage() {
             conversation={selectedConversation}
             onBack={handleBackToList}
             onShowMembers={handleShowMembers}
+            onRefreshConversations={loadConversations}
             isMobile
             className="flex-1"
           />

@@ -167,7 +167,15 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
     connection.on('ReceiveGroupUpdate', (conversationId: number, avatarPath: string, backgroundPath: string) => {
       console.log('SIGNALR: ReceiveGroupUpdate event received!', { conversationId, avatarPath, backgroundPath })
-      setLastGroupUpdate({ conversationId, avatarPath, backgroundPath })
+      // Add cache buster to force re-render
+      const avatarWithCache = avatarPath ? `${avatarPath}?v=${Date.now()}` : avatarPath;
+      const bgWithCache = backgroundPath ? `${backgroundPath}?v=${Date.now()}` : backgroundPath;
+      
+      setLastGroupUpdate({ 
+        conversationId, 
+        avatarPath: avatarWithCache, 
+        backgroundPath: bgWithCache 
+      })
     })
 
     connection.on('UserUpdated', (userId: number, avatarPath: string) => {

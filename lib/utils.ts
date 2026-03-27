@@ -11,7 +11,7 @@ export function getAvatarUrl(path?: string) {
   
   // Use a stable cache buster if not already provided
   if (path.includes('?')) return `${baseUrl}${cleanPath}`;
-  return `${baseUrl}${cleanPath}?v=${new Date().getMinutes()}`; // Changes every minute to avoid super-frequent refreshes but fix stale cache
+  return `${baseUrl}${cleanPath}?v=${Math.floor(Date.now() / 10000)}`; // changes every 10 seconds to avoid flicker but fix stale cache after upload
 }
 
 export function cn(...inputs: ClassValue[]) {
