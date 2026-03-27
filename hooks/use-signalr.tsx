@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback, useState, createContext, useContext } from 'react'
 import * as signalR from '@microsoft/signalr'
 import { useAuth } from '@/lib/auth-context'
+import { toast } from 'sonner'
 
 const HUB_URL = process.env.NEXT_PUBLIC_SIGNALR_HUB_URL || 'https://mintuan-001-site1.ktempurl.com/chatHub';
 
@@ -17,14 +18,19 @@ export interface ChatMessage {
   messageType?: string
   attachments?: any[]
   avatarPath?: string
+  stickerUrl?: string
+  isPinned?: boolean
   isSystem?: boolean
 }
 
 export interface SignalRHookReturn {
   isConnected: boolean
+  isReconnecting: boolean
   sendMessage: (conversationId:number, encryptedMessage:string, iv:string, parentMessageId?: number) => Promise<void>
   sendNotification: (message:string) => Promise<void>
   lastMessage: ChatMessage | null
+  lastReadUpdate: { conversationId: number, userId: number } | null
+  onTriggeredReminder: (callback: (data: { conversationId: number, content: string }) => void) => void
   notifications: ChatMessage[]
   onlineUsers: Set<number>
   incomingCall: { meetingId: number; callerName: string; callType: string; convName: string } | null
@@ -36,6 +42,10 @@ export interface SignalRHookReturn {
   sendTyping: (conversationId: number) => Promise<void>
   typingUsers: { conversationId: number, userId: number, userName: string }[]
   lastUserUpdate: { userId: number, avatarPath: string } | null
+  sendSticker: (conversationId: number, stickerUrl: string) => Promise<void>
+  togglePinMessage: (messageId: number) => Promise<void>
+  sendReminder: (conversationId: number, content: string, remindAtIso: string) => Promise<void>
+  pinnedMessages: { messageId: number, isPinned: boolean, pinnedBy?: number, conversationId: number } | null
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -47,14 +57,17 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const connectionRef = useRef<signalR.HubConnection | null>(null)
 
   const [isConnected,setIsConnected] = useState(false)
+  const [isReconnecting, setIsReconnecting] = useState(false)
   const [lastMessage,setLastMessage] = useState<ChatMessage | null>(null)
   const [notifications,setNotifications] = useState<ChatMessage[]>([])
+  const [lastReadUpdate, setLastReadUpdate] = useState<{ conversationId: number, userId: number } | null>(null)
   const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set())
   const [incomingCall, setIncomingCall] = useState<{ meetingId: number; callerName: string; callType: string; convName: string } | null>(null)
   const [callDeclined, setCallDeclined] = useState<{ meetingId: number; declinerName: string } | null>(null)
   const [lastGroupUpdate, setLastGroupUpdate] = useState<{ conversationId: number, avatarPath?: string, backgroundPath?: string } | null>(null)
   const [typingUsers, setTypingUsers] = useState<{ conversationId: number, userId: number, userName: string }[]>([])
   const [lastUserUpdate, setLastUserUpdate] = useState<{ userId: number, avatarPath: string } | null>(null)
+  const [pinnedMessages, setPinnedMessages] = useState<{ messageId: number, isPinned: boolean, pinnedBy?: number, conversationId: number } | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -69,7 +82,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       .build()
 
     connection.on('ReceiveMessage', (data: any) => {
-      const { id, conversationId, senderId, senderName, content, iv, messageType, createdAt, attachments, avatarPath } = data;
+      const { id, conversationId, senderId, senderName, content, iv, messageType, stickerUrl, isPinned, createdAt, attachments, avatarPath } = data;
       
       setLastMessage({
           id,
@@ -79,6 +92,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           message: content,
           iv,
           messageType,
+          stickerUrl,
+          isPinned,
           time: new Date(createdAt),
           attachments: attachments || [],
           isSystem: false,
@@ -169,9 +184,49 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }, 3000)
     })
 
+    connection.on('MessagePinned', (data: any) => {
+      const { messageId, isPinned, pinnedBy, conversationId } = data
+      setPinnedMessages({ messageId, isPinned, pinnedBy, conversationId })
+    })
+
+    connection.on("UserReadConversation", (conversationId: number, userId: number) => {
+      setLastReadUpdate({ conversationId, userId })
+    })
+
+    connection.on("ReminderTriggered", (data: { conversationId: number, content: string }) => {
+      // Use toast or similar
+      toast.info(`🔔 NHẮC NHỞ: ${data.content}`, {
+        duration: 10000,
+        action: {
+          label: 'Xem',
+          onClick: () => {
+             // Handle navigation if needed
+          }
+        }
+      })
+    })
+
+    connection.onreconnecting(() => {
+      setIsConnected(false)
+      setIsReconnecting(true)
+    })
+
+    connection.onreconnected(() => {
+      setIsConnected(true)
+      setIsReconnecting(false)
+    })
+
     connection.start()
       .then(()=>setIsConnected(true))
-      .catch(err=>console.error(err))
+      .catch(err=>{
+        console.error("SignalR Start Error:", err)
+        // Fallback: retry after 5s
+        setTimeout(() => {
+          if (!isConnected) {
+            connection.start().then(() => setIsConnected(true)).catch(() => {})
+          }
+        }, 5000)
+      })
 
     connectionRef.current = connection
 
@@ -216,13 +271,33 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const sendSticker = useCallback(async(conversationId: number, stickerUrl: string) => {
+    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+      await connectionRef.current.invoke('SendSticker', conversationId, stickerUrl)
+    }
+  }, [])
+
+  const togglePinMessage = useCallback(async(messageId: number) => {
+    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+      await connectionRef.current.invoke('TogglePinMessage', messageId)
+    }
+  }, [])
+
+  const sendReminder = useCallback(async(conversationId: number, content: string, remindAtIso: string) => {
+    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+      await connectionRef.current.invoke('SendReminder', conversationId, content, remindAtIso)
+    }
+  }, [])
+
   return (
     <SignalRContext.Provider
       value={{
         isConnected,
+        isReconnecting,
         sendMessage,
         sendNotification,
         lastMessage,
+        lastReadUpdate,
         notifications,
         onlineUsers,
         incomingCall,
@@ -234,6 +309,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         sendTyping,
         typingUsers,
         lastUserUpdate,
+        sendSticker,
+        togglePinMessage,
+        sendReminder,
+        pinnedMessages,
+        onTriggeredReminder: (cb: any) => {}, // Placeholder as we use toast internally now
       }}
     >
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { cn, getAvatarUrl } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { conversationsApi } from '@/lib/api'
@@ -47,7 +47,16 @@ import {
   MessageSquare,
   Trash,
   LogOut,
+  ChevronDown,
+  Check,
+  CheckCheck,
 } from 'lucide-react'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import type { Conversation } from '@/app/chat/page'
 
@@ -67,6 +76,9 @@ interface Message {
     fileSize: number
     mimeType: string
   }>
+  stickerUrl?: string
+  isPinned?: boolean
+  readBy?: number[]
 }
 
 import { attachmentsApi, meetingsApi } from '@/lib/api'
@@ -97,7 +109,20 @@ export function ChatArea({
 }: ChatAreaProps) {
   const router = useRouter()
   const { token, user } = useAuth()
-  const { sendMessage, lastMessage, isConnected, lastUserUpdate, sendTyping, typingUsers } = useSignalR()
+  const { 
+    sendMessage, 
+    lastMessage, 
+    isConnected, 
+    isReconnecting,
+    lastReadUpdate,
+    lastUserUpdate, 
+    sendTyping, 
+    typingUsers, 
+    sendSticker,
+    togglePinMessage,
+    sendReminder,
+    pinnedMessages
+  } = useSignalR()
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -107,6 +132,18 @@ export function ChatArea({
   const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+
+  const pinnedList = useMemo(() => messages.filter(m => m.isPinned), [messages])
+  const latestPin = pinnedList[pinnedList.length - 1]
+
+  const scrollToMessage = useCallback((msgId: number) => {
+    const el = document.getElementById(`message-${msgId}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.classList.add('bg-primary/20')
+      setTimeout(() => el.classList.remove('bg-primary/20'), 2000)
+    }
+  }, [])
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -158,6 +195,9 @@ export function ChatArea({
           senderName: d.senderName ?? d.SenderName,
           avatarPath: d.avatarPath ?? d.AvatarPath,
           attachments: d.attachments ?? d.Attachments,
+          readBy: d.readBy ?? d.ReadBy ?? [],
+          stickerUrl: d.stickerUrl ?? d.StickerUrl,
+          isPinned: d.isPinned ?? d.IsPinned,
         }))
         setMessages(mappedMessages)
       } catch (error) {
@@ -186,10 +226,38 @@ export function ChatArea({
         senderName: lastMessage.sender,
         avatarPath: lastMessage.avatarPath,
         attachments: lastMessage.attachments || [],
+        stickerUrl: lastMessage.stickerUrl,
+        isPinned: lastMessage.isPinned,
+        readBy: [],
       }
       return [...prev, newMsg]
     })
   }, [lastMessage, conversation])
+
+  // Handle pinned status updates
+  useEffect(() => {
+    if (!pinnedMessages || !conversation || pinnedMessages.conversationId !== conversation.id) return
+    
+    setMessages(prev => prev.map(m => {
+      if (m.id === pinnedMessages.messageId) {
+        return { ...m, isPinned: pinnedMessages.isPinned }
+      }
+      return m
+    }))
+  }, [pinnedMessages, conversation])
+
+  // Handle read updates
+  useEffect(() => {
+    if (!lastReadUpdate || !conversation || lastReadUpdate.conversationId !== conversation.id) return
+    
+    setMessages(prev => prev.map(m => {
+      // If user read the conversation, all messages seen by them
+      if (m.senderId !== lastReadUpdate.userId && !m.readBy?.includes(lastReadUpdate.userId)) {
+        return { ...m, readBy: [...(m.readBy || []), lastReadUpdate.userId] }
+      }
+      return m
+    }))
+  }, [lastReadUpdate, conversation])
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -304,8 +372,9 @@ export function ChatArea({
   }
 
   const formatMessageTime = (dateString: string) => {
+    console.log("Server time:", dateString)
     const date = new Date(dateString)
-    return isNaN(date.getTime()) ? '...' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    return isNaN(date.getTime()) ? '...' : date.toLocaleTimeString()
   }
 
   const formatMessageDate = (dateString: string) => {
@@ -427,48 +496,75 @@ export function ChatArea({
               </Tooltip>
             )}
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreVertical className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="z-[9999]">
-                <DropdownMenuItem onClick={() => toast.info('Tính năng đang được phát triển')}>
-                  Group Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {(user?.role === 'Admin' || conversation.createdBy === user?.id) && (
+            {conversation.type === 'Group' && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreVertical className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="z-[9999]">
+                  <DropdownMenuItem onClick={() => toast.info('Tính năng đang được phát triển')}>
+                    Group Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {(user?.role === 'Admin' || conversation.createdBy === user?.id) && (
+                    <DropdownMenuItem className="text-destructive" onClick={async () => {
+                      if (confirm('Are you sure you want to disband this group?')) {
+                        try {
+                          await conversationsApi.disband(token!, conversation.id)
+                          toast.success('Group disbanded')
+                          window.location.reload()
+                        } catch (e) { toast.error('Failed to disband') }
+                      }
+                    }}>
+                      <Trash className="mr-2 h-4 w-4" />
+                      Disband Group
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem className="text-destructive" onClick={async () => {
-                    if (confirm('Are you sure you want to disband this group?')) {
+                    if (confirm('Are you sure you want to leave this group?')) {
                       try {
-                        await conversationsApi.disband(token!, conversation.id)
-                        toast.success('Group disbanded')
+                        await conversationsApi.leave(token!, conversation.id, user!.id)
+                        toast.success('Left group')
                         window.location.reload()
-                      } catch (e) { toast.error('Failed to disband') }
+                      } catch (e) { toast.error('Failed to leave') }
                     }
                   }}>
-                    <Trash className="mr-2 h-4 w-4" />
-                    Disband Group
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Leave Group
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuItem className="text-destructive" onClick={async () => {
-                  if (confirm('Are you sure you want to leave this group?')) {
-                    try {
-                      await conversationsApi.leave(token!, conversation.id, user!.id)
-                      toast.success('Left group')
-                      window.location.reload()
-                    } catch (e) { toast.error('Failed to leave') }
-                  }
-                }}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Leave Group
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </TooltipProvider>
         </div>
       </header>
+
+      {/* Reconnecting Banner */}
+      {isReconnecting && (
+        <div className="bg-yellow-500/10 border-b border-yellow-500/20 py-1.5 px-4 flex items-center justify-center gap-2 text-[10px] font-bold text-yellow-600 dark:text-yellow-400 uppercase tracking-widest animate-pulse">
+          <div className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          Mất kết nối. Đang kết nối lại...
+        </div>
+      )}
+
+      {/* Pinned Message Bar */}
+      {latestPin && (
+        <div 
+          onClick={() => scrollToMessage(latestPin.id)}
+          className="bg-primary/5 border-b border-primary/10 py-2 px-4 flex items-center gap-3 cursor-pointer hover:bg-primary/10 transition-colors group"
+        >
+          <Hash className="h-4 w-4 text-primary shrink-0 transition-transform group-hover:scale-110" />
+          <div className="flex-1 min-w-0">
+            <p className="text-[9px] font-black text-primary uppercase tracking-[0.15em] mb-0.5 opacity-80">Tin nhắn đã ghim</p>
+            <p className="text-xs text-sidebar-foreground truncate font-medium">
+              {latestPin.stickerUrl ? '[Sticker]' : latestPin.encryptedContent}
+            </p>
+          </div>
+          <ChevronDown className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 min-h-0 relative z-10">
@@ -519,6 +615,7 @@ export function ChatArea({
                         return (
                           <div
                             key={msg.id}
+                            id={`message-${msg.id}`}
                             className={cn(
                               'flex gap-3 group',
                               isOwn && 'flex-row-reverse'
@@ -591,10 +688,32 @@ export function ChatArea({
                                       )
                                     })
                                   ) : null}
-                                  {msg.encryptedContent && msg.encryptedContent !== '[Attachment]' && (
+                                  {msg.stickerUrl ? (
+                                    <img 
+                                      src={msg.stickerUrl} 
+                                      alt="sticker" 
+                                      className="w-32 h-32 object-contain" 
+                                      loading="lazy"
+                                      decoding="async"
+                                    />
+                                  ) : msg.messageType === 'Reminder' ? (
+                                    <div className="bg-primary/5 p-3 rounded-xl border-l-4 border-primary space-y-2">
+                                      <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
+                                        <Phone className="h-3 w-3" />
+                                        Nhắc nhở
+                                      </p>
+                                      <p className="text-sm italic">{msg.encryptedContent}</p>
+                                    </div>
+                                  ) : msg.encryptedContent && msg.encryptedContent !== '[Attachment]' && (
                                     <p className="text-sm whitespace-pre-wrap wrap-break-word">
                                       {msg.encryptedContent}
                                     </p>
+                                  )}
+                                  {msg.isPinned && (
+                                    <div className="flex items-center gap-1 mt-1 opacity-60">
+                                      <Hash className="h-3 w-3 text-primary" />
+                                      <span className="text-[10px] font-medium">Pinned</span>
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -607,16 +726,55 @@ export function ChatArea({
                                 <span className="text-[10px] text-muted-foreground">
                                   {formatMessageTime(msg.createdAt)}
                                 </span>
-                                {/* Action buttons on hover */}
+                                {isOwn && (
+                                  <div className="flex ml-0.5">
+                                    {msg.readBy && msg.readBy.length > 0 ? (
+                                      <CheckCheck className="h-2.5 w-2.5 text-primary" />
+                                    ) : isConnected ? (
+                                      <CheckCheck className="h-2.5 w-2.5 text-muted-foreground/30" />
+                                    ) : (
+                                      <Check className="h-2.5 w-2.5 text-muted-foreground/30" />
+                                    )}
+                                  </div>
+                                )}
+                                 {/* Action buttons on hover */}
                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6"
-                                    onClick={() => setReplyingTo(msg)}
-                                  >
-                                    <Reply className="h-3 w-3" />
-                                  </Button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                                        <MoreVertical className="h-3 w-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align={isOwn ? 'end' : 'start'} className="z-[9999]">
+                                      <DropdownMenuItem onClick={() => setReplyingTo(msg)}>
+                                        <Reply className="mr-2 h-4 w-4" />
+                                        Trả lời
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => {
+                                        togglePinMessage(msg.id)
+                                        toast.success(msg.isPinned ? 'Unpinned' : 'Pinned message')
+                                      }}>
+                                        <Hash className="mr-2 h-4 w-4" />
+                                        {msg.isPinned ? 'Bỏ Ghim' : 'Ghim tin nhắn'}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => {
+                                        sendReminder(conversation.id, `Remind: ${msg.encryptedContent.substring(0, 30)}...`, new Date(Date.now() + 3600000).toISOString())
+                                        toast.success('Reminder set for 1 hour later')
+                                      }}>
+                                        <Phone className="mr-2 h-4 w-4" />
+                                        Nhắc tôi (1 giờ)
+                                      </DropdownMenuItem>
+                                      {isOwn && (
+                                        <>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem className="text-destructive">
+                                            <Trash className="mr-2 h-4 w-4" />
+                                            Xoá tin nhắn
+                                          </DropdownMenuItem>
+                                        </>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </div>
                             </div>
@@ -722,22 +880,55 @@ export function ChatArea({
                 <Smile className="h-5 w-5" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-64 p-2 shadow-xl border-sidebar-border" align="end">
-              <div className="grid grid-cols-6 gap-1">
-                {['😊', '😂', '❤️', '👍', '🔥', '🎉', '😢', '😮', '😡', '🤔', '👏', '🙏'].map(
-                  (emoji) => (
-                    <Button
-                      key={emoji}
-                      variant="ghost"
-                      size="sm"
-                      className="text-lg h-8 w-8 p-0 hover:bg-muted"
-                      onClick={() => setNewMessage((prev) => prev + emoji)}
-                    >
-                      {emoji}
-                    </Button>
-                  )
-                )}
-              </div>
+            <PopoverContent className="w-80 p-0 shadow-xl border-sidebar-border" align="end">
+              <Tabs defaultValue="emojis">
+                <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 px-2">
+                  <TabsTrigger value="emojis" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary py-2 text-xs">Emojis</TabsTrigger>
+                  <TabsTrigger value="stickers" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary py-2 text-xs">Stickers</TabsTrigger>
+                </TabsList>
+                <TabsContent value="emojis" className="p-2 mt-0">
+                  <div className="grid grid-cols-8 gap-1">
+                    {['😊', '😂', '❤️', '👍', '🔥', '🎉', '😢', '😮', '😡', '🤔', '👏', '🙏', '💯', '✨', '🙌', '✅'].map(
+                      (emoji) => (
+                        <Button
+                          key={emoji}
+                          variant="ghost"
+                          size="sm"
+                          className="text-lg h-9 w-9 p-0 hover:bg-muted"
+                          onClick={() => setNewMessage((prev) => prev + emoji)}
+                        >
+                          {emoji}
+                        </Button>
+                      )
+                    )}
+                  </div>
+                </TabsContent>
+                <TabsContent value="stickers" className="p-2 mt-0">
+                  <div className="grid grid-cols-4 gap-2 max-h-48 overflow-y-auto pr-1">
+                    {[
+                      'https://fonts.gstatic.com/s/e/notoemoji/latest/1f600/512.webp',
+                      'https://fonts.gstatic.com/s/e/notoemoji/latest/1f60d/512.webp',
+                      'https://fonts.gstatic.com/s/e/notoemoji/latest/1f602/512.webp',
+                      'https://fonts.gstatic.com/s/e/notoemoji/latest/1f618/512.webp',
+                      'https://fonts.gstatic.com/s/e/notoemoji/latest/1f947/512.webp',
+                      'https://fonts.gstatic.com/s/e/notoemoji/latest/1f389/512.webp',
+                      'https://fonts.gstatic.com/s/e/notoemoji/latest/1f525/512.webp',
+                      'https://fonts.gstatic.com/s/e/notoemoji/latest/1f44d/512.webp',
+                    ].map((url, idx) => (
+                      <div 
+                        key={idx} 
+                        className="aspect-square flex items-center justify-center p-2 rounded-lg hover:bg-muted cursor-pointer transition-transform active:scale-95 border"
+                        onClick={() => {
+                          if (conversation) sendSticker(conversation.id, url)
+                          toast.success('Sticker sent!')
+                        }}
+                      >
+                        <img src={url} alt="sticker" className="w-full h-full object-contain" loading="lazy" />
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </PopoverContent>
           </Popover>
 

@@ -67,6 +67,7 @@ export function ChatSidebar({
   const [isSearchingUsers, setIsSearchingUsers] = useState(false)
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchMode, setSearchMode] = useState<'chat' | 'global'>('chat')
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -95,11 +96,11 @@ export function ChatSidebar({
     (conv.lastMessage?.encryptedContent || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const filteredUsers = searchQuery.length >= 2 
+  const filteredUsers = searchQuery.length >= 1 && searchMode === 'global'
     ? Array.from(new Map(allUsers.filter(u => 
         (u.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (u.username || '').toLowerCase().includes(searchQuery.toLowerCase())
-      ).filter(u => !conversations.some(c => c.otherUserId === u.id)).map(u => [u.id, u])).values())
+      ).filter(u => !conversations.some(c => c.otherUserId === u.id && c.type === 'Private')).map(u => [u.id, u])).values())
     : []
 
   const privateChats = Array.from(new Map(
@@ -111,10 +112,22 @@ export function ChatSidebar({
   const handleStartPrivateChat = async (userId: number) => {
     try {
       if (!token) return
-      await conversationsApi.createPrivate(token, userId)
-      window.location.reload()
+      const resp = await conversationsApi.createPrivate(token, userId)
+      if (resp && resp.id) {
+        // Find if we already have it in state
+        const existing = conversations.find(c => c.id === resp.id)
+        if (existing) {
+          onSelectConversation(existing)
+        } else {
+          // If totally new, we might need to reload or get new list
+          window.location.reload()
+        }
+        setSearchQuery('')
+        setSearchMode('chat')
+      }
     } catch (e) {
-      console.error(e)
+      console.error('Failed to start private chat:', e)
+      toast.error('Could not start private chat')
     }
   }
 
@@ -129,15 +142,16 @@ export function ChatSidebar({
 
   const formatTime = (dateString: string) => {
     if (!dateString) return ''
+    console.log("Server time:", dateString)
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return '...'
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
 
-    if (days === 0) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } else if (days === 1) {
+    if (days === 0 && date.getDate() === now.getDate()) {
+      return date.toLocaleTimeString()
+    } else if (days === 1 || (days === 0 && date.getDate() !== now.getDate())) {
       return 'Yesterday'
     } else if (days < 7) {
       return date.toLocaleDateString([], { weekday: 'short' })
@@ -177,15 +191,39 @@ export function ChatSidebar({
         </div>
       </div>
 
-      {/* Search */}
-      <div className="p-3">
+      {/* Search & Modes */}
+      <div className="p-3 space-y-2">
+        <div className="flex bg-sidebar-accent rounded-lg p-0.5">
+          <button
+            onClick={() => setSearchMode('chat')}
+            className={cn(
+              "flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+              searchMode === 'chat' 
+                ? "bg-sidebar shadow-sm text-sidebar-foreground" 
+                : "text-sidebar-foreground/40 hover:text-sidebar-foreground"
+            )}
+          >
+            Chats
+          </button>
+          <button
+            onClick={() => setSearchMode('global')}
+            className={cn(
+              "flex-1 px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+              searchMode === 'global' 
+                ? "bg-sidebar shadow-sm text-sidebar-foreground" 
+                : "text-sidebar-foreground/40 hover:text-sidebar-foreground"
+            )}
+          >
+            People
+          </button>
+        </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/40" />
           <Input
-            placeholder="Search chats or people..."
+            placeholder={searchMode === 'chat' ? "Search chats..." : "Search all people..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-sidebar-accent border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/40"
+            className="pl-9 bg-sidebar-accent border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/40 h-9"
           />
         </div>
       </div>
@@ -199,95 +237,94 @@ export function ChatSidebar({
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Groups section */}
-            {groupChats.length > 0 && (
-              <div className="space-y-1">
-                <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2 mt-4">👥 Groups</p>
-                {groupChats.map((conv) => (
-                  <ConversationItem
-                    key={conv.id}
-                    conversation={conv}
-                    isSelected={selectedConversation?.id === conv.id}
-                    onClick={() => onSelectConversation(conv)}
-                    formatTime={formatTime}
-                    getInitials={getInitials}
-                    isOnline={false}
-                    unreadCount={unreadCounts[conv.id] || 0}
-                  />
-                ))}
-              </div>
-            )}
+            {searchMode === 'chat' ? (
+              <>
+                {/* Groups section */}
+                {groupChats.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2 mt-4">👥 Groups</p>
+                    {groupChats.map((conv) => (
+                      <ConversationItem
+                        key={conv.id}
+                        conversation={conv}
+                        isSelected={selectedConversation?.id === conv.id}
+                        onClick={() => onSelectConversation(conv)}
+                        formatTime={formatTime}
+                        getInitials={getInitials}
+                        isOnline={false}
+                        unreadCount={unreadCounts[conv.id] || 0}
+                      />
+                    ))}
+                  </div>
+                )}
 
-            {/* Private Chats section */}
-            {privateChats.length > 0 && (
-              <div className="space-y-1">
-                <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2 mt-4">💬 Private</p>
-                {privateChats.map((conv) => (
-                  <ConversationItem
-                    key={conv.id}
-                    conversation={conv}
-                    isSelected={selectedConversation?.id === conv.id}
-                    onClick={() => onSelectConversation(conv)}
-                    formatTime={formatTime}
-                    getInitials={getInitials}
-                    isOnline={conv.otherUserId ? onlineUsers.has(conv.otherUserId) || (conv.otherUserId === user?.id) : false}
-                    unreadCount={unreadCounts[conv.id] || 0}
-                  />
-                ))}
-              </div>
-            )}
+                {/* Private Chats section */}
+                {privateChats.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2 mt-4">💬 Private</p>
+                    {privateChats.map((conv) => (
+                      <ConversationItem
+                        key={conv.id}
+                        conversation={conv}
+                        isSelected={selectedConversation?.id === conv.id}
+                        onClick={() => onSelectConversation(conv)}
+                        formatTime={formatTime}
+                        getInitials={getInitials}
+                        isOnline={conv.otherUserId ? onlineUsers.has(conv.otherUserId) || (conv.otherUserId === user?.id) : false}
+                        unreadCount={unreadCounts[conv.id] || 0}
+                      />
+                    ))}
+                  </div>
+                )}
 
-            {/* Empty state if nothing found yet and no search */}
-            {!searchQuery && groupChats.length === 0 && privateChats.length === 0 && (
-              <div className="py-20 text-center px-4">
-                <p className="text-sm text-sidebar-foreground/40 italic">No conversations yet.</p>
-                <p className="text-xs text-sidebar-foreground/20 mt-1">Search for people to start a chat!</p>
-              </div>
-            )}
+                {conversations.length === 0 && !searchQuery && (
+                  <div className="py-20 text-center px-4">
+                    <p className="text-sm text-sidebar-foreground/40 italic">No conversations yet.</p>
+                    <p className="text-xs text-sidebar-foreground/20 mt-1">Switch to "People" to find someone!</p>
+                  </div>
+                )}
 
-            {/* People search results */}
-            {searchQuery && filteredUsers.length > 0 && (
+                {searchQuery && groupChats.length === 0 && privateChats.length === 0 && (
+                   <div className="py-10 text-center px-4">
+                    <p className="text-sm text-sidebar-foreground/40 italic">No chats matching "{searchQuery}"</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* Global People Search results */
               <div className="space-y-1 pt-2">
-                <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2">Find People</p>
-                {filteredUsers.map((u) => (
-                  <button
-                    key={u.id}
-                    onClick={() => handleStartPrivateChat(u.id)}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-sidebar-accent transition-colors text-left group"
-                  >
-                    <div className="relative">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={u.avatarPath} />
-                        <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground text-xs">
-                          {getInitials(u.fullName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      {onlineUsers.has(u.id) && (
-                        <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-online border-2 border-sidebar" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{u.fullName}</p>
-                      <p className="text-[10px] text-sidebar-foreground/40 truncate">@{u.username}</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {searchQuery && filteredConversations.length === 0 && filteredUsers.length === 0 && (
-              <div className="py-20 text-center">
-                <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-sidebar-accent mb-3">
-                  <Search className="h-6 w-6 text-sidebar-foreground/20" />
-                </div>
-                <p className="text-sm text-sidebar-foreground/60">No results found for "{searchQuery}"</p>
-              </div>
-            )}
-
-            {!searchQuery && conversations.length === 0 && (
-              <div className="py-20 text-center">
-                <p className="text-sm text-sidebar-foreground/60">No conversations yet</p>
-                <p className="text-xs text-sidebar-foreground/40 mt-1">Search for people to start a chat</p>
+                <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2">Global Search</p>
+                {filteredUsers.length > 0 ? (
+                  filteredUsers.map((u) => (
+                    <button
+                      key={u.id}
+                      onClick={() => handleStartPrivateChat(u.id)}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-sidebar-accent transition-colors text-left group"
+                    >
+                      <div className="relative">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={u.avatarPath} />
+                          <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground text-xs">
+                            {getInitials(u.fullName || u.username)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {onlineUsers.has(u.id) && (
+                          <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-sidebar bg-online" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{u.fullName || u.username}</p>
+                        <p className="text-[10px] text-sidebar-foreground/40 truncate italic">Start messaging...</p>
+                      </div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="py-20 text-center px-4">
+                    <p className="text-sm text-sidebar-foreground/40 italic">
+                      {searchQuery ? `No users found matching "${searchQuery}"` : "Search for users across the organization"}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -326,12 +363,12 @@ export function ChatSidebar({
               <ThemeToggle />
             </div>
             <DropdownMenuSeparator />
-            <Link href="/dashboard/settings" className="w-full">
-              <DropdownMenuItem className="cursor-pointer">
+            <DropdownMenuItem asChild className="cursor-pointer">
+              <Link href="/dashboard/settings" className="w-full flex items-center">
                 <UserIcon className="mr-2 h-4 w-4" />
                 Edit Profile
-              </DropdownMenuItem>
-            </Link>
+              </Link>
+            </DropdownMenuItem>
             
             {(user?.role === 'Admin' || user?.role === 'Manager') && (
               <DropdownMenuItem 
