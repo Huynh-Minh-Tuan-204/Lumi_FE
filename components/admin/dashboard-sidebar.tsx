@@ -106,23 +106,15 @@ export function DashboardSidebar() {
         </nav>
       </ScrollArea>
 
-      <div className="border-t border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sidebar-accent">
-            <span className="text-sm font-medium">
-              {user?.fullName
-                ?.split(' ')
-                .map((n) => n[0])
-                .join('')
-                .toUpperCase()
-                .slice(0, 2) || 'U'}
-            </span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium truncate text-sidebar-foreground">{user?.fullName}</p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">{user?.role}</p>
-          </div>
-        </div>
+      <div className="p-4 border-t border-sidebar-border mt-auto">
+        <Button 
+          variant="ghost" 
+          onClick={logout} 
+          className="w-full justify-start gap-3 hover:bg-destructive/10 hover:text-destructive text-sidebar-foreground/80"
+        >
+          <LogOut className="h-5 w-5" />
+          <span className="font-medium">Sign Out</span>
+        </Button>
       </div>
     </div>
   )
