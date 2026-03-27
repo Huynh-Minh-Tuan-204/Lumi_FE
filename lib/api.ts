@@ -276,27 +276,28 @@ export const adminApi = {
       '/Announcements',
       { token }
     ),
-sendAnnouncement: async (token: string, message: string) => {
-  const res = await fetch(`${API_BASE_URL}/Announcements`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      "ngrok-skip-browser-warning": "true",
-    },
-    body: JSON.stringify({
-      Message: message
-    }),
-  });
+  sendAnnouncement: async (token: string, message: string, userIds?: number[]) => {
+    const res = await fetch(`${API_BASE_URL}/Announcements`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true",
+      },
+      body: JSON.stringify({
+        Message: message,
+        UserIds: userIds || [] // Empty array or null usually means broadcast all on backend
+      }),
+    });
 
-  if (!res.ok) {
-  const text = await res.text();
-  console.error("Announcement API error:", text);
-  throw new Error(text || "Failed to send announcement");
-}
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("Announcement API error:", text);
+      throw new Error(text || "Failed to send announcement");
+    }
 
-  return res.json();
-},
+    return res.json();
+  },
   getMyConversations: (token: string) =>
     request<AdminConversationResponse[]>('/Admin/my-conversations', { token }),
 

@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context'
 import { adminApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -34,16 +35,34 @@ export default function NotificationsPage() {
   const [newAnnouncement, setNewAnnouncement] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
+  const [targetType, setTargetType] = useState<'all' | 'specific'>('all')
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([])
+  const [allUsers, setAllUsers] = useState<any[]>([])
 
   useEffect(() => {
     loadAnnouncements()
+    loadUsers()
   }, [token])
+
+  const loadUsers = async () => {
+    if (!token) return
+    try {
+      const data = await adminApi.getAllUsers(token)
+      setAllUsers(data)
+    } catch (e) {}
+  }
 
   const loadAnnouncements = async () => {
     if (!token) return
     try {
       const data = await adminApi.getAnnouncements(token)
-      setAnnouncements(data)
+      const mapped = data.map(a => ({
+        sender: a.senderName || '📢 HỆ THỐNG',
+        message: a.message,
+        isSystem: true,
+        time: a.timestamp
+      }))
+      setAnnouncements(mapped)
     } catch (error) {
       console.error('Failed to load announcements:', error)
       toast.error('Failed to load announcements')
@@ -57,9 +76,14 @@ export default function NotificationsPage() {
 
     setIsSending(true)
     try {
-      await adminApi.sendAnnouncement(token, newAnnouncement);
+      await adminApi.sendAnnouncement(
+        token, 
+        newAnnouncement, 
+        targetType === 'all' ? undefined : selectedUserIds
+      );
       toast.success('Announcement sent successfully')
       setNewAnnouncement('')
+      setSelectedUserIds([])
       // Reload announcements to show the new one
       await loadAnnouncements()
     } catch (error) {
@@ -116,44 +140,102 @@ export default function NotificationsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="announcement">Message</Label>
-                <Textarea
-                  id="announcement"
-                  placeholder="Type your announcement here..."
-                  value={newAnnouncement}
-                  onChange={(e) => setNewAnnouncement(e.target.value)}
-                  rows={4}
-                  className="resize-none"
-                />
+              <div className="space-y-4 pt-1">
+                <div className="flex bg-muted p-1 rounded-lg">
+                  <button 
+                    onClick={() => setTargetType('all')}
+                    className={cn(
+                      "flex-1 px-3 py-1.5 text-xs font-bold uppercase tracking-widest rounded-md transition-all",
+                      targetType === 'all' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Send to All
+                  </button>
+                  <button 
+                    onClick={() => setTargetType('specific')}
+                    className={cn(
+                      "flex-1 px-3 py-1.5 text-xs font-bold uppercase tracking-widest rounded-md transition-all",
+                      targetType === 'specific' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    Specific Users
+                  </button>
+                </div>
+
+                {targetType === 'specific' && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Chọn người nhận ({selectedUserIds.length})</Label>
+                    <ScrollArea className="h-40 border rounded-lg p-2 bg-muted/20">
+                      <div className="grid grid-cols-2 gap-1">
+                        {allUsers.map((u) => (
+                          <div 
+                            key={u.id}
+                            onClick={() => {
+                              setSelectedUserIds(prev => 
+                                prev.includes(u.id) ? prev.filter(id => id !== u.id) : [...prev, u.id]
+                              )
+                            }}
+                            className={cn(
+                              "flex items-center gap-2 p-2 rounded-md cursor-pointer transition-all border",
+                              selectedUserIds.includes(u.id) 
+                                ? "bg-primary/10 border-primary text-primary" 
+                                : "bg-card border-transparent hover:bg-muted"
+                            )}
+                          >
+                            <Avatar className="h-6 w-6">
+                              <AvatarFallback className="text-[10px] font-bold">
+                                {u.fullName?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs font-medium truncate">{u.fullName}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="announcement" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Message</Label>
+                  <Textarea
+                    id="announcement"
+                    placeholder="Loa loa loa! Nhập nội dung thông báo..."
+                    value={newAnnouncement}
+                    onChange={(e) => setNewAnnouncement(e.target.value)}
+                    rows={4}
+                    className="resize-none font-medium text-sm border-2 focus-visible:ring-primary h-[80px]"
+                  />
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+
+              <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                   {isConnected ? (
                     <>
                       <CheckCircle className="h-3 w-3 text-online" />
-                      <span>Connected to server</span>
+                      <span>Live Connection</span>
                     </>
                   ) : (
                     <>
                       <Clock className="h-3 w-3 text-destructive" />
-                      <span>Reconnecting...</span>
+                      <span>Disconnected</span>
                     </>
                   )}
                 </div>
                 <Button
                   onClick={handleSendAnnouncement}
-                  disabled={!newAnnouncement.trim() || isSending || !isConnected}
+                  disabled={!newAnnouncement.trim() || isSending || !isConnected || (targetType === 'specific' && selectedUserIds.length === 0)}
+                  className="bg-primary hover:bg-primary/90 text-white font-bold h-11 px-6 shadow-lg shadow-primary/20"
                 >
                   {isSending ? (
-                    <span className="flex items-center">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent mr-2" />
-                      Sending...
+                    <span className="flex items-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      Loađing...
                     </span>
                   ) : (
                     <>
                       <Send className="h-4 w-4 mr-2" />
-                      Send to All
+                      BẮT ĐẦU GỬI
                     </>
                   )}
                 </Button>

@@ -73,6 +73,13 @@ export function ChatSidebar({
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [isSearchingUsers, setIsSearchingUsers] = useState(false)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 3
+  
+  const totalPages = Math.ceil(notifications.length / itemsPerPage)
+  const paginatedNotifications = [...notifications]
+    .reverse()
+    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [searchMode, setSearchMode] = useState<'chat' | 'global'>('chat')
@@ -80,6 +87,7 @@ export function ChatSidebar({
   // Count unread notifications (simple client-side logic for now)
   useEffect(() => {
     setUnreadNotifications(notifications.length)
+    setCurrentPage(1) // Reset to first page when new notifications arrive
   }, [notifications])
 
   const handleMarkNotificationsRead = async () => {
@@ -233,8 +241,8 @@ export function ChatSidebar({
                 </span>
               )}
             </div>
-            <ScrollArea className="max-h-[70vh]">
-              <div className="divide-y divide-sidebar-border/50">
+            <ScrollArea className="max-h-[400px]">
+              <div className="divide-y divide-sidebar-border/50 min-h-[200px]">
                 {notifications.length === 0 ? (
                   <div className="p-10 text-center">
                     <div className="bg-primary/5 h-12 w-12 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -243,7 +251,7 @@ export function ChatSidebar({
                     <p className="text-sm font-medium text-muted-foreground/60">Không có thông báo nào</p>
                   </div>
                 ) : (
-                  [...notifications].reverse().map((n) => (
+                  paginatedNotifications.map((n) => (
                     <div key={n.id} className="p-4 hover:bg-sidebar-accent/50 transition-colors group cursor-default">
                       <div className="flex justify-between items-start gap-3 mb-1.5">
                         <span className="text-[11px] font-black text-primary truncate">
@@ -253,7 +261,7 @@ export function ChatSidebar({
                           {formatTime(n.time.toISOString())}
                         </span>
                       </div>
-                      <p className="text-sm leading-relaxed text-foreground/80 font-medium">
+                      <p className="text-sm leading-relaxed text-foreground/80 font-medium break-words">
                         {n.message}
                       </p>
                     </div>
@@ -261,13 +269,40 @@ export function ChatSidebar({
                 )}
               </div>
             </ScrollArea>
-            {notifications.length > 0 && (
-              <div className="p-3 bg-muted/30 border-t flex justify-center">
-                <Button variant="ghost" size="sm" className="text-[10px] font-bold uppercase tracking-widest h-auto py-2 flex items-center gap-2" onClick={handleMarkNotificationsRead}>
-                  <CheckCheck className="h-3 w-3" /> Đánh dấu đã đọc
-                </Button>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 p-3 bg-muted/20 border-t">
+                 <Button 
+                   variant="ghost" 
+                   size="sm" 
+                   className="h-7 w-7 p-0" 
+                   disabled={currentPage === 1}
+                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                 >
+                   &lt;
+                 </Button>
+                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-2">
+                   Trang {currentPage} | {totalPages}
+                 </span>
+                 <Button 
+                   variant="ghost" 
+                   size="sm" 
+                   className="h-7 w-7 p-0" 
+                   disabled={currentPage === totalPages}
+                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                 >
+                   &gt;
+                 </Button>
               </div>
             )}
+
+            <div className="p-3 bg-muted/30 border-t flex flex-col gap-2">
+              {notifications.length > 0 && (
+                <Button variant="ghost" size="sm" className="w-full text-[10px] font-bold uppercase tracking-widest h-auto py-2 flex items-center gap-2" onClick={handleMarkNotificationsRead}>
+                  <CheckCheck className="h-3 w-3" /> Đánh dấu đã đọc
+                </Button>
+              )}
+            </div>
           </PopoverContent>
         </Popover>
       </div>
