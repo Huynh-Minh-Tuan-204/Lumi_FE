@@ -64,8 +64,10 @@ export default function ChatPage() {
   }, [token]) // removed selectedConversation from dependencies
 
   useEffect(() => {
-    loadConversations()
-  }, [loadConversations])
+    if (token) {
+      loadConversations()
+    }
+  }, [token]) // Only reload when token changes (login/logout/refresh)
 
   useEffect(() => {
     if (lastGroupUpdate) {

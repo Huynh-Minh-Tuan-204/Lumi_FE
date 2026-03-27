@@ -72,6 +72,34 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!token) return
 
+    // Fetch notifications history
+    const fetchHistory = async () => {
+      try {
+        const url = process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api';
+        const response = await fetch(`${url}/Announcements`, {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'ngrok-skip-browser-warning': 'true'
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const mapped = data.map((n: any) => ({
+            id: n.id || Math.random(),
+            sender: n.senderName || 'System',
+            message: n.message,
+            time: new Date(n.timestamp || Date.now()),
+            isSystem: true
+          }));
+          setNotifications(mapped);
+        }
+      } catch (e) {
+        console.error("Failed to fetch notification history", e);
+      }
+    }
+
+    fetchHistory();
+
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(HUB_URL,{
         accessTokenFactory:()=>token,
