@@ -6,7 +6,8 @@ export function getAvatarUrl(path?: string) {
   // Check if it's already an absolute URL
   if (path.startsWith('http')) return path;
   
-  const baseUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/api\/?$/, '');
+  const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api';
+  const baseUrl = rawUrl.replace(/\/api\/?$/, '');
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   
   // Use a stable cache buster if not already provided

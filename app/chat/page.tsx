@@ -47,20 +47,21 @@ export default function ChatPage() {
       })
       setUnreadCounts(initialUnreads)
 
-      // If we have a selected conversation, update it from the new list too
-      if (selectedConversation) {
-        const updated = data.find(c => c.id === selectedConversation.id)
-        if (updated) setSelectedConversation(updated)
-      } else if (data.length > 0 && !selectedConversation) {
-        setSelectedConversation(data[0])
-      }
+      // Update selected conversation metadata or set initial one
+      setSelectedConversation(prev => {
+        if (prev) {
+          const updated = data.find(c => c.id === prev.id)
+          return updated || prev
+        }
+        return data.length > 0 ? data[0] : null
+      })
 
     } catch (error) {
       console.error('Failed to load conversations:', error)
     } finally {
       setIsLoadingConversations(false)
     }
-  }, [token, selectedConversation])
+  }, [token]) // removed selectedConversation from dependencies
 
   useEffect(() => {
     loadConversations()
