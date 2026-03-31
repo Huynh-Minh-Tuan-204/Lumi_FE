@@ -11,7 +11,9 @@ export default function HomePage() {
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && user) {
-      if (user.role === 'Admin') {
+      if (user.isFirstLogin) {
+        router.push('/change-password')
+      } else if (user.role === 'Admin') {
         router.push('/dashboard')
       } else {
         router.push('/chat')

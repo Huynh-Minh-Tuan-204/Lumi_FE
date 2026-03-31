@@ -98,6 +98,7 @@ export interface TokenResponseDto {
 export interface LoginResponse {
   accessToken: string
   refreshToken: string
+  isFirstLogin: boolean
   message: string
 }
 
@@ -109,6 +110,7 @@ export interface AuthMeResponse {
   employeeCode: string
   avatarPath: string
   role: string
+  isFirstLogin: boolean
 }
 
 export interface AdminUserResponse {
@@ -237,6 +239,13 @@ export const authApi = {
       return res.json() as Promise<{ avatarPath: string }>;
     });
   },
+
+  changePasswordFirstTime: (token: string, oldPassword: string, newPassword: string) =>
+    request<{ message: string }>('/Auth/change-password-first-time', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ OldPassword: oldPassword, NewPassword: newPassword }),
+    }),
 }
 
 // ========== Admin API (api/Admin/*) ==========

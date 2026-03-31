@@ -11,6 +11,7 @@ export interface User {
   employeeCode: string
   avatarPath: string
   role: 'Admin' | 'Manager' | 'Employee'
+  isFirstLogin: boolean
 }
 
 interface AuthContextType {
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser({
         ...userData,
         role: userData.role as 'Admin' | 'Manager' | 'Employee',
+        isFirstLogin: userData.isFirstLogin
       })
       setToken(accessToken)
     } catch (err) {

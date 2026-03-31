@@ -9,6 +9,7 @@ import { ChatArea } from '@/components/chat/chat-area'
 import { MembersSidebar } from '@/components/chat/members-sidebar'
 import { MobileNavigation } from '@/components/chat/mobile-navigation'
 import { useSignalR } from '@/hooks/use-signalr'
+import { useRouter } from 'next/navigation'
 
 export interface Conversation {
   id: number
@@ -24,8 +25,15 @@ export interface Conversation {
 }
 
 export default function ChatPage() {
+  const router = useRouter()
   const { token, user } = useAuth()
   const [conversations, setConversations] = useState<Conversation[]>([])
+
+  useEffect(() => {
+    if (user?.isFirstLogin) {
+      router.push('/change-password')
+    }
+  }, [user, router])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [showMobileChat, setShowMobileChat] = useState(false)
   const [showMobileMembers, setShowMobileMembers] = useState(false)
