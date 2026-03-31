@@ -46,6 +46,7 @@ export interface SignalRHookReturn {
   togglePinMessage: (messageId: number) => Promise<void>
   sendReminder: (conversationId: number, content: string, remindAtIso: string) => Promise<void>
   pinnedMessages: { messageId: number, isPinned: boolean, pinnedBy?: number, conversationId: number } | null
+  lastDeletedMessage: { conversationId: number, messageId: number } | null
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -68,6 +69,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [typingUsers, setTypingUsers] = useState<{ conversationId: number, userId: number, userName: string }[]>([])
   const [lastUserUpdate, setLastUserUpdate] = useState<{ userId: number, avatarPath: string } | null>(null)
   const [pinnedMessages, setPinnedMessages] = useState<{ messageId: number, isPinned: boolean, pinnedBy?: number, conversationId: number } | null>(null)
+  const [lastDeletedMessage, setLastDeletedMessage] = useState<{ conversationId: number, messageId: number } | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -232,6 +234,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       setPinnedMessages({ messageId, isPinned, pinnedBy, conversationId })
     })
 
+    connection.on('MessageDeleted', (conversationId: number, messageId: number) => {
+      console.log('SIGNALR: MessageDeleted received', { conversationId, messageId })
+      setLastDeletedMessage({ conversationId, messageId })
+    })
+
     connection.on("UserReadConversation", (conversationId: number, userId: number) => {
       setLastReadUpdate({ conversationId, userId })
     })
@@ -356,6 +363,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         togglePinMessage,
         sendReminder,
         pinnedMessages,
+        lastDeletedMessage,
         onTriggeredReminder: (cb: any) => {}, // Placeholder as we use toast internally now
       }}
     >

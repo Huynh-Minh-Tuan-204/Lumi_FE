@@ -32,7 +32,7 @@ export default function ChatPage() {
   const [showDesktopMembers, setShowDesktopMembers] = useState(false)
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({})
-  const { isConnected, onlineUsers, lastMessage, lastGroupUpdate, lastUserUpdate, markAsRead } = useSignalR()
+  const { isConnected, onlineUsers, lastMessage, lastGroupUpdate, lastUserUpdate, markAsRead, lastDeletedMessage } = useSignalR()
 
   const loadConversations = useCallback(async () => {
     if (!token) return
@@ -115,42 +115,17 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (lastMessage) {
-        // Only increment unread if NOT the current conversation AND not own message
-        const isOwn = lastMessage.senderId === user?.id
-        
-        if (selectedConversation?.id !== lastMessage.conversationId && !isOwn) {
-          setUnreadCounts(prev => ({
-            ...prev,
-            [lastMessage.conversationId]: (prev[lastMessage.conversationId] || 0) + 1
-          }))
-        } else if (selectedConversation?.id === lastMessage.conversationId && !isOwn) {
-          // If we ARE in the conversation, mark it as read immediately on backend
-          markAsRead(lastMessage.conversationId)
-        }
-
-        // Optimistically update conversation list sorting and lastMessage content
-        setConversations(prev => {
-          const newConvs = [...prev]
-          const targetIdx = newConvs.findIndex(c => c.id === lastMessage.conversationId)
-          if (targetIdx !== -1) {
-            newConvs[targetIdx] = {
-              ...newConvs[targetIdx],
-              lastMessage: {
-                encryptedContent: lastMessage.message,
-                createdAt: lastMessage.time.toISOString(),
-                messageType: lastMessage.messageType,
-                senderId: lastMessage.senderId
-              },
-              lastMessageAt: lastMessage.time.toISOString()
-            }
-            // Move to top
-            const target = newConvs.splice(targetIdx, 1)[0]
-            newConvs.unshift(target)
-          }
-          return newConvs
-        })
+        // Instead of optimistic UI, we should probably just reload to be 100% synced or just update state properly.
+        // User wants "đồng bộ với Database", let's reload the counts and lastMessage safely.
+        loadConversations()
     }
-  }, [lastMessage, selectedConversation, user, markAsRead])
+  }, [lastMessage, loadConversations])
+
+  useEffect(() => {
+    if (lastDeletedMessage) {
+      loadConversations()
+    }
+  }, [lastDeletedMessage, loadConversations])
 
   const handleSelectConversation = async (conversation: Conversation) => {
     setSelectedConversation(conversation)

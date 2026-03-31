@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { cn, getAvatarUrl } from '@/lib/utils'
+import { cn, getAvatarUrl, formatToVNTime, formatToVNDate } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { conversationsApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
@@ -397,37 +397,8 @@ export function ChatArea({
       .slice(0, 2)
   }
 
-  const formatMessageTime = (dateString: string) => {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return '...'
-    return date.toLocaleTimeString('vi-VN', { 
-      timeZone: 'Asia/Ho_Chi_Minh',
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
-  const formatMessageDate = (dateString: string) => {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return 'Unknown Date'
-    
-    // Explicitly convert to VN time (UTC+7)
-    const options: Intl.DateTimeFormatOptions = { 
-      timeZone: 'Asia/Ho_Chi_Minh'
-    }
-
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today'
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday'
-    }
-    return date.toLocaleDateString('vi-VN', { ...options, weekday: 'long', month: 'long', day: 'numeric' })
-  }
+  const formatMessageTime = (dateString: string) => formatToVNTime(dateString)
+  const formatMessageDate = (dateString: string) => formatToVNDate(dateString)
 
   // Group messages by date
   const groupedMessages = messages.reduce<Record<string, Message[]>>((acc, msg) => {

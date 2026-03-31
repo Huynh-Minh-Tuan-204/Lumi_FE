@@ -21,7 +21,7 @@ export function MobileNavigation() {
   ]
 
   return (
-    <nav className="flex items-center justify-around border-t bg-card py-2 px-4 safe-bottom">
+    <nav className="flex items-center justify-around border-t bg-background py-2 px-4 safe-bottom">
       {navItems.map((item) => {
         const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
         return (
