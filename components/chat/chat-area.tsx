@@ -442,7 +442,7 @@ export function ChatArea({
       )}
       
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur z-10">
+      <header className="flex items-center justify-between px-4 py-3 bg-background/20 backdrop-blur-md z-10 sticky top-0 border-none shadow-none">
         <div className="flex items-center gap-3">
           {isMobile && onBack && (
             <Button variant="ghost" size="icon" onClick={onBack} className="mr-1">

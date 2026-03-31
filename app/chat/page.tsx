@@ -115,11 +115,17 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (lastMessage) {
-        // Instead of optimistic UI, we should probably just reload to be 100% synced or just update state properly.
-        // User wants "đồng bộ với Database", let's reload the counts and lastMessage safely.
+        const isOwn = lastMessage.senderId === user?.id
+        
+        // If we are already in the conversation, mark it as read on the backend
+        if (selectedConversation?.id === lastMessage.conversationId && !isOwn) {
+          markAsRead(lastMessage.conversationId)
+        }
+        
+        // Refresh conversation list to get latest LastMessage and UnreadCount
         loadConversations()
     }
-  }, [lastMessage, loadConversations])
+  }, [lastMessage, selectedConversation, user, markAsRead, loadConversations])
 
   useEffect(() => {
     if (lastDeletedMessage) {
