@@ -28,12 +28,6 @@ export default function ChatPage() {
   const router = useRouter()
   const { token, user } = useAuth()
   const [conversations, setConversations] = useState<Conversation[]>([])
-
-  useEffect(() => {
-    if (user?.isFirstLogin) {
-      router.push('/change-password')
-    }
-  }, [user, router])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [showMobileChat, setShowMobileChat] = useState(false)
   const [showMobileMembers, setShowMobileMembers] = useState(false)
