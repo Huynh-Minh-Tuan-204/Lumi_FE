@@ -87,10 +87,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           const data = await response.json();
           const mapped = data.map((n: any) => ({
-            id: n.id || Math.random(),
-            sender: n.senderName || 'System',
-            message: n.message,
-            time: new Date(n.timestamp || Date.now()),
+            id: n.Id || n.id || Math.random(),
+            sender: n.SenderName || n.senderName || 'System',
+            message: n.Message || n.message || '',
+            time: new Date(n.Timestamp || n.timestamp || Date.now()),
             isSystem: true
           }));
           setNotifications(mapped);
@@ -152,7 +152,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           senderId: 0,
           sender: sender || 'System',
           message: message,
-          time: new Date(createdAt),
+          time: new Date(createdAt || Date.now()),
           isSystem: isSystem || true
         },
         ...prev
