@@ -144,7 +144,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       });
 
       setNotifications(prev => [
-        ...prev,
         {
           id: id || Date.now(),
           conversationId: 0,
@@ -153,7 +152,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           message: message,
           time: new Date(createdAt),
           isSystem: isSystem || true
-        }
+        },
+        ...prev
       ])
     })
 

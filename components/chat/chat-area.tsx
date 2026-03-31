@@ -398,14 +398,25 @@ export function ChatArea({
   }
 
   const formatMessageTime = (dateString: string) => {
-    console.log("Server time:", dateString)
     const date = new Date(dateString)
-    return isNaN(date.getTime()) ? '...' : date.toLocaleTimeString()
+    if (isNaN(date.getTime())) return '...'
+    return date.toLocaleTimeString('vi-VN', { 
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    })
   }
 
   const formatMessageDate = (dateString: string) => {
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return 'Unknown Date'
+    
+    // Explicitly convert to VN time (UTC+7)
+    const options: Intl.DateTimeFormatOptions = { 
+      timeZone: 'Asia/Ho_Chi_Minh'
+    }
+
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
@@ -415,11 +426,7 @@ export function ChatArea({
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday'
     }
-    return date.toLocaleDateString([], {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-    })
+    return date.toLocaleDateString('vi-VN', { ...options, weekday: 'long', month: 'long', day: 'numeric' })
   }
 
   // Group messages by date
@@ -464,7 +471,7 @@ export function ChatArea({
       )}
       
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b bg-card/95 backdrop-blur z-10">
+      <header className="flex items-center justify-between px-4 py-3 border-b bg-background/95 backdrop-blur z-10">
         <div className="flex items-center gap-3">
           {isMobile && onBack && (
             <Button variant="ghost" size="icon" onClick={onBack} className="mr-1">

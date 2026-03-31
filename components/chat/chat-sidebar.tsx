@@ -78,7 +78,6 @@ export function ChatSidebar({
   
   const totalPages = Math.ceil(notifications.length / itemsPerPage)
   const paginatedNotifications = [...notifications]
-    .reverse()
     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -173,18 +172,25 @@ export function ChatSidebar({
     if (!dateString) return ''
     const date = new Date(dateString)
     if (isNaN(date.getTime())) return '...'
+    
+    // Explicitly convert to VN time (UTC+7)
+    const options: Intl.DateTimeFormatOptions = { 
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour12: false
+    }
+
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
 
     if (days === 0 && date.getDate() === now.getDate()) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      return date.toLocaleTimeString('vi-VN', { ...options, hour: '2-digit', minute: '2-digit' })
     } else if (days === 1 || (days === 0 && date.getDate() !== now.getDate())) {
       return 'Yesterday'
     } else if (days < 7) {
-      return date.toLocaleDateString([], { weekday: 'short' })
+      return date.toLocaleDateString('vi-VN', { ...options, weekday: 'short' })
     }
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+    return date.toLocaleDateString('vi-VN', { ...options, month: 'short', day: 'numeric' })
   }
 
   return (
