@@ -233,7 +233,7 @@ export function ChatArea({
       }
     }
     loadMessages()
-  }, [token, conversation])
+  }, [token, conversation?.id])
 
   // Handle realtime messages
   useEffect(() => {

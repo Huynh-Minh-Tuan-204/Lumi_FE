@@ -142,6 +142,8 @@ export default function ChatPage() {
     if (token) {
       try {
         await conversationsApi.markConversationRead(token, conversation.id)
+        // Ensure local unread is cleared and synced from server
+        loadConversations()
       } catch (e) {}
     }
   }
