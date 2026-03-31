@@ -28,6 +28,8 @@ export const viewport: Viewport = {
   userScalable: false,
 }
 
+import { SecurityGuard } from '@/components/auth/security-guard'
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -38,12 +40,14 @@ export default function RootLayout({
       <body className="font-sans antialiased min-h-screen bg-background">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <AuthProvider>
-            <SignalRProvider>
-              <IdleTimeout />
-              <IncomingCallOverlay />
-              {children}
-              <Toaster />
-            </SignalRProvider>
+            <SecurityGuard>
+              <SignalRProvider>
+                <IdleTimeout />
+                <IncomingCallOverlay />
+                {children}
+                <Toaster />
+              </SignalRProvider>
+            </SecurityGuard>
           </AuthProvider>
           <Analytics />
         </ThemeProvider>
