@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { authApi, ApiError } from './api'
+import { useRouter, usePathname } from 'next/navigation'
 
 export interface User {
   id: number
@@ -95,6 +96,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth()
   }, [fetchUser])
 
+  const router = useRouter()
+  const pathname = usePathname()
+
+  // Bắt buộc chuyển hướng nếu chưa đổi pass lần đầu
+  useEffect(() => {
+    if (!isLoading && user?.isFirstLogin && pathname !== '/change-password') {
+      router.replace('/change-password')
+    }
+  }, [user, isLoading, pathname, router])
   const login = async (username: string, password: string) => {
     setError(null)
     setIsLoading(true)

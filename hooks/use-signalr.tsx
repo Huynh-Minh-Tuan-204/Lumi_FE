@@ -270,6 +270,12 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       .then(()=>setIsConnected(true))
       .catch(err=>{
         console.error("SignalR Start Error:", err)
+        
+        // Xử lý lỗi chặn 403 (do IsFirstLogin = true)
+        if (err?.message?.includes('403') || err?.message?.includes('MUST_CHANGE_PASSWORD')) {
+          console.warn("Security: SignalR negotiate blocked (expected for mandatory password change).");
+        }
+
         // Fallback: retry after 5s
         setTimeout(() => {
           if (!isConnected) {

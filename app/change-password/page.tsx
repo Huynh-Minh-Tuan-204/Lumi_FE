@@ -52,9 +52,9 @@ export default function ChangePasswordPage() {
       // Update local state to allow access
       updateUser({ isFirstLogin: false })
       
-      // Small delay for toast
+      // Full refresh to ensure SignalR and other providers get the updated status
       setTimeout(() => {
-        router.push('/chat')
+        window.location.href = '/chat'
       }, 1500)
     } catch (err) {
       const message = err instanceof ApiError ? err.message : 'Đổi mật khẩu thất bại.'
