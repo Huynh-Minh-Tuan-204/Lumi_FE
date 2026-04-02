@@ -16,7 +16,7 @@ export interface Conversation {
   name: string
   type: string
   lastMessageAt: string
-  lastMessage: { encryptedContent: string; createdAt: string; messageType?: string; senderId?: number } | null
+  lastMessage: { content?: string; encryptedContent?: string; createdAt: string; messageType?: string; senderId?: number } | null
   avatarPath?: string
   backgroundPath?: string
   otherUserId?: number
@@ -124,29 +124,36 @@ export default function ChatPage() {
           markAsRead(lastMessage.conversationId)
         }
         
-        // Refresh conversation list to get latest LastMessage and UnreadCount
+        // Refresh conversation list to get latest message snippets and total unread counts
+        // BUT we must be careful not to create a loop.
+        // loadConversations only when lastMessage is fresh (ID check)
         loadConversations()
     }
-  }, [lastMessage, selectedConversation, user, markAsRead, loadConversations])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastMessage?.id, user?.id, markAsRead, loadConversations]) 
+  // Narrowed to lastMessage.id and user.id to avoid unnecessary triggers from object references.
+  // We explicitly removed selectedConversation from dependencies because we only use it conditionally via ID.
 
   // NEW: Mark as read when selected conversation changes
   useEffect(() => {
     const triggerMarkRead = async () => {
-      if (selectedConversation && token) {
+      if (selectedConversation?.id && token) {
         try {
           // Clear local unread count immediately for better UX
           setUnreadCounts(prev => ({ ...prev, [selectedConversation.id]: 0 }))
           
           await conversationsApi.markConversationRead(token, selectedConversation.id)
-          // Optionally reload to sync total counts if there's a global unread indicator
-          loadConversations()
+          // We intentionally avoid calling loadConversations() here to prevent potential recursive loops
+          // as loadConversations() itself updates the conversation data which might re-trigger selection logic.
         } catch (e) {
           console.error("Failed to mark read:", e)
         }
       }
     }
     triggerMarkRead()
-  }, [selectedConversation?.id, token, loadConversations])
+  }, [selectedConversation?.id, token]) 
+  // Narrowed to ID and token to prevent infinite loops from object identity changes.
+  // loadConversations removed from dependencies because it's stable and we don't want it re-triggering.
 
   // NEW: Robust reset on logout
   useEffect(() => {

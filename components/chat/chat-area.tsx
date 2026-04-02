@@ -213,11 +213,11 @@ export function ChatArea({
       setIsLoading(true)
       try {
         const data = await conversationsApi.getMessages(token, conversation.id)
-        // Map data to ensure camelCase properties are set if backend sends PascalCase
+        // Map data to ensure camelCase properties are set if backend sends camelCase or PascalCase
         const mappedMessages: Message[] = data.map((d: any) => ({
           id: d.id ?? d.Id,
           senderId: d.senderId ?? d.SenderId,
-          encryptedContent: d.encryptedContent ?? d.EncryptedContent,
+          encryptedContent: d.content ?? d.encryptedContent ?? d.EncryptedContent ?? "",
           iv: d.iv ?? d.Iv,
           createdAt: d.createdAt ?? d.CreatedAt,
           messageType: d.messageType ?? d.MessageType,
@@ -315,7 +315,7 @@ export function ChatArea({
           const mappedMessages: Message[] = data.map((d: any) => ({
             id: d.id ?? d.Id,
             senderId: d.senderId ?? d.SenderId,
-            encryptedContent: d.encryptedContent ?? d.EncryptedContent,
+            encryptedContent: d.content ?? d.encryptedContent ?? d.EncryptedContent ?? "",
             iv: d.iv ?? d.Iv,
             createdAt: d.createdAt ?? d.CreatedAt,
             messageType: d.messageType ?? d.MessageType,

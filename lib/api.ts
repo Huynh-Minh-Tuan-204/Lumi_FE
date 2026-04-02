@@ -145,7 +145,7 @@ export interface ConversationsListItemResponse {
   avatarPath?: string
   backgroundPath?: string
   lastMessageAt: string
-  lastMessage: { encryptedContent: string; createdAt: string; messageType?: string; senderId?: number } | null
+  lastMessage: { content?: string; encryptedContent?: string; createdAt: string; messageType?: string; senderId?: number } | null
   otherUserId?: number
   unreadCount?: number
 }
