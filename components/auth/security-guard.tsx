@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { authApi, ApiError } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,19 @@ export function SecurityGuard({ children }: { children: React.ReactNode }) {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isUpdating, setIsUpdating] = useState(false)
+
+  // Listen for global 'MUST_CHANGE_PASSWORD' error from any API call
+  useEffect(() => {
+    const handleMustChangePassword = () => {
+      console.log("Global MUST_CHANGE_PASSWORD triggered. Forcing guard.");
+      updateUser({ isFirstLogin: true });
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('auth-must-change-password', handleMustChangePassword);
+      return () => window.removeEventListener('auth-must-change-password', handleMustChangePassword);
+    }
+  }, [updateUser]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -59,14 +72,26 @@ export function SecurityGuard({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const isVisible = !isLoading && isAuthenticated && user?.isFirstLogin
+  // Determine if guard should be shown
+  const showGuard = !isLoading && isAuthenticated && user?.isFirstLogin
+
+  // While loading, show nothing or a subtle loader to prevent API 403 leaks
+  if (isLoading && isAuthenticated) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-950 z-[9999]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+          <p className="text-white font-medium animate-pulse">Lumi đang khởi động...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative min-h-screen">
       {/* 
           Chỉ render children (Giao diện chính) nếu người dùng đã đổi mật khẩu 
-          hoặc chưa đăng nhập (Trang Login). Điều này giúp tránh gọi các API 
-          bị chặn 403 từ các Component như ChatSidebar, ChatArea...
+          hoặc chưa đăng nhập (Trang Login).
       */}
       {(!isAuthenticated || !user?.isFirstLogin) ? (
         children
@@ -76,7 +101,7 @@ export function SecurityGuard({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Force Change Password Modal Overlay */}
-      {isVisible && (
+      {showGuard && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
           {/* Blur/Dark Backdrop - No interaction with background allowed */}
           <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md pointer-events-auto" />

@@ -47,6 +47,11 @@ async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T
             ? Object.values<string[]>(data.errors).flat()[0]
             : null) ||
           message
+
+        // Global trigger for force change password
+        if (response.status === 403 && message === 'MUST_CHANGE_PASSWORD' && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth-must-change-password'));
+        }
       } else {
         const text = await response.text()
         message = text || message
