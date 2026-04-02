@@ -72,7 +72,22 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [lastDeletedMessage, setLastDeletedMessage] = useState<{ conversationId: number, messageId: number } | null>(null)
 
   useEffect(() => {
-    if (!token) return
+    if (!token) {
+        setNotifications([]);
+        setOnlineUsers(new Set());
+        setLastMessage(null);
+        setLastReadUpdate(null);
+        setIncomingCall(null);
+        setCallDeclined(null);
+        setLastGroupUpdate(null);
+        setTypingUsers([]);
+        setLastUserUpdate(null);
+        setPinnedMessages(null);
+        setLastDeletedMessage(null);
+        setIsConnected(false);
+        setIsReconnecting(false);
+        return
+    }
 
     // Fetch notifications history
     const fetchHistory = async () => {

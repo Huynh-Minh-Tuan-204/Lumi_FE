@@ -129,6 +129,34 @@ export default function ChatPage() {
     }
   }, [lastMessage, selectedConversation, user, markAsRead, loadConversations])
 
+  // NEW: Mark as read when selected conversation changes
+  useEffect(() => {
+    const triggerMarkRead = async () => {
+      if (selectedConversation && token) {
+        try {
+          // Clear local unread count immediately for better UX
+          setUnreadCounts(prev => ({ ...prev, [selectedConversation.id]: 0 }))
+          
+          await conversationsApi.markConversationRead(token, selectedConversation.id)
+          // Optionally reload to sync total counts if there's a global unread indicator
+          loadConversations()
+        } catch (e) {
+          console.error("Failed to mark read:", e)
+        }
+      }
+    }
+    triggerMarkRead()
+  }, [selectedConversation?.id, token, loadConversations])
+
+  // NEW: Robust reset on logout
+  useEffect(() => {
+    if (!token) {
+      setConversations([])
+      setSelectedConversation(null)
+      setUnreadCounts({})
+    }
+  }, [token])
+
   useEffect(() => {
     if (lastDeletedMessage) {
       loadConversations()
@@ -137,17 +165,8 @@ export default function ChatPage() {
 
   const handleSelectConversation = async (conversation: Conversation) => {
     setSelectedConversation(conversation)
-    setUnreadCounts(prev => ({ ...prev, [conversation.id]: 0 }))
     setShowMobileChat(true)
     setShowMobileMembers(false)
-
-    if (token) {
-      try {
-        await conversationsApi.markConversationRead(token, conversation.id)
-        // Ensure local unread is cleared and synced from server
-        loadConversations()
-      } catch (e) {}
-    }
   }
 
   const handleBackToList = () => {

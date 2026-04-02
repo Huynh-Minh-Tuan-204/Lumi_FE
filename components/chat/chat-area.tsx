@@ -206,7 +206,10 @@ export function ChatArea({
   // Load messages when conversation changes
   useEffect(() => {
     const loadMessages = async () => {
-      if (!token || !conversation) return
+      if (!token || !conversation) {
+        setMessages([])
+        return
+      }
       setIsLoading(true)
       try {
         const data = await conversationsApi.getMessages(token, conversation.id)
