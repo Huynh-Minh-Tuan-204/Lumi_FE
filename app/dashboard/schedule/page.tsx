@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
+import { getAvatarUrl } from '@/lib/utils'
 import { schedulesApi, WorkScheduleResponse } from '@/lib/api'
 import { adminApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -251,7 +252,7 @@ export default function SchedulePage() {
                       <div className="flex -space-x-2">
                         {sch.participants.slice(0, 5).map(p => (
                           <Avatar key={p.userId} className={`h-6 w-6 border-2 border-card ${p.status === 'Accepted' ? 'ring-2 ring-green-500' : p.status === 'Declined' ? 'ring-2 ring-destructive' : ''}`}>
-                            <AvatarImage src={p.avatarPath} />
+                            <AvatarImage src={getAvatarUrl(p.avatarPath)} />
                             <AvatarFallback className="text-[9px]">{p.fullName.charAt(0)}</AvatarFallback>
                           </Avatar>
                         ))}

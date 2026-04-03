@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
+import { useSignalR } from '@/hooks/use-signalr'
 import { adminApi } from '@/lib/api'
+import { getAvatarUrl } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -78,6 +80,7 @@ interface UserData {
 export default function UsersPage() {
   const { token, user } = useAuth()
   const { searchQuery, setSearchQuery } = useSearch()
+  const { lastUserUpdate } = useSignalR()
   const [users, setUsers] = useState<UserData[]>([])
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -98,6 +101,17 @@ export default function UsersPage() {
   useEffect(() => {
     loadUsers()
   }, [token])
+
+  useEffect(() => {
+    if (lastUserUpdate) {
+      setUsers(prev => prev.map(u => {
+        if (u.id === lastUserUpdate.userId) {
+          return { ...u, avatarPath: lastUserUpdate.avatarPath }
+        }
+        return u
+      }))
+    }
+  }, [lastUserUpdate])
 
   useEffect(() => {
     const filtered = users.filter((u) => {
@@ -404,7 +418,7 @@ export default function UsersPage() {
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9">
-                            <AvatarImage src={userData.avatarPath} />
+                            <AvatarImage src={getAvatarUrl(userData.avatarPath)} />
                             <AvatarFallback className="text-xs">
                               {getInitials(userData.fullName)}
                             </AvatarFallback>

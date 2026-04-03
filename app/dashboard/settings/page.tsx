@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/lib/auth-context'
+import { getAvatarUrl } from '@/lib/utils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -81,7 +82,7 @@ export default function SettingsPage() {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Avatar className="h-24 w-24 border-2 border-primary/10 transition-colors group-hover:border-primary">
-                  <AvatarImage src={user?.avatarPath ? `${process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || ''}${user.avatarPath}` : ''} />
+                  <AvatarImage src={getAvatarUrl(user?.avatarPath)} />
                   <AvatarFallback className="text-2xl">{user?.fullName?.charAt(0) || 'U'}</AvatarFallback>
                 </Avatar>
                 <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">

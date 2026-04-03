@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
+import { useSignalR } from '@/hooks/use-signalr'
+import { getAvatarUrl } from '@/lib/utils'
 import { adminApi } from '@/lib/api'
 import {
   Card,
@@ -29,6 +31,7 @@ interface UserStatus {
 
 export default function OnlineMonitorPage() {
   const { token, user } = useAuth()
+  const { lastUserUpdate } = useSignalR()
   const [users, setUsers] = useState<UserStatus[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -39,6 +42,17 @@ export default function OnlineMonitorPage() {
     const interval = setInterval(loadUsers, 30000)
     return () => clearInterval(interval)
   }, [token])
+
+  useEffect(() => {
+    if (lastUserUpdate) {
+      setUsers(prev => prev.map(u => {
+        if (u.id === lastUserUpdate.userId) {
+          return { ...u, avatarPath: lastUserUpdate.avatarPath }
+        }
+        return u
+      }))
+    }
+  }, [lastUserUpdate])
 
   const loadUsers = async () => {
     if (!token) return
@@ -185,7 +199,7 @@ export default function OnlineMonitorPage() {
                     >
                       <div className="relative">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={u.avatarPath} />
+                          <AvatarImage src={getAvatarUrl(u.avatarPath)} />
                           <AvatarFallback className="text-xs">
                             {getInitials(u.fullName)}
                           </AvatarFallback>
@@ -243,7 +257,7 @@ export default function OnlineMonitorPage() {
                     >
                       <div className="relative">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={u.avatarPath} />
+                          <AvatarImage src={getAvatarUrl(u.avatarPath)} />
                           <AvatarFallback className="text-xs">
                             {getInitials(u.fullName)}
                           </AvatarFallback>

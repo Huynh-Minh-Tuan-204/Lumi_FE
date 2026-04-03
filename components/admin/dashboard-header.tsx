@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { cn } from '@/lib/utils'
+import { cn, getAvatarUrl } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -65,7 +65,8 @@ const adminNavItems = [
 export function DashboardHeader() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
-  const { notifications } = useSignalR()
+  const { notifications, markAllNotificationsRead } = useSignalR()
+  const unreadCount = notifications.filter(n => !n.isRead).length
   const token = useAuth().token // Ensure we get latest token
   const { searchQuery, setSearchQuery } = useSearch()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -158,16 +159,16 @@ export function DashboardHeader() {
           if (open && token) {
             try {
               await announcementsApi.markAllRead(token);
-              // We could also clear local state if we want immediate feedback
+              markAllNotificationsRead();
             } catch (e) {}
           }
         }}>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" className="relative">
               <Bell className="h-5 w-5" />
-              {notifications.length > 0 && (
+              {unreadCount > 0 && (
                 <span className="absolute top-1 right-1 h-3.5 w-3.5 flex items-center justify-center rounded-full bg-destructive text-[10px] text-white">
-                  {notifications.length > 9 ? '9+' : notifications.length}
+                  {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
               <span className="sr-only">Toggle notifications</span>
@@ -225,7 +226,7 @@ export function DashboardHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 pl-2 pr-3">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.avatarPath} />
+                <AvatarImage src={getAvatarUrl(user?.avatarPath)} />
                 <AvatarFallback className="text-xs">
                   {user?.fullName ? getInitials(user.fullName) : 'U'}
                 </AvatarFallback>
@@ -236,7 +237,7 @@ export function DashboardHeader() {
           <DropdownMenuContent align="end" className="w-56">
             <div className="flex items-center gap-3 p-2">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={user?.avatarPath} />
+                <AvatarImage src={getAvatarUrl(user?.avatarPath)} />
                 <AvatarFallback>{user?.fullName ? getInitials(user.fullName) : 'U'}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">

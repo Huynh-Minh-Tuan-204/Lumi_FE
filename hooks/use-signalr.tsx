@@ -21,6 +21,7 @@ export interface ChatMessage {
   stickerUrl?: string
   isPinned?: boolean
   isSystem?: boolean
+  isRead?: boolean
 }
 
 export interface SignalRHookReturn {
@@ -47,6 +48,7 @@ export interface SignalRHookReturn {
   sendReminder: (conversationId: number, content: string, remindAtIso: string) => Promise<void>
   pinnedMessages: { messageId: number, isPinned: boolean, pinnedBy?: number, conversationId: number } | null
   lastDeletedMessage: { conversationId: number, messageId: number } | null
+  markAllNotificationsRead: () => void
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -106,7 +108,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             sender: n.SenderName || n.senderName || 'System',
             message: n.Message || n.message || '',
             time: new Date(n.Timestamp || n.timestamp || Date.now()),
-            isSystem: true
+            isSystem: true,
+            isRead: n.IsRead || n.isRead || false
           }));
           setNotifications(mapped);
         }
@@ -168,7 +171,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           sender: sender || 'System',
           message: message,
           time: new Date(createdAt || Date.now()),
-          isSystem: isSystem || true
+          isSystem: isSystem || true,
+          isRead: false
         },
         ...prev
       ])
@@ -383,6 +387,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         sendSticker,
         togglePinMessage,
         sendReminder,
+        markAllNotificationsRead: () => {
+          setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+        },
         pinnedMessages,
         lastDeletedMessage,
         onTriggeredReminder: (cb: any) => {}, // Placeholder as we use toast internally now

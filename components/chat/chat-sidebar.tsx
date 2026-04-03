@@ -69,7 +69,7 @@ export function ChatSidebar({
   const logout = useAuth().logout;
   const token = useAuth().token;
   const router = useRouter()
-  const { lastUserUpdate, notifications } = useSignalR()
+  const { lastUserUpdate, notifications, markAllNotificationsRead } = useSignalR()
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [isSearchingUsers, setIsSearchingUsers] = useState(false)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
@@ -85,7 +85,7 @@ export function ChatSidebar({
 
   // Count unread notifications (simple client-side logic for now)
   useEffect(() => {
-    setUnreadNotifications(notifications.length)
+    setUnreadNotifications(notifications.filter(n => !n.isRead).length)
     setCurrentPage(1) // Reset to first page when new notifications arrive
   }, [notifications])
 
@@ -93,7 +93,7 @@ export function ChatSidebar({
     if (!token) return
     try {
       await announcementsApi.markAllRead(token)
-      setUnreadNotifications(0)
+      markAllNotificationsRead()
     } catch (e) {}
   }
 
@@ -402,7 +402,7 @@ export function ChatSidebar({
                     >
                       <div className="relative">
                         <Avatar className="h-10 w-10">
-                          <AvatarImage src={u.avatarPath} />
+                          <AvatarImage src={getAvatarUrl(u.avatarPath)} />
                           <AvatarFallback className="bg-sidebar-accent text-sidebar-foreground text-xs">
                             {getInitials(u.fullName || u.username)}
                           </AvatarFallback>
