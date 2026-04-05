@@ -447,8 +447,7 @@ export function ChatSidebar({
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm truncate">{user?.fullName}</p>
                 <div className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-online shrink-0" />
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground truncate uppercase font-bold tracking-tighter opacity-60">
                     {user?.role || 'Employee'}
                   </p>
                 </div>

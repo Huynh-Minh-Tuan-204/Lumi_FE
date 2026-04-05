@@ -62,6 +62,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
   const [chatInput, setChatInput] = useState('')
   const [callMessages, setCallMessages] = useState<ChatMessage[]>([])
   const [reaction, setReaction] = useState<string | null>(null)
+  const meetingStartTime = useRef<Date>(new Date())
 
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
@@ -84,16 +85,21 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
       // Load initial chat history for this call
       const history = await conversationsApi.getMessages(token, meeting.conversationId)
       if (!signal?.aborted) {
-        const mappedHistory: ChatMessage[] = history.map((d: any) => ({
-          id: d.id ?? d.Id,
-          conversationId: meeting.conversationId,
-          senderId: d.senderId ?? d.SenderId,
-          sender: d.senderName ?? d.SenderName ?? d.sender ?? 'User',
-          message: d.content ?? d.message ?? d.encryptedContent ?? d.EncryptedContent ?? "",
-          time: new Date(d.createdAt ?? d.CreatedAt ?? d.time ?? Date.now()),
-          iv: d.iv ?? d.Iv,
-          messageType: d.messageType ?? d.MessageType,
-        }))
+        const mappedHistory: ChatMessage[] = history.map((d: any) => {
+          const rawMsg = d.content ?? d.message ?? d.encryptedContent ?? d.EncryptedContent ?? "";
+          const isAttachment = d.messageType === 'File' || d.messageType === 'Sticker' || rawMsg === '[Attachment]';
+          
+          return {
+            id: d.id ?? d.Id,
+            conversationId: meeting.conversationId,
+            senderId: d.senderId ?? d.SenderId,
+            sender: d.senderName ?? d.SenderName ?? d.sender ?? 'User',
+            message: isAttachment ? (d.messageType === 'Sticker' ? "Sent a sticker" : "📎 Đã gửi một tệp đính kèm") : rawMsg,
+            time: new Date(d.createdAt ?? d.CreatedAt ?? d.time ?? Date.now()),
+            iv: d.iv ?? d.Iv,
+            messageType: d.messageType ?? d.MessageType,
+          };
+        })
         setCallMessages(mappedHistory)
       }
 
@@ -402,7 +408,10 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
     ];
   }, [user?.id, remotePeers, localStreamRef.current]);
 
-  const chatMessages = useMemo(() => callMessages, [callMessages]);
+  const chatMessages = useMemo(() => {
+    // Only show messages sent AFTER the meeting started to keep call chat separate from group history
+    return callMessages.filter(m => new Date(m.time) >= meetingStartTime.current);
+  }, [callMessages]);
 
   return (
     <div className="flex h-screen flex-col bg-[#111111] text-white overflow-hidden relative font-sans leading-relaxed">
