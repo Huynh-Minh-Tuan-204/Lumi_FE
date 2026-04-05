@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback, useState, createContext, useContext } f
 import * as signalR from '@microsoft/signalr'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
+import { announcementsApi } from '@/lib/api'
 
 const HUB_URL = process.env.NEXT_PUBLIC_SIGNALR_HUB_URL || 'https://mintuan-001-site1.ktempurl.com/chatHub';
 
@@ -48,7 +49,7 @@ export interface SignalRHookReturn {
   sendReminder: (conversationId: number, content: string, remindAtIso: string) => Promise<void>
   pinnedMessages: { messageId: number, isPinned: boolean, pinnedBy?: number, conversationId: number } | null
   lastDeletedMessage: { conversationId: number, messageId: number } | null
-  markAllNotificationsRead: () => void
+  markAllNotificationsRead: () => Promise<void>
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -387,8 +388,14 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         sendSticker,
         togglePinMessage,
         sendReminder,
-        markAllNotificationsRead: () => {
-          setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+        markAllNotificationsRead: async () => {
+          if (!token) return;
+          try {
+            await announcementsApi.markAllRead(token);
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+          } catch (e) {
+            console.error("Failed to mark all notifications read:", e);
+          }
         },
         pinnedMessages,
         lastDeletedMessage,

@@ -217,16 +217,16 @@ export function ChatArea({
         const mappedMessages: Message[] = data.map((d: any) => ({
           id: d.id ?? d.Id,
           senderId: d.senderId ?? d.SenderId,
-          encryptedContent: d.content ?? d.encryptedContent ?? d.EncryptedContent ?? "",
+          encryptedContent: d.content ?? d.message ?? d.encryptedContent ?? d.EncryptedContent ?? "",
           iv: d.iv ?? d.Iv,
-          createdAt: d.createdAt ?? d.CreatedAt,
           messageType: d.messageType ?? d.MessageType,
-          senderName: d.senderName ?? d.SenderName,
+          senderName: d.senderName ?? d.SenderName ?? d.sender,
           avatarPath: d.avatarPath ?? d.AvatarPath,
           attachments: d.attachments ?? d.Attachments,
           readBy: d.readBy ?? d.ReadBy ?? [],
           stickerUrl: d.stickerUrl ?? d.StickerUrl,
           isPinned: d.isPinned ?? d.IsPinned,
+          createdAt: d.createdAt ?? d.CreatedAt ?? d.time,
         }))
         setMessages(mappedMessages)
       } catch (error) {

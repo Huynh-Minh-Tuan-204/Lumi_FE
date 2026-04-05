@@ -16,7 +16,15 @@ export interface Conversation {
   name: string
   type: string
   lastMessageAt: string
-  lastMessage: { content?: string; encryptedContent?: string; createdAt: string; messageType?: string; senderId?: number } | null
+  lastMessage: { 
+    content?: string; 
+    message?: string; 
+    encryptedContent?: string; 
+    EncryptedContent?: string; 
+    createdAt: string; 
+    messageType?: string; 
+    senderId?: number 
+  } | null
   avatarPath?: string
   backgroundPath?: string
   otherUserId?: number

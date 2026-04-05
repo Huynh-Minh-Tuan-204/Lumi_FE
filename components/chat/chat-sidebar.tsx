@@ -121,7 +121,7 @@ export function ChatSidebar({
 
   const filteredConversations = conversations.filter((conv) =>
     (conv.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (conv.lastMessage?.content || conv.lastMessage?.encryptedContent || '').toLowerCase().includes(searchQuery.toLowerCase())
+    (conv.lastMessage?.content || conv.lastMessage?.message || conv.lastMessage?.encryptedContent || conv.lastMessage?.EncryptedContent || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const filteredUsers = searchQuery.length >= 1 && searchMode === 'global'
@@ -584,7 +584,7 @@ function ConversationItem({
                 isSelected ? 'text-sidebar-primary-foreground/70' : unreadCount > 0 ? 'text-sidebar-foreground font-semibold' : 'text-sidebar-foreground/60'
               )}
             >
-              {(conversation.lastMessage.content || conversation.lastMessage.encryptedContent) === '[Attachment]' ? '📎 Sent an attachment' : (conversation.lastMessage.content || conversation.lastMessage.encryptedContent)}
+              {(conversation.lastMessage.content || conversation.lastMessage.message || conversation.lastMessage.encryptedContent || conversation.lastMessage.EncryptedContent) === '[Attachment]' ? '📎 Sent an attachment' : (conversation.lastMessage.content || conversation.lastMessage.message || conversation.lastMessage.encryptedContent || conversation.lastMessage.EncryptedContent)}
             </p>
           )}
           {unreadCount > 0 && !isSelected && (
