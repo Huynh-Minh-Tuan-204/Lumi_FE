@@ -50,6 +50,7 @@ export interface SignalRHookReturn {
   pinnedMessages: { messageId: number, isPinned: boolean, pinnedBy?: number, conversationId: number } | null
   lastDeletedMessage: { conversationId: number, messageId: number } | null
   markAllNotificationsRead: () => Promise<void>
+  lastScheduleUpdate: { type: 'created' | 'status' | 'deleted', data: any } | null
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -73,6 +74,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [lastUserUpdate, setLastUserUpdate] = useState<{ userId: number, avatarPath: string } | null>(null)
   const [pinnedMessages, setPinnedMessages] = useState<{ messageId: number, isPinned: boolean, pinnedBy?: number, conversationId: number } | null>(null)
   const [lastDeletedMessage, setLastDeletedMessage] = useState<{ conversationId: number, messageId: number } | null>(null)
+  const [lastScheduleUpdate, setLastScheduleUpdate] = useState<{ type: 'created' | 'status' | 'deleted', data: any } | null>(null)
 
   useEffect(() => {
     if (!token) {
@@ -87,12 +89,12 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         setLastUserUpdate(null);
         setPinnedMessages(null);
         setLastDeletedMessage(null);
+        setLastScheduleUpdate(null);
         setIsConnected(false);
         setIsReconnecting(false);
         return
     }
 
-    // Fetch notifications history
     const fetchHistory = async () => {
       try {
         const url = process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api';
@@ -132,7 +134,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
     connection.on('ReceiveMessage', (data: any) => {
       const { id, conversationId, senderId, senderName, content, iv, messageType, stickerUrl, isPinned, createdAt, attachments, avatarPath } = data;
-      
       setLastMessage({
           id,
           conversationId,
@@ -146,7 +147,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           time: new Date(createdAt),
           attachments: attachments || [],
           isSystem: false,
-          avatarPath: avatarPath // Pass through avatar if available
+          avatarPath: avatarPath
         }
       )
     })
@@ -157,13 +158,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
     connection.on('ReceiveNotification', (data: any) => {
       const { id, sender, message, createdAt, isSystem } = data;
-      
-      // Show popup toast
       toast.info(`📢 THÔNG BÁO: ${message}`, {
         description: `Từ: ${sender || 'Admin'}`,
         duration: 10000,
       });
-
       setNotifications(prev => [
         {
           id: id || Date.now(),
@@ -182,61 +180,36 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connection.on('UserStatusChanged', (userId: number, isOnline: boolean) => {
       setOnlineUsers(prev => {
         const next = new Set(prev)
-        if (isOnline) {
-          next.add(userId)
-        } else {
-          next.delete(userId)
-        }
+        if (isOnline) next.add(userId)
+        else next.delete(userId)
         return next
       })
     })
 
     connection.on('IncomingCall', (meetingId: number, callerId: number, callerName: string, callType: string, convName: string) => {
-      console.log('SIGNALR: IncomingCall event received!', { meetingId, callerId, callerName, callType, convName })
-      // Ignore if we are the caller
-      if (user && callerId === user.id) {
-        console.log('SIGNALR: Ignoring call invitation from ourselves.')
-        return
-      }
+      if (user && callerId === user.id) return
       setIncomingCall({ meetingId, callerName, callType, convName })
     })
 
     connection.on('CallDeclined', (meetingId: number, declinerName: string) => {
-      console.log('SIGNALR: CallDeclined event received!', { meetingId, declinerName })
       setCallDeclined({ meetingId, declinerName })
     })
 
     connection.on('MeetingEnded', (data: any) => {
-      console.log('SIGNALR: MeetingEnded event received!', data)
       const endedMeetingId = typeof data === 'object' ? data.meetingId : data
-      setIncomingCall(prev => {
-        if (prev?.meetingId === endedMeetingId) return null
-        return prev
-      })
+      setIncomingCall(prev => (prev?.meetingId === endedMeetingId ? null : prev))
     })
 
     connection.on('ReceiveGroupUpdate', (conversationId: number, avatarPath: string, backgroundPath: string) => {
-      console.log('SIGNALR: ReceiveGroupUpdate event received!', { conversationId, avatarPath, backgroundPath })
-      // Add cache buster to force re-render
       const avatarWithCache = avatarPath ? `${avatarPath}?v=${Date.now()}` : avatarPath;
       const bgWithCache = backgroundPath ? `${backgroundPath}?v=${Date.now()}` : backgroundPath;
-      
-      setLastGroupUpdate({ 
-        conversationId, 
-        avatarPath: avatarWithCache, 
-        backgroundPath: bgWithCache 
-      })
+      setLastGroupUpdate({ conversationId, avatarPath: avatarWithCache, backgroundPath: bgWithCache })
     })
 
     connection.on('UserUpdated', (userId: number, avatarPath: string) => {
-      console.log('SIGNALR: UserUpdated event received!', { userId, avatarPath })
       const pathWithTime = `${avatarPath}?v=${Date.now()}`
       setLastUserUpdate({ userId, avatarPath: pathWithTime })
-      
-      // If CURRENT USER is updated, sync AuthContext immediately
-      if (user && userId === user.id) {
-        updateUser({ avatarPath: pathWithTime })
-      }
+      if (user && userId === user.id) updateUser({ avatarPath: pathWithTime })
     })
 
     connection.on('UserTyping', (conversationId: number, userId: number, userName: string) => {
@@ -255,7 +228,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     })
 
     connection.on('MessageDeleted', (conversationId: number, messageId: number) => {
-      console.log('SIGNALR: MessageDeleted received', { conversationId, messageId })
       setLastDeletedMessage({ conversationId, messageId })
     })
 
@@ -264,16 +236,25 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     })
 
     connection.on("ReminderTriggered", (data: { conversationId: number, content: string }) => {
-      // Use toast or similar
       toast.info(`🔔 NHẮC NHỞ: ${data.content}`, {
         duration: 10000,
-        action: {
-          label: 'Xem',
-          onClick: () => {
-             // Handle navigation if needed
-          }
-        }
       })
+    })
+
+    connection.on('ScheduleCreated', (data: any) => {
+      toast.info(`📅 Lịch mời mới: ${data.title}`, {
+        description: `Bởi: ${data.createdBy} | Bắt đầu: ${new Date(data.startTime).toLocaleString('vi-VN')}`,
+        duration: 8000,
+      });
+      setLastScheduleUpdate({ type: 'created', data })
+    })
+
+    connection.on('ScheduleStatusUpdated', (data: any) => {
+      setLastScheduleUpdate({ type: 'status', data })
+    })
+
+    connection.on('ScheduleDeleted', (scheduleId: number) => {
+      setLastScheduleUpdate({ type: 'deleted', data: scheduleId })
     })
 
     connection.onreconnecting(() => {
@@ -290,13 +271,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       .then(()=>setIsConnected(true))
       .catch(err=>{
         console.error("SignalR Start Error:", err)
-        
-        // Xử lý lỗi chặn 403 (do IsFirstLogin = true)
-        if (err?.message?.includes('403') || err?.message?.includes('MUST_CHANGE_PASSWORD')) {
-          console.warn("Security: SignalR negotiate blocked (expected for mandatory password change).");
-        }
-
-        // Fallback: retry after 5s
         setTimeout(() => {
           if (!isConnected) {
             connection.start().then(() => setIsConnected(true)).catch(() => {})
@@ -307,26 +281,15 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connectionRef.current = connection
 
     return ()=>{
-
       connection.stop()
-
     }
 
   },[token])
 
   const sendMessage = useCallback(async(conversationId:number,encryptedMessage:string,iv:string)=>{
-
     if(connectionRef.current?.state===signalR.HubConnectionState.Connected){
-
-      await connectionRef.current.invoke(
-        'SendMessage',
-        conversationId,
-        encryptedMessage,
-        iv
-      )
-
+      await connectionRef.current.invoke('SendMessage', conversationId, encryptedMessage, iv)
     }
-
   },[])
 
   const markAsRead = useCallback(async(conversationId: number) => {
@@ -393,34 +356,21 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           try {
             await announcementsApi.markAllRead(token);
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-          } catch (e) {
-            console.error("Failed to mark all notifications read:", e);
-          }
+          } catch (e) {}
         },
         pinnedMessages,
         lastDeletedMessage,
-        onTriggeredReminder: (cb: any) => {}, // Placeholder as we use toast internally now
+        lastScheduleUpdate,
+        onTriggeredReminder: (cb: any) => {}, 
       }}
     >
-
       {children}
-
     </SignalRContext.Provider>
-
   )
-
 }
 
 export function useSignalR(){
-
   const ctx = useContext(SignalRContext)
-
-  if(!ctx){
-
-    throw new Error('useSignalR must be used within SignalRProvider')
-
-  }
-
+  if(!ctx) throw new Error('useSignalR must be used within SignalRProvider')
   return ctx
-
 }

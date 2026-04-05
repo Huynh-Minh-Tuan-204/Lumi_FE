@@ -81,7 +81,7 @@ export default function GroupsPage() {
   useEffect(() => {
     const query = (searchQuery || '').toLowerCase();
     const filtered = groups.filter((g) =>
-      (g.name || '').toLowerCase().includes(query)
+      g.type === 'Group' && (g.name || '').toLowerCase().includes(query)
     )
     setFilteredGroups(filtered)
   }, [groups, searchQuery])
