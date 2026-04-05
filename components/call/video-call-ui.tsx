@@ -318,8 +318,63 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
   };
 
   const toggleScreenShare = async () => {
-    setIsScreenSharing(!isScreenSharing);
-    toast.info(isScreenSharing ? "Đã dừng chia sẻ" : "Bắt đầu chia sẻ màn hình");
+    if (isScreenSharing) {
+      // Stop screen share and revert to camera
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        const videoTrack = stream.getVideoTracks()[0];
+        
+        // Update local ref
+        if (localStreamRef.current) {
+          const oldTrack = localStreamRef.current.getVideoTracks()[0];
+          if (oldTrack) localStreamRef.current.removeTrack(oldTrack);
+          localStreamRef.current.addTrack(videoTrack);
+        }
+        
+        // Update peers
+        peersRef.current.forEach(peer => {
+          const sender = peer.connection.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) sender.replaceTrack(videoTrack);
+        });
+
+        setIsScreenSharing(false);
+        setIsCameraOn(true);
+        toast.info("Đã dừng chia sẻ màn hình");
+      } catch (err) {
+        console.error("Failed to revert to camera", err);
+      }
+      return;
+    }
+
+    try {
+      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const screenTrack = screenStream.getVideoTracks()[0];
+      
+      // Handle "Stop Sharing" button from browser UI
+      screenTrack.onended = () => {
+        toggleScreenShare();
+      };
+
+      // Update local ref
+      if (localStreamRef.current) {
+        const oldTrack = localStreamRef.current.getVideoTracks()[0];
+        if (oldTrack) localStreamRef.current.removeTrack(oldTrack);
+        localStreamRef.current.addTrack(screenTrack);
+      }
+
+      // Update peers
+      peersRef.current.forEach(peer => {
+        const sender = peer.connection.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) sender.replaceTrack(screenTrack);
+      });
+
+      setIsScreenSharing(true);
+      setIsCameraOn(true);
+      toast.info("Đang chia sẻ màn hình...");
+    } catch (err) {
+      console.error("Screen share failed", err);
+      toast.error("Không thể chia sẻ màn hình");
+    }
   };
 
   const sendReaction = (icon: string) => {
@@ -347,6 +402,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
     ];
   }, [user?.id, remotePeers, localStreamRef.current]);
 
+  const chatMessages = useMemo(() => callMessages, [callMessages]);
+
   return (
     <div className="flex h-screen flex-col bg-[#111111] text-white overflow-hidden relative font-sans leading-relaxed">
       {/* Dynamic Background Blur */}
@@ -369,14 +426,17 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
 
         <div className="flex items-center gap-3">
             <div className="flex -space-x-2.5">
-                {[1,2].map(i => (
-                    <Avatar key={i} className="w-8 h-8 ring-4 ring-[#1F1F1F] bg-stone-800 border border-white/10">
-                        <AvatarFallback className="text-[10px] font-black">U{i}</AvatarFallback>
+                {meetingParticipants.slice(0, 3).map((p, i) => (
+                    <Avatar key={i} className="w-8 h-8 ring-4 ring-[#1F1F1F] bg-stone-800 border border-white/10 shadow-lg">
+                        {p.avatarPath && <AvatarImage src={p.avatarPath} />}
+                        <AvatarFallback className="text-[10px] font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
                     </Avatar>
                 ))}
-                <div className="w-8 h-8 rounded-full ring-4 ring-[#1F1F1F] bg-indigo-600 flex items-center justify-center text-[10px] font-black border border-white/10">
-                    +{meetingParticipants.length}
-                </div>
+                {meetingParticipants.length > 3 && (
+                  <div className="w-8 h-8 rounded-full ring-4 ring-[#1F1F1F] bg-indigo-600 flex items-center justify-center text-[10px] font-black border border-white/10 shadow-lg">
+                      +{meetingParticipants.length - 3}
+                  </div>
+                )}
             </div>
         </div>
       </header>
