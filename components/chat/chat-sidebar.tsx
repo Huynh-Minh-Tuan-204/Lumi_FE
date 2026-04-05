@@ -155,7 +155,7 @@ export function ChatSidebar({
       }
     } catch (e) {
       console.error('Failed to start private chat:', e)
-      toast.error('Could not start private chat')
+      toast.error('Không thể bắt đầu chat riêng')
     }
   }
 
@@ -189,12 +189,12 @@ export function ChatSidebar({
               {isConnected ? (
                 <>
                   <Wifi className="h-3 w-3 text-online" />
-                  <span>Connected</span>
+                  <span>Đã kết nối</span>
                 </>
               ) : (
                 <>
                   <WifiOff className="h-3 w-3 text-destructive" />
-                  <span>Offline</span>
+                  <span>Ngoại tuyến</span>
                 </>
               )}
             </div>
@@ -302,7 +302,7 @@ export function ChatSidebar({
                 : "text-sidebar-foreground/40 hover:text-sidebar-foreground"
             )}
           >
-            Chats
+            Trò chuyện
           </button>
           <button
             onClick={() => setSearchMode('global')}
@@ -313,13 +313,13 @@ export function ChatSidebar({
                 : "text-sidebar-foreground/40 hover:text-sidebar-foreground"
             )}
           >
-            People
+            Mọi người
           </button>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-sidebar-foreground/40" />
           <Input
-            placeholder={searchMode === 'chat' ? "Search chats..." : "Search all people..."}
+            placeholder={searchMode === 'chat' ? "Tìm kiếm trò chuyện..." : "Tìm kiếm tất cả mọi người..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9 bg-sidebar-accent border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/40 h-9"
@@ -332,7 +332,7 @@ export function ChatSidebar({
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-8 text-sidebar-foreground/60">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-sidebar-primary border-t-transparent" />
-            <p className="mt-2 text-sm">Loading chats...</p>
+            <p className="mt-2 text-sm">Đang tải trò chuyện...</p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -341,7 +341,7 @@ export function ChatSidebar({
                 {/* Groups section */}
                 {groupChats.length > 0 && (
                   <div className="space-y-1">
-                    <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2 mt-4">👥 Groups</p>
+                    <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2 mt-4">👥 Nhóm</p>
                     {groupChats.map((conv) => (
                       <ConversationItem
                         key={conv.id}
@@ -360,7 +360,7 @@ export function ChatSidebar({
                 {/* Private Chats section */}
                 {privateChats.length > 0 && (
                   <div className="space-y-1">
-                    <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2 mt-4">💬 Private</p>
+                    <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2 mt-4">💬 Cá nhân</p>
                     {privateChats.map((conv) => (
                       <ConversationItem
                         key={conv.id}
@@ -378,21 +378,21 @@ export function ChatSidebar({
 
                 {conversations.length === 0 && !searchQuery && (
                   <div className="py-20 text-center px-4">
-                    <p className="text-sm text-sidebar-foreground/40 italic">No conversations yet.</p>
-                    <p className="text-xs text-sidebar-foreground/20 mt-1">Switch to "People" to find someone!</p>
+                    <p className="text-sm text-sidebar-foreground/40 italic">Chưa có cuộc trò chuyện nào.</p>
+                    <p className="text-xs text-sidebar-foreground/20 mt-1">Chuyển sang "Mọi người" để tìm bạn bè!</p>
                   </div>
                 )}
 
                 {searchQuery && groupChats.length === 0 && privateChats.length === 0 && (
                    <div className="py-10 text-center px-4">
-                    <p className="text-sm text-sidebar-foreground/40 italic">No chats matching "{searchQuery}"</p>
+                    <p className="text-sm text-sidebar-foreground/40 italic">Không có cuộc trò chuyện nào khớp với "{searchQuery}"</p>
                   </div>
                 )}
               </>
             ) : (
               /* Global People Search results */
               <div className="space-y-1 pt-2">
-                <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2">Global Search</p>
+                <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40 mb-2">Tìm kiếm toàn cầu</p>
                 {filteredUsers.length > 0 ? (
                   filteredUsers.map((u) => (
                     <button
@@ -413,14 +413,14 @@ export function ChatSidebar({
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">{u.fullName || u.username}</p>
-                        <p className="text-[10px] text-sidebar-foreground/40 truncate italic">Start messaging...</p>
+                        <p className="text-[10px] text-sidebar-foreground/40 truncate italic">Bắt đầu nhắn tin...</p>
                       </div>
                     </button>
                   ))
                 ) : (
                   <div className="py-20 text-center px-4">
                     <p className="text-sm text-sidebar-foreground/40 italic">
-                      {searchQuery ? `No users found matching "${searchQuery}"` : "Search for users across the organization"}
+                      {searchQuery ? `Không tìm thấy người dùng khớp với "${searchQuery}"` : "Tìm kiếm người dùng trong tổ chức"}
                     </p>
                   </div>
                 )}
@@ -448,7 +448,7 @@ export function ChatSidebar({
                 <p className="font-semibold text-sm truncate">{user?.fullName}</p>
                 <div className="flex items-center gap-1">
                   <p className="text-xs text-muted-foreground truncate uppercase font-bold tracking-tighter opacity-60">
-                    {user?.role || 'Employee'}
+                    {user?.role === 'Admin' ? 'Quản trị viên' : user?.role === 'Manager' ? 'Quản lý' : 'Nhân viên'}
                   </p>
                 </div>
               </div>
@@ -457,14 +457,14 @@ export function ChatSidebar({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" side="top" className="w-56 mb-2">
             <div className="flex items-center justify-between p-2">
-              <span className="text-xs font-medium text-muted-foreground">Appearance</span>
+              <span className="text-xs font-medium text-muted-foreground">Giao diện</span>
               <ThemeToggle />
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild className="cursor-pointer">
               <Link href="/dashboard/settings" className="w-full flex items-center">
                 <UserIcon className="mr-2 h-4 w-4" />
-                Edit Profile
+                Chỉnh sửa hồ sơ
               </Link>
             </DropdownMenuItem>
             
@@ -483,21 +483,21 @@ export function ChatSidebar({
             {user?.role === 'Admin' && (
               <>
                 <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase">
-                  Admin Actions
+                  Hành động Admin
                 </div>
                 <DropdownMenuItem 
                   onClick={async () => {
-                    const newFullName = prompt("Enter new name:", user.fullName);
+                    const newFullName = prompt("Nhập tên mới:", user.fullName);
                     if (newFullName && token) {
                       try {
                         await adminApi.updateUser(token, user.id, { fullName: newFullName });
-                        toast.success("Name updated! Refreshing...");
+                        toast.success("Đã cập nhật tên! Đang làm mới...");
                         window.location.reload();
-                      } catch (e) { toast.error("Failed to update name"); }
+                      } catch (e) { toast.error("Cập nhật tên thất bại"); }
                     }
                   }}
                 >
-                  Change System Name
+                  Thay đổi tên hệ thống
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
@@ -505,7 +505,7 @@ export function ChatSidebar({
 
             <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
-              Sign out
+              Đăng xuất
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -583,7 +583,7 @@ function ConversationItem({
                 isSelected ? 'text-sidebar-primary-foreground/70' : unreadCount > 0 ? 'text-sidebar-foreground font-semibold' : 'text-sidebar-foreground/60'
               )}
             >
-              {(conversation.lastMessage.content || conversation.lastMessage.message || conversation.lastMessage.encryptedContent || conversation.lastMessage.EncryptedContent) === '[Attachment]' ? '📎 Sent an attachment' : (conversation.lastMessage.content || conversation.lastMessage.message || conversation.lastMessage.encryptedContent || conversation.lastMessage.EncryptedContent)}
+              {(conversation.lastMessage.content || conversation.lastMessage.message || conversation.lastMessage.encryptedContent || conversation.lastMessage.EncryptedContent) === '[Attachment]' ? '📎 Đã gửi một tệp đính kèm' : (conversation.lastMessage.content || conversation.lastMessage.message || conversation.lastMessage.encryptedContent || conversation.lastMessage.EncryptedContent)}
             </p>
           )}
           {unreadCount > 0 && !isSelected && (

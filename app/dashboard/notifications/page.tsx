@@ -67,7 +67,7 @@ export default function NotificationsPage() {
       setAnnouncements(mapped)
     } catch (error) {
       console.error('Failed to load announcements:', error)
-      toast.error('Failed to load announcements')
+      toast.error('Không thể tải thông báo')
     } finally {
       setIsLoading(false)
     }
@@ -83,14 +83,14 @@ export default function NotificationsPage() {
         newAnnouncement, 
         targetType === 'all' ? undefined : selectedUserIds
       );
-      toast.success('Announcement sent successfully')
+      toast.success('Gửi thông báo thành công')
       setNewAnnouncement('')
       setSelectedUserIds([])
       // Reload announcements to show the new one
       await loadAnnouncements()
     } catch (error) {
       console.error('Failed to send announcement:', error)
-      toast.error('Failed to send announcement')
+      toast.error('Không thể gửi thông báo')
     } finally {
       setIsSending(false)
     }
@@ -105,11 +105,11 @@ export default function NotificationsPage() {
 
     if (hours < 1) {
       const minutes = Math.floor(diff / (1000 * 60))
-      return `${minutes}m ago`
+      return `${minutes} phút trước`
     } else if (hours < 24) {
-      return `${hours}h ago`
+      return `${hours} giờ trước`
     } else if (days < 7) {
-      return `${days}d ago`
+      return `${days} ngày trước`
     }
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
   }
@@ -122,9 +122,9 @@ export default function NotificationsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Notifications</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Thông báo</h2>
         <p className="text-muted-foreground">
-          Send company-wide announcements and view notification history
+          Gửi thông báo toàn công ty và xem lịch sử thông báo
         </p>
       </div>
 
@@ -135,10 +135,10 @@ export default function NotificationsPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Megaphone className="h-5 w-5 text-primary" />
-                Send Announcement
+                Gửi thông báo
               </CardTitle>
               <CardDescription>
-                Broadcast a message to all users in the system
+                Phát tin nhắn đến tất cả người dùng trong hệ thống
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -151,7 +151,7 @@ export default function NotificationsPage() {
                       targetType === 'all' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    Send to All
+                    Gửi tất cả
                   </button>
                   <button 
                     onClick={() => setTargetType('specific')}
@@ -160,7 +160,7 @@ export default function NotificationsPage() {
                       targetType === 'specific' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    Specific Users
+                    Người dùng cụ thể
                   </button>
                 </div>
 
@@ -198,7 +198,7 @@ export default function NotificationsPage() {
                 )}
 
                 <div className="space-y-2">
-                  <Label htmlFor="announcement" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Message</Label>
+                  <Label htmlFor="announcement" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Tin nhắn</Label>
                   <Textarea
                     id="announcement"
                     placeholder="Loa loa loa! Nhập nội dung thông báo..."
@@ -215,12 +215,12 @@ export default function NotificationsPage() {
                   {isConnected ? (
                     <>
                       <CheckCircle className="h-3 w-3 text-online" />
-                      <span>Live Connection</span>
+                      <span>Kết nối trực tiếp</span>
                     </>
                   ) : (
                     <>
                       <Clock className="h-3 w-3 text-destructive" />
-                      <span>Disconnected</span>
+                      <span>Mất kết nối</span>
                     </>
                   )}
                 </div>
@@ -232,7 +232,7 @@ export default function NotificationsPage() {
                   {isSending ? (
                     <span className="flex items-center gap-2">
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Loađing...
+                      Đang gửi...
                     </span>
                   ) : (
                     <>
@@ -265,7 +265,7 @@ export default function NotificationsPage() {
             ) : [...realtimeNotifications.map(n => ({ sender: n.sender || '📢 HỆ THỐNG', message: n.message, isSystem: n.isSystem || true, time: n.time.toISOString() })).reverse(), ...announcements].length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                 <Bell className="h-12 w-12 mb-4 opacity-20" />
-                <p className="text-center">No announcements yet</p>
+                <p className="text-center">Chưa có thông báo nào</p>
               </div>
             ) : (
               <ScrollArea className="h-100 pr-4">
@@ -299,7 +299,7 @@ export default function NotificationsPage() {
                           </span>
                           {announcement.isSystem && (
                             <Badge variant="secondary" className="text-xs">
-                              System
+                              Hệ thống
                             </Badge>
                           )}
                           <span className="text-xs text-muted-foreground ml-auto">

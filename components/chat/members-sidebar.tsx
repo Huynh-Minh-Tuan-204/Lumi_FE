@@ -94,13 +94,13 @@ export function MembersSidebar({
     setIsAddingMember(true)
     try {
       await conversationsApi.addMember(token, conversationId, parseInt(newMemberId, 10))
-      toast.success('Member added successfully')
+      toast.success('Đã thêm thành viên thành công')
       setIsAddMemberOpen(false)
       setNewMemberId('')
       loadMembers() // Reload members
     } catch (error) {
       console.error('Failed to add member:', error)
-      toast.error('Failed to add member')
+      toast.error('Thêm thành viên thất bại')
     } finally {
       setIsAddingMember(false)
     }
@@ -108,14 +108,14 @@ export function MembersSidebar({
 
   const handleRemoveMember = async (userId: number) => {
     if (!token) return
-    if (!confirm('Are you sure you want to remove this member?')) return
+    if (!confirm('Bạn có chắc chắn muốn xóa thành viên này không?')) return
     try {
       await conversationsApi.removeMember(token, conversationId, userId)
-      toast.success('Member removed successfully')
+      toast.success('Đã xóa thành viên thành công')
       loadMembers()
     } catch (error) {
       console.error('Failed to remove member:', error)
-      toast.error('Failed to remove member')
+      toast.error('Xóa thành viên thất bại')
     }
   }
 
@@ -153,9 +153,9 @@ export function MembersSidebar({
           </Button>
         )}
         <div className="flex-1">
-          <h2 className="font-semibold">Members</h2>
+          <h2 className="font-semibold">Thành viên</h2>
           <p className="text-xs text-muted-foreground">
-            {members.length} member{members.length !== 1 ? 's' : ''}
+            {members.length} thành viên
           </p>
         </div>
         {canManageMembers && (
@@ -167,29 +167,29 @@ export function MembersSidebar({
             </DialogTrigger>
             <DialogContent className="sm:max-w-106.25">
               <DialogHeader>
-                <DialogTitle>Add Member</DialogTitle>
+                <DialogTitle>Thêm thành viên</DialogTitle>
                 <DialogDescription>
-                  Enter the User ID of the member you want to add to the group.
+                  Nhập ID người dùng của thành viên bạn muốn thêm vào nhóm.
                 </DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="userId" className="text-right">
-                    User ID
+                    ID người dùng
                   </Label>
                   <Input
                     id="userId"
                     value={newMemberId}
                     onChange={(e) => setNewMemberId(e.target.value)}
                     className="col-span-3"
-                    placeholder="Enter user ID..."
+                    placeholder="Nhập ID người dùng..."
                     type="number"
                   />
                 </div>
               </div>
               <DialogFooter>
                 <Button onClick={handleAddMember} disabled={isAddingMember || !newMemberId.trim()}>
-                  {isAddingMember ? 'Adding...' : 'Add Member'}
+                  {isAddingMember ? 'Đang thêm...' : 'Thêm thành viên'}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -200,13 +200,13 @@ export function MembersSidebar({
       {/* Group Assets Section */}
       {canManageMembers && (
         <div className="p-4 border-b space-y-3 bg-muted/30">
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Group Assets</h3>
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tài nguyên nhóm</h3>
           <div className="flex gap-2">
             <div className="flex-1">
               <Label htmlFor="avatar-upload" className="cursor-pointer">
                 <div className="flex flex-col items-center gap-2 p-3 border-2 border-dashed rounded-lg hover:bg-muted transition-colors">
                   <ImagePlus className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-center">Update Avatar</span>
+                  <span className="text-xs font-medium text-center">Cập nhật Ảnh đại diện</span>
                 </div>
                 <Input 
                   id="avatar-upload" 
@@ -217,9 +217,9 @@ export function MembersSidebar({
                     if (e.target.files?.[0] && token) {
                       try {
                         await conversationsApi.uploadGroupAvatar(token, conversationId, e.target.files[0])
-                        toast.success('Group avatar updated successfully!')
+                        toast.success('Đã cập nhật ảnh đại diện nhóm thành công!')
                       } catch (error) {
-                        toast.error('Failed to update avatar')
+                        toast.error('Cập nhật ảnh đại diện thất bại')
                       }
                     }
                   }}
@@ -230,7 +230,7 @@ export function MembersSidebar({
               <Label htmlFor="bg-upload" className="cursor-pointer">
                 <div className="flex flex-col items-center gap-2 p-3 border-2 border-dashed rounded-lg hover:bg-muted transition-colors">
                   <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-center">Update Background</span>
+                  <span className="text-xs font-medium text-center">Cập nhật Ảnh nền</span>
                 </div>
                 <Input 
                   id="bg-upload" 
@@ -241,9 +241,9 @@ export function MembersSidebar({
                     if (e.target.files?.[0] && token) {
                       try {
                         await conversationsApi.uploadGroupBackground(token, conversationId, e.target.files[0])
-                        toast.success('Group background updated successfully!')
+                        toast.success('Đã cập nhật ảnh nền nhóm thành công!')
                       } catch (error) {
-                        toast.error('Failed to update background')
+                        toast.error('Cập nhật ảnh nền thất bại')
                       }
                     }
                   }}
@@ -259,7 +259,7 @@ export function MembersSidebar({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search members..."
+            placeholder="Tìm kiếm thành viên..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -279,7 +279,7 @@ export function MembersSidebar({
             {onlineMembers.length > 0 && (
               <div>
                 <p className="px-2 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Online - {onlineMembers.length}
+                  Trực tuyến - {onlineMembers.length}
                 </p>
                 <div className="space-y-1">
                   {onlineMembers.map((member, idx) => (
@@ -309,7 +309,7 @@ export function MembersSidebar({
             {offlineMembers.length > 0 && (
               <div>
                 <p className="px-2 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Offline - {offlineMembers.length}
+                  Ngoại tuyến - {offlineMembers.length}
                 </p>
                 <div className="space-y-1">
                   {offlineMembers.map((member, idx) => (
@@ -337,7 +337,7 @@ export function MembersSidebar({
 
             {filteredMembers.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                No members found
+                Không tìm thấy thành viên
               </p>
             )}
           </div>
@@ -378,7 +378,7 @@ function MemberItem({ member, isOnline, getInitials, canManage, onRemove, onPriv
       <div className="flex-1 min-w-0">
         <p className="font-medium text-sm truncate">{member.fullName}</p>
         <p className="text-xs text-muted-foreground">
-          {isOnline ? 'Online' : 'Offline'}
+          {isOnline ? 'Trực tuyến' : 'Ngoại tuyến'}
         </p>
       </div>
 
@@ -400,10 +400,10 @@ function MemberItem({ member, isOnline, getInitials, canManage, onRemove, onPriv
                 Nhắn riêng
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem onClick={() => toast('Tính năng xem hồ sơ đang được phát triển')}>View profile</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => toast('Tính năng xem hồ sơ đang được phát triển')}>Xem hồ sơ</DropdownMenuItem>
             {canManage && onRemove && (
               <DropdownMenuItem className="text-destructive" onClick={onRemove}>
-                Remove from group
+                Xóa khỏi nhóm
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>

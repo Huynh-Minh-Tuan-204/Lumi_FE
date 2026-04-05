@@ -134,7 +134,7 @@ export default function UsersPage() {
       setFilteredUsers(data)
     } catch (error) {
       console.error('Failed to load users:', error)
-      toast.error('Failed to load users')
+      toast.error('Không thể tải danh sách người dùng')
     } finally {
       setIsLoading(false)
     }
@@ -155,7 +155,7 @@ export default function UsersPage() {
         Phone: newUser.phone,
         RoleId: newUser.roleId,
       })
-      toast.success('User created successfully')
+      toast.success('Đã tạo người dùng thành công')
       setIsCreateDialogOpen(false)
       setNewUser({
         employeeCode: '',
@@ -169,7 +169,7 @@ export default function UsersPage() {
       loadUsers()
     } catch (error) {
       console.error('Failed to create user:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to create user')
+      toast.error(error instanceof Error ? error.message : 'Tạo người dùng thất bại')
     } finally {
       setIsCreating(false)
     }
@@ -177,14 +177,14 @@ export default function UsersPage() {
 
   const handleDeleteUser = async (id: number) => {
     if (!token) return
-    if (!window.confirm("Are you sure you want to disable this user?")) return
+    if (!window.confirm("Bạn có chắc chắn muốn vô hiệu hóa người dùng này không?")) return
     try {
       await adminApi.deleteUser(token, id)
-      toast.success("User disabled successfully")
+      toast.success("Đã vô hiệu hóa người dùng thành công")
       loadUsers()
     } catch (error) {
       console.error('Failed to delete user:', error)
-      toast.error('Failed to delete user')
+      toast.error('Vô hiệu hóa người dùng thất bại')
     }
   }
 
@@ -192,16 +192,17 @@ export default function UsersPage() {
     if (!token) return
     const roles: Record<string, number> = { 'Admin': 1, 'Manager': 2, 'Employee': 3 }
     const nextRoleName = currentRole === 'Admin' ? 'Manager' : currentRole === 'Manager' ? 'Employee' : 'Admin'
+    const nextRoleDisplayName = nextRoleName === 'Admin' ? 'Quản trị viên' : nextRoleName === 'Manager' ? 'Quản lý' : 'Nhân viên'
     const newRoleId = roles[nextRoleName]
-    if (!window.confirm(`Change role context for this user to ${nextRoleName}?`)) return
+    if (!window.confirm(`Thay đổi vai trò của người dùng này thành ${nextRoleDisplayName}?`)) return
     
     try {
       await adminApi.changeRole(token, id, newRoleId)
-      toast.success("Role changed successfully")
+      toast.success("Đã thay đổi vai trò thành công")
       loadUsers()
     } catch (error) {
       console.error('Failed to change role:', error)
-      toast.error('Failed to change role')
+      toast.error('Thay đổi vai trò thất bại')
     }
   }
 
@@ -236,8 +237,8 @@ export default function UsersPage() {
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16">
           <Shield className="h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-          <p className="text-muted-foreground">Only administrators can manage users.</p>
+          <h2 className="text-xl font-semibold mb-2">Truy cập bị từ chối</h2>
+          <p className="text-muted-foreground">Chỉ quản trị viên mới có thể quản lý người dùng.</p>
         </CardContent>
       </Card>
     )
@@ -248,29 +249,29 @@ export default function UsersPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">User Management</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Quản lý người dùng</h2>
           <p className="text-muted-foreground">
-            Create, edit, and manage user accounts
+            Tạo, chỉnh sửa và quản lý tài khoản nhân viên
           </p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <UserPlus className="mr-2 h-4 w-4" />
-              Add User
+              Thêm người dùng
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
+              <DialogTitle>Tạo người dùng mới</DialogTitle>
               <DialogDescription>
-                Add a new employee account to the system
+                Thêm một tài khoản nhân viên mới vào hệ thống
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="employeeCode">Employee Code</Label>
+                  <Label htmlFor="employeeCode">Mã nhân viên</Label>
                   <Input
                     id="employeeCode"
                     placeholder="EMP001"
@@ -282,7 +283,7 @@ export default function UsersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="username">Username</Label>
+                  <Label htmlFor="username">Tên đăng nhập</Label>
                   <Input
                     id="username"
                     placeholder="johndoe"
@@ -295,7 +296,7 @@ export default function UsersPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="fullName">Họ và tên</Label>
                 <Input
                   id="fullName"
                   placeholder="John Doe"
@@ -321,7 +322,7 @@ export default function UsersPage() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
+                  <Label htmlFor="phone">Số điện thoại</Label>
                   <Input
                     id="phone"
                     placeholder="+1234567890"
@@ -332,7 +333,7 @@ export default function UsersPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
+                  <Label htmlFor="role">Vai trò</Label>
                   <Select
                     value={newUser.roleId.toString()}
                     onValueChange={(value) =>
@@ -343,29 +344,29 @@ export default function UsersPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="1">Admin</SelectItem>
-                      <SelectItem value="2">Manager</SelectItem>
-                      <SelectItem value="3">Employee</SelectItem>
+                      <SelectItem value="1">Quản trị viên</SelectItem>
+                      <SelectItem value="2">Quản lý</SelectItem>
+                      <SelectItem value="3">Nhân viên</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Mật khẩu</Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Minimum 8 characters"
+                  placeholder="Tối thiểu 8 ký tự"
                   value={newUser.password}
                   onChange={(e) =>
                     setNewUser({ ...newUser, password: e.target.value })
                   }
-                  pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$"
-                  title="At least 8 chars, include uppercase, lowercase, number, special character."
+                   pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$"
+                  title="Tối thiểu 8 ký tự, bao gồm chữ hoa, chữ thường, số, ký tự đặc biệt."
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Must include uppercase, lowercase, number, and special character
+                  Phải bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt
                 </p>
               </div>
               <DialogFooter>
@@ -374,10 +375,10 @@ export default function UsersPage() {
                   variant="outline"
                   onClick={() => setIsCreateDialogOpen(false)}
                 >
-                  Cancel
+                  Hủy
                 </Button>
                 <Button type="submit" disabled={isCreating}>
-                  {isCreating ? 'Creating...' : 'Create User'}
+                  {isCreating ? 'Đang tạo...' : 'Tạo người dùng'}
                 </Button>
               </DialogFooter>
             </form>
@@ -397,18 +398,18 @@ export default function UsersPage() {
           ) : filteredUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <User className="h-12 w-12 mb-4 opacity-20" />
-              <p>No users found</p>
+              <p>Không tìm thấy người dùng nào</p>
             </div>
           ) : (
             <ScrollArea className="h-125">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead className="hidden md:table-cell">Employee Code</TableHead>
-                    <TableHead className="hidden sm:table-cell">Role</TableHead>
-                    <TableHead className="hidden lg:table-cell">Contact</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Người dùng</TableHead>
+                    <TableHead className="hidden md:table-cell">Mã nhân viên</TableHead>
+                    <TableHead className="hidden sm:table-cell">Vai trò</TableHead>
+                    <TableHead className="hidden lg:table-cell">Liên hệ</TableHead>
+                    <TableHead>Trạng thái</TableHead>
                     <TableHead className="w-12.5"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -438,7 +439,7 @@ export default function UsersPage() {
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant={getRoleBadgeVariant(userData.roleName)}>
-                          {userData.roleName}
+                          {userData.roleName === 'Admin' ? 'Quản trị viên' : userData.roleName === 'Manager' ? 'Quản lý' : 'Nhân viên'}
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden lg:table-cell">
@@ -460,12 +461,12 @@ export default function UsersPage() {
                           {userData.isActive ? (
                             <>
                               <span className="h-2 w-2 rounded-full bg-online" />
-                              <span className="text-xs">Active</span>
+                              <span className="text-xs">Đang hoạt động</span>
                             </>
                           ) : (
                             <>
                               <span className="h-2 w-2 rounded-full bg-muted-foreground" />
-                              <span className="text-xs">Inactive</span>
+                              <span className="text-xs">Ngừng hoạt động</span>
                             </>
                           )}
                         </div>
@@ -485,16 +486,16 @@ export default function UsersPage() {
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                             <DropdownMenuItem onClick={() => handleEditUser(userData)}>
                               <Edit className="mr-2 h-4 w-4" />
-                              Edit
+                              Chỉnh sửa
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleChangeRole(userData.id, userData.roleName)}>
                               <Shield className="mr-2 h-4 w-4" />
-                              Change Role
+                              Thay đổi vai trò
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteUser(userData.id)}>
                               <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
+                              Xóa
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

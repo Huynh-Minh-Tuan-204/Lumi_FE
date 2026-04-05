@@ -19,19 +19,19 @@ import {
 } from 'lucide-react'
 
 const adminNavItems = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Overview', exact: true },
-  { href: '/dashboard/users', icon: Users, label: 'User Management' },
-  { href: '/dashboard/groups', icon: MessageSquare, label: 'Group Management' },
-  { href: '/dashboard/schedule', icon: Calendar, label: 'Work Schedule' },
-  { href: '/dashboard/notifications', icon: Bell, label: 'Notifications' },
-  { href: '/dashboard/online', icon: Activity, label: 'Online Monitor' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan', exact: true },
+  { href: '/dashboard/users', icon: Users, label: 'Quản lý người dùng' },
+  { href: '/dashboard/groups', icon: MessageSquare, label: 'Quản lý nhóm' },
+  { href: '/dashboard/schedule', icon: Calendar, label: 'Lịch làm việc' },
+  { href: '/dashboard/notifications', icon: Bell, label: 'Thông báo' },
+  { href: '/dashboard/online', icon: Activity, label: 'Theo dõi trực tuyến' },
 ]
 
 const managerNavItems = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Overview', exact: true },
-  { href: '/dashboard/groups', icon: MessageSquare, label: 'My Groups' },
-  { href: '/dashboard/schedule', icon: Calendar, label: 'Work Schedule' },
-  { href: '/dashboard/notifications', icon: Bell, label: 'Announcements' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan', exact: true },
+  { href: '/dashboard/groups', icon: MessageSquare, label: 'Nhóm của tôi' },
+  { href: '/dashboard/schedule', icon: Calendar, label: 'Lịch làm việc' },
+  { href: '/dashboard/notifications', icon: Bell, label: 'Thông báo' },
 ]
 
 export function DashboardSidebar() {
@@ -49,8 +49,8 @@ export function DashboardSidebar() {
           <LayoutDashboard className="h-5 w-5 text-sidebar-primary-foreground" />
         </div>
         <div>
-          <h1 className="font-semibold text-sidebar-foreground">Admin Panel</h1>
-          <p className="text-xs text-sidebar-foreground/60">Lumi Chat Enterprise</p>
+          <h1 className="font-semibold text-sidebar-foreground">Bảng quản trị</h1>
+          <p className="text-xs text-sidebar-foreground/60">Lumi Chat Doanh nghiệp</p>
         </div>
       </div>
 
@@ -89,7 +89,7 @@ export function DashboardSidebar() {
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
           >
             <ChevronLeft className="h-5 w-5" />
-            <span className="font-medium">Back to Chat</span>
+            <span className="font-medium">Quay lại Chat</span>
           </Link>
           <Link
             href="/dashboard/settings"
@@ -101,7 +101,7 @@ export function DashboardSidebar() {
             )}
           >
             <Settings className="h-5 w-5" />
-            <span className="font-medium">Settings</span>
+            <span className="font-medium">Cài đặt</span>
           </Link>
         </nav>
       </ScrollArea>

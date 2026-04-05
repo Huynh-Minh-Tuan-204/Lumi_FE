@@ -13,11 +13,11 @@ export function MobileNavigation() {
   const isAdmin = user?.role === 'Admin'
 
   const navItems = [
-    { href: '/chat', icon: MessageSquare, label: 'Chats' },
-    { href: '/contacts', icon: Users, label: 'Contacts' },
-    { href: '/notifications', icon: Bell, label: 'Alerts' },
-    ...(isAdmin ? [{ href: '/dashboard', icon: LayoutDashboard, label: 'Admin' }] : []),
-    { href: '/settings', icon: Settings, label: 'Settings' },
+    { href: '/chat', icon: MessageSquare, label: 'Trò chuyện' },
+    { href: '/contacts', icon: Users, label: 'Danh bạ' },
+    { href: '/notifications', icon: Bell, label: 'Thông báo' },
+    ...(isAdmin ? [{ href: '/dashboard', icon: LayoutDashboard, label: 'Quản trị' }] : []),
+    { href: '/settings', icon: Settings, label: 'Cài đặt' },
   ]
 
   return (

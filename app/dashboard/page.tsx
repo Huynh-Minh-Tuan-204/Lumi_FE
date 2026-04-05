@@ -87,10 +87,10 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">
-            Welcome back, {user?.fullName?.split(' ')[0]}
+            Chào mừng trở lại, {user?.fullName?.split(' ')[0]}
           </h2>
           <p className="text-muted-foreground">
-            Here is what is happening in your organization today.
+            Đây là những gì đang diễn ra trong tổ chức của bạn hôm nay.
           </p>
         </div>
 
@@ -98,7 +98,7 @@ export default function DashboardPage() {
           <Button asChild>
             <Link href="/dashboard/users">
               <UserPlus className="mr-2 h-4 w-4" />
-              Add User
+              Thêm người dùng
             </Link>
           </Button>
         )}
@@ -109,7 +109,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <CardTitle className="text-sm font-medium">Tổng số người dùng</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground"/>
           </CardHeader>
 
@@ -118,14 +118,14 @@ export default function DashboardPage() {
               {isLoading ? '-' : stats.totalUsers}
             </div>
             <p className="text-xs text-muted-foreground">
-              {isLoading ? 'Loading...' : `${stats.activeUsers} active`}
+              {isLoading ? 'Đang tải...' : `${stats.activeUsers} hoạt động`}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active Users</CardTitle>
+            <CardTitle className="text-sm font-medium">Người dùng đang hoạt động</CardTitle>
             <Activity className="h-4 w-4 text-online"/>
           </CardHeader>
 
@@ -138,7 +138,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Chat Groups</CardTitle>
+            <CardTitle className="text-sm font-medium">Nhóm trò chuyện</CardTitle>
             <MessageSquare className="h-4 w-4 text-muted-foreground"/>
           </CardHeader>
 
@@ -151,7 +151,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Announcements</CardTitle>
+            <CardTitle className="text-sm font-medium">Thông báo</CardTitle>
             <Bell className="h-4 w-4 text-muted-foreground"/>
           </CardHeader>
 
@@ -167,14 +167,14 @@ export default function DashboardPage() {
       {/* Recent users */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Users</CardTitle>
-          <CardDescription>Latest registered users</CardDescription>
+          <CardTitle>Người dùng mới</CardTitle>
+          <CardDescription>Người dùng đăng ký gần đây</CardDescription>
         </CardHeader>
 
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center py-8">
-              Loading...
+              Đang tải...
             </div>
           ) : (
             <div className="space-y-4">

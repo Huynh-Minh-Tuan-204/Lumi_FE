@@ -26,7 +26,7 @@ export function LoginForm() {
       await login(username, password)
       // Redirect based on role will happen in useEffect on page.tsx
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed. Please try again.')
+      setError(err instanceof Error ? err.message : 'Đăng nhập thất bại. Vui lòng thử lại.')
     } finally {
       setIsSubmitting(false)
     }
@@ -54,16 +54,16 @@ export function LoginForm() {
             Lumi Chat
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Enterprise Communication Platform
+            Nền tảng giao tiếp doanh nghiệp
           </p>
         </div>
 
         {/* Login card */}
         <Card className="border-0 shadow-xl bg-card/80 backdrop-blur-sm">
           <CardHeader className="space-y-1 pb-4">
-            <CardTitle className="text-xl text-center">Sign in to your account</CardTitle>
+            <CardTitle className="text-xl text-center">Đăng nhập vào tài khoản</CardTitle>
             <CardDescription className="text-center">
-              Enter your credentials to access the system
+              Nhập thông tin tài khoản để truy cập hệ thống
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -76,13 +76,13 @@ export function LoginForm() {
               )}
               
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="username">Tên đăng nhập</Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="username"
                     type="text"
-                    placeholder="Enter your username"
+                    placeholder="Nhập tên đăng nhập"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="pl-10"
@@ -94,13 +94,13 @@ export function LoginForm() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Mật khẩu</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Enter your password"
+                    placeholder="Nhập mật khẩu"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-10"
@@ -120,10 +120,10 @@ export function LoginForm() {
                 {isSubmitting ? (
                   <span className="flex items-center gap-2">
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                    Signing in...
+                    Đang đăng nhập...
                   </span>
                 ) : (
-                  'Sign in'
+                  'Đăng nhập'
                 )}
               </Button>
             </form>
@@ -132,7 +132,7 @@ export function LoginForm() {
 
         {/* Footer */}
         <p className="text-center text-sm text-muted-foreground">
-          Contact your system administrator if you need access
+          Liên hệ quản trị viên hệ thống nếu bạn cần truy cập
         </p>
       </div>
     </div>

@@ -32,9 +32,9 @@ export default function SettingsPage() {
         fullName: profile.fullName,
         email: profile.email
       })
-      toast.success('Profile updated successfully! Changes may take effect on next login.')
+      toast.success('Cập nhật hồ sơ thành công! Các thay đổi có thể có hiệu lực vào lần đăng nhập tiếp theo.')
     } catch (e) {
-      toast.error('Failed to update profile')
+      toast.error('Cập nhật hồ sơ thất bại')
     } finally {
       setIsSaving(false)
     }
@@ -45,21 +45,21 @@ export default function SettingsPage() {
     if (!file || !token || !user) return
 
     try {
-      toast.info('Uploading avatar...')
+      toast.info('Đang tải ảnh đại diện lên...')
       const res = await authApi.uploadAvatar(token, file)
       updateUser({ avatarPath: `${res.avatarPath}?t=${Date.now()}` })
-      toast.success('Avatar updated successfully!')
+      toast.success('Cập nhật ảnh đại diện thành công!')
     } catch (e) {
-      toast.error('Failed to upload avatar')
+      toast.error('Tải ảnh đại diện thất bại')
     }
   }
 
   return (
     <div className="space-y-6 max-w-4xl pb-10">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Cài đặt</h2>
         <p className="text-muted-foreground">
-          Manage your account settings and preferences
+          Quản lý cài đặt tài khoản và tùy chọn của bạn
         </p>
       </div>
 
@@ -69,10 +69,10 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="h-5 w-5 text-primary" />
-              Profile Settings
+              Cài đặt hồ sơ
             </CardTitle>
             <CardDescription>
-              Update your personal information
+              Cập nhật thông tin cá nhân của bạn
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -97,14 +97,14 @@ export default function SettingsPage() {
                 />
               </div>
               <div className="space-y-1">
-                <h3 className="font-medium">Profile Picture</h3>
-                <p className="text-sm text-muted-foreground">Click the image to upload a new avatar (JPG, PNG, WEBP)</p>
+                <h3 className="font-medium">Ảnh đại diện</h3>
+                <p className="text-sm text-muted-foreground">Nhấp vào ảnh để tải lên ảnh đại diện mới (JPG, PNG, WEBP)</p>
               </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="fullName">Họ và tên</Label>
                 <Input 
                   id="fullName" 
                   value={profile.fullName} 
@@ -122,14 +122,14 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Role</Label>
+              <Label>Vai trò</Label>
               <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-2 rounded-md">
                 <Shield className="h-4 w-4" />
-                {user?.role || 'User'}
+                {user?.role === 'Admin' ? 'Quản trị viên' : user?.role === 'Manager' ? 'Quản lý' : 'Nhân viên'}
               </div>
             </div>
             <Button onClick={handleSaveProfile} disabled={isSaving}>
-              {isSaving ? 'Saving...' : <><Save className="mr-2 h-4 w-4" /> Save Changes</>}
+              {isSaving ? 'Đang lưu...' : <><Save className="mr-2 h-4 w-4" /> Lưu thay đổi</>}
             </Button>
           </CardContent>
         </Card>
@@ -139,26 +139,26 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5 text-primary" />
-              Preferences
+              Tùy chọn
             </CardTitle>
             <CardDescription>
-              Customize your experience
+              Tùy chỉnh trải nghiệm của bạn
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label className="text-base">Appearance</Label>
-                <p className="text-sm text-muted-foreground">Toggle between light and dark mode</p>
+                <Label className="text-base">Giao diện</Label>
+                <p className="text-sm text-muted-foreground">Chuyển đổi giữa chế độ sáng và tối</p>
               </div>
               <ThemeToggle />
             </div>
 
             <div className="space-y-2 max-w-sm">
-              <Label>Language</Label>
-              <Select defaultValue="en">
+              <Label>Ngôn ngữ</Label>
+              <Select defaultValue="vi">
                 <SelectTrigger>
-                  <SelectValue placeholder="Select Language" />
+                  <SelectValue placeholder="Chọn ngôn ngữ" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="en">English (US)</SelectItem>

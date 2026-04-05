@@ -46,20 +46,20 @@ import { useSignalR } from '@/hooks/use-signalr'
 import { announcementsApi } from '@/lib/api'
 
 const pageTitles: Record<string, string> = {
-  '/dashboard': 'Overview',
-  '/dashboard/users': 'User Management',
-  '/dashboard/groups': 'Group Management',
-  '/dashboard/notifications': 'Notifications',
-  '/dashboard/online': 'Online Monitor',
-  '/dashboard/settings': 'Settings',
+  '/dashboard': 'Tổng quan',
+  '/dashboard/users': 'Quản lý người dùng',
+  '/dashboard/groups': 'Quản lý nhóm',
+  '/dashboard/notifications': 'Thông báo',
+  '/dashboard/online': 'Theo dõi trực tuyến',
+  '/dashboard/settings': 'Cài đặt',
 }
 
 const adminNavItems = [
-  { href: '/dashboard', icon: LayoutDashboard, label: 'Overview', exact: true },
-  { href: '/dashboard/users', icon: Users, label: 'User Management' },
-  { href: '/dashboard/groups', icon: MessageSquare, label: 'Group Management' },
-  { href: '/dashboard/notifications', icon: Bell, label: 'Notifications' },
-  { href: '/dashboard/online', icon: Activity, label: 'Online Monitor' },
+  { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan', exact: true },
+  { href: '/dashboard/users', icon: Users, label: 'Quản lý người dùng' },
+  { href: '/dashboard/groups', icon: MessageSquare, label: 'Quản lý nhóm' },
+  { href: '/dashboard/notifications', icon: Bell, label: 'Thông báo' },
+  { href: '/dashboard/online', icon: Activity, label: 'Theo dõi trực tuyến' },
 ]
 
 export function DashboardHeader() {
@@ -94,7 +94,7 @@ export function DashboardHeader() {
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0 bg-sidebar">
             <SheetHeader className="p-4 border-b border-sidebar-border">
-              <SheetTitle className="text-sidebar-foreground text-left">Admin Panel</SheetTitle>
+              <SheetTitle className="text-sidebar-foreground text-left">Bảng quản trị</SheetTitle>
             </SheetHeader>
             <nav className="p-3 space-y-1">
               {adminNavItems.map((item) => {
@@ -125,7 +125,7 @@ export function DashboardHeader() {
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent transition-colors"
               >
                 <ChevronLeft className="h-5 w-5" />
-                <span className="font-medium">Back to Chat</span>
+                <span className="font-medium">Quay lại Chat</span>
               </Link>
             </nav>
           </SheetContent>
@@ -134,7 +134,7 @@ export function DashboardHeader() {
         <div>
           <h1 className="text-lg font-semibold md:text-xl">{pageTitle}</h1>
           <p className="text-xs text-muted-foreground hidden sm:block">
-            Manage your organization
+            Quản lý tổ chức của bạn
           </p>
         </div>
       </div>
@@ -144,7 +144,7 @@ export function DashboardHeader() {
         <div className="relative hidden md:block" title="Search users and groups">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search..."
+            placeholder="Tìm kiếm..."
             className="w-64 pl-9"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -176,19 +176,19 @@ export function DashboardHeader() {
           </PopoverTrigger>
           <PopoverContent align="end" className="w-80 p-0 shadow-xl border-sidebar-border">
             <div className="flex items-center justify-between border-b p-4 bg-muted/20">
-              <h4 className="font-semibold text-sm">Notifications</h4>
+              <h4 className="font-semibold text-sm">Thông báo</h4>
               <Link 
                 href="/dashboard/notifications" 
                 className="text-xs text-primary hover:underline font-medium"
               >
-                View all
+                Xem tất cả
               </Link>
             </div>
             <div className="max-h-80 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="p-8 text-center text-sm text-muted-foreground">
                   <Bell className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                  No new notifications
+                  Không có thông báo mới
                 </div>
               ) : (
                 <div className="divide-y divide-border">
@@ -196,7 +196,7 @@ export function DashboardHeader() {
                     <div key={n.id} className="p-4 hover:bg-muted/50 transition-colors cursor-default">
                       <div className="flex justify-between items-start gap-2 mb-1">
                         <span className="text-xs font-bold text-primary truncate max-w-[150px]">
-                          {n.sender || 'System'}
+                          {n.sender || 'Hệ thống'}
                         </span>
                         <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">
                           {new Date(n.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -215,7 +215,7 @@ export function DashboardHeader() {
                 href="/dashboard/notifications"
                 className="block p-3 text-center text-xs border-t font-semibold hover:bg-muted transition-colors text-muted-foreground"
               >
-                See all notifications
+                Xem tất cả thông báo
               </Link>
             )}
           </PopoverContent>
@@ -249,13 +249,13 @@ export function DashboardHeader() {
             <DropdownMenuItem asChild>
               <Link href="/dashboard/settings" className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
-                Settings
+                Cài đặt
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
               <LogOut className="mr-2 h-4 w-4" />
-              Sign out
+              Đăng xuất
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

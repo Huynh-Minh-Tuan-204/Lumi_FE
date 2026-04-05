@@ -156,13 +156,13 @@ export function ChatArea({
     if (!file || !conversation || !token) return
 
     try {
-      toast.info('Uploading file...')
+      toast.info('Đang tải tệp lên...')
       await attachmentsApi.upload(token, file, conversation.id)
-      toast.success('File uploaded successfully!')
+      toast.success('Tải tệp lên thành công!')
       // Optionally trigger a refresh or let SignalR handle the new message event
     } catch (error) {
       console.error('File upload failed:', error)
-      toast.error('Failed to upload file.')
+      toast.error('Tải tệp lên thất bại.')
     }
   }
 
@@ -171,26 +171,26 @@ export function ChatArea({
     if (!file || !conversation || !token) return
 
     try {
-      toast.info(`Uploading group ${type}...`)
+      toast.info(`Đang tải ${type} nhóm lên...`)
       if (type === 'avatar') {
         await conversationsApi.uploadGroupAvatar(token, conversation.id, file)
       } else {
         await conversationsApi.uploadGroupBackground(token, conversation.id, file)
       }
-      toast.success(`Group ${type} updated!`)
+      toast.success(`Đã cập nhật ${type} nhóm!`)
       if (onRefreshConversations) onRefreshConversations();
       // SignalR should trigger a ReceiveGroupUpdate which updates the page state for others
     } catch (error) {
       console.error(`Group ${type} upload failed:`, error)
-      toast.error(`Failed to upload group ${type}.`)
+      toast.error(`Tải ${type} nhóm thất bại.`)
     }
   }
 
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token || !user) return
     try {
-      const resp = await meetingsApi.startMeeting(token, conversation.id, `${type.toUpperCase()} Call - ${conversation.name}`, [], type)
-      toast.success(`Started ${type} call.`)
+      const resp = await meetingsApi.startMeeting(token, conversation.id, `${type === 'voice' ? 'Cuộc gọi thoại' : 'Cuộc gọi video'} - ${conversation.name}`, [], type)
+      toast.success(`Đã bắt đầu cuộc gọi ${type === 'voice' ? 'thoại' : 'video'}.`)
       // Navigate to call page with the meetingId
       if (resp && resp.id) {
         router.push(`/call/${resp.id}?type=${type}`)
@@ -199,7 +199,7 @@ export function ChatArea({
       }
     } catch (error) {
       console.error(`Failed to start ${type} call:`, error)
-      toast.error(`Failed to start ${type} call.`)
+      toast.error(`Không thể bắt đầu cuộc gọi ${type === 'voice' ? 'thoại' : 'video'}.`)
     }
   }
 
@@ -421,8 +421,8 @@ export function ChatArea({
         )}
       >
         <MessageSquare className="h-16 w-16 mb-4 opacity-20" />
-        <h2 className="text-xl font-medium">Select a conversation</h2>
-        <p className="text-sm mt-1">Choose a chat from the sidebar to start messaging</p>
+        <h2 className="text-xl font-medium">Chọn một cuộc trò chuyện</h2>
+        <p className="text-sm mt-1">Chọn một cuộc trò chuyện từ thanh bên để bắt đầu nhắn tin</p>
       </div>
     )
   }
@@ -465,7 +465,7 @@ export function ChatArea({
           <div>
             <h2 className="font-semibold">{conversation.name}</h2>
             <p className="text-xs text-muted-foreground">
-              {conversation.type === 'Group' ? 'Group chat' : 'Direct message'}
+              {conversation.type === 'Group' ? 'Trò chuyện nhóm' : 'Tin nhắn trực tiếp'}
             </p>
           </div>
         </div>
@@ -478,7 +478,7 @@ export function ChatArea({
                   <Phone className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Voice call</TooltipContent>
+              <TooltipContent>Cuộc gọi thoại</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -487,7 +487,7 @@ export function ChatArea({
                   <Video className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Video call</TooltipContent>
+              <TooltipContent>Cuộc gọi video</TooltipContent>
             </Tooltip>
 
             {conversation.type === 'Group' && onShowMembers && (
@@ -497,7 +497,7 @@ export function ChatArea({
                     <Users className="h-5 w-5" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent>View members</TooltipContent>
+                <TooltipContent>Xem thành viên</TooltipContent>
               </Tooltip>
             )}
 
@@ -510,63 +510,63 @@ export function ChatArea({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="z-[9999] w-56">
                   <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Group Settings
+                    Cài đặt nhóm
                   </div>
                   <DropdownMenuItem onClick={() => {
-                    const name = prompt("Enter new group name:", conversation.name);
+                    const name = prompt("Nhập tên nhóm mới:", conversation.name);
                     if (name && token) {
                       conversationsApi.renameConversation(token, conversation.id, name)
                         .then(() => {
-                          toast.success("Group renamed!");
+                          toast.success("Đã đổi tên nhóm!");
                           window.location.reload();
                         })
-                        .catch(() => toast.error("Failed to rename group"));
+                        .catch(() => toast.error("Đổi tên nhóm thất bại"));
                     }
                   }}>
                     <Settings className="mr-2 h-4 w-4" />
-                    Rename Group
+                    Đổi tên nhóm
                   </DropdownMenuItem>
                   
                   <DropdownMenuSeparator />
                   
                   <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Media & appearance
+                    Ảnh & Giao diện
                   </div>
                   <DropdownMenuItem onClick={() => groupAvatarInputRef.current?.click()}>
                     <ImageIcon className="mr-2 h-4 w-4" />
-                    Change Group Avatar
+                    Đổi ảnh đại diện nhóm
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => groupBackgroundInputRef.current?.click()}>
                     <ImageasBgIcon className="mr-2 h-4 w-4" />
-                    Change Chat Background
+                    Đổi nền cuộc trò chuyện
                   </DropdownMenuItem>
 
                   <DropdownMenuSeparator />
                   {(user?.role === 'Admin' || conversation.createdBy === user?.id) && (
                     <DropdownMenuItem className="text-destructive" onClick={async () => {
-                      if (confirm('Are you sure you want to disband this group?')) {
+                      if (confirm('Bạn có chắc chắn muốn giải tán nhóm này không?')) {
                         try {
                           await conversationsApi.disband(token!, conversation.id)
-                          toast.success('Group disbanded')
+                          toast.success('Nhóm đã giải tán')
                           window.location.reload()
-                        } catch (e) { toast.error('Failed to disband') }
+                        } catch (e) { toast.error('Giải tán nhóm thất bại') }
                       }
                     }}>
                       <Trash className="mr-2 h-4 w-4" />
-                      Disband Group
+                      Giải tán nhóm
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem className="text-destructive" onClick={async () => {
-                    if (confirm('Are you sure you want to leave this group?')) {
+                    if (confirm('Bạn có chắc chắn muốn rời khỏi nhóm này không?')) {
                       try {
                         await conversationsApi.leave(token!, conversation.id, user!.id)
-                        toast.success('Left group')
+                        toast.success('Đã rời nhóm')
                         window.location.reload()
-                      } catch (e) { toast.error('Failed to leave') }
+                      } catch (e) { toast.error('Rời nhóm thất bại') }
                     }
                   }}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    Leave Group
+                    Rời khỏi nhóm
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -627,8 +627,8 @@ export function ChatArea({
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                 <MessageSquare className="h-12 w-12 mb-3 opacity-20" />
-                <p className="text-sm">No messages yet</p>
-                <p className="text-xs mt-1">Start the conversation!</p>
+                <p className="text-sm">Chưa có tin nhắn nào</p>
+                <p className="text-xs mt-1">Hãy bắt đầu cuộc trò chuyện!</p>
               </div>
             ) : (
               <div className="space-y-6">
@@ -762,7 +762,7 @@ export function ChatArea({
                                   {msg.isPinned && (
                                     <div className="flex items-center gap-1 mt-1 opacity-60">
                                       <Hash className="h-3 w-3 text-primary" />
-                                      <span className="text-[10px] font-medium">Pinned</span>
+                                      <span className="text-[10px] font-medium">Đã ghim</span>
                                     </div>
                                   )}
                                 </div>
@@ -802,14 +802,14 @@ export function ChatArea({
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => {
                                         togglePinMessage(msg.id)
-                                        toast.success(msg.isPinned ? 'Unpinned' : 'Pinned message')
+                                        toast.success(msg.isPinned ? 'Đã bỏ ghim' : 'Đã ghim tin nhắn')
                                       }}>
                                         <Hash className="mr-2 h-4 w-4" />
                                         {msg.isPinned ? 'Bỏ Ghim' : 'Ghim tin nhắn'}
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => {
-                                        sendReminder(conversation.id, `Remind: ${msg.encryptedContent.substring(0, 30)}...`, new Date(Date.now() + 3600000).toISOString())
-                                        toast.success('Reminder set for 1 hour later')
+                                        sendReminder(conversation.id, `Nhắc: ${msg.encryptedContent.substring(0, 30)}...`, new Date(Date.now() + 3600000).toISOString())
+                                        toast.success('Đã đặt nhắc nhở sau 1 giờ')
                                       }}>
                                         <Phone className="mr-2 h-4 w-4" />
                                         Nhắc tôi (1 giờ)
@@ -844,7 +844,7 @@ export function ChatArea({
                       <span className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce" />
                     </div>
                     <span className="text-[10px] text-muted-foreground font-medium italic">
-                      {typingUsers.filter(t => t.conversationId === conversation?.id && t.userId !== user?.id).map(t => t.userName).join(', ')} {typingUsers.filter(t => t.conversationId === conversation?.id && t.userId !== user?.id).length > 1 ? 'are' : 'is'} typing...
+                      {typingUsers.filter(t => t.conversationId === conversation?.id && t.userId !== user?.id).map(t => t.userName).join(', ')} đang nhắn...
                     </span>
                   </div>
                 )}
@@ -862,7 +862,7 @@ export function ChatArea({
           <Reply className="h-4 w-4 text-muted-foreground" />
           <div className="flex-1 min-w-0">
             <p className="text-xs text-muted-foreground font-medium">
-              Replying to {replyingTo.senderName || 'message'}
+              Đang trả lời {replyingTo.senderName || 'tin nhắn'}
             </p>
             <p className="text-sm truncate text-muted-foreground/80">{replyingTo.encryptedContent}</p>
           </div>
@@ -900,7 +900,7 @@ export function ChatArea({
                   <Paperclip className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Attach file</TooltipContent>
+              <TooltipContent>Đính kèm tệp</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -909,12 +909,12 @@ export function ChatArea({
                   <ImageIcon className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Send image</TooltipContent>
+              <TooltipContent>Gửi hình ảnh</TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
           <Input
-            placeholder="Type a message..."
+            placeholder="Nhập tin nhắn..."
             value={newMessage}
             onChange={(e) => {
               setNewMessage(e.target.value)
@@ -970,7 +970,7 @@ export function ChatArea({
                         className="aspect-square flex items-center justify-center p-2 rounded-lg hover:bg-muted cursor-pointer transition-transform active:scale-95 border"
                         onClick={() => {
                           if (conversation) sendSticker(conversation.id, url)
-                          toast.success('Sticker sent!')
+                          toast.success('Đã gửi nhãn dán!')
                         }}
                       >
                         <img src={url} alt="sticker" className="w-full h-full object-contain" loading="lazy" />
@@ -993,7 +993,7 @@ export function ChatArea({
         </div>
         {!isConnected && (
           <p className="text-[10px] text-yellow-500 mt-2 text-center animate-pulse font-medium">
-            Connection lost. Messages will be sent when reconnected.
+            Mất kết nối. Tin nhắn sẽ được gửi khi có kết nối lại.
           </p>
         )}
       </div>

@@ -101,7 +101,7 @@ export default function GroupsPage() {
       setFilteredGroups(mappedData)
     } catch (error) {
       console.error('Failed to load groups:', error)
-      toast.error('Failed to load groups')
+      toast.error('Không thể tải danh sách nhóm')
     } finally {
       setIsLoading(false)
     }
@@ -124,13 +124,13 @@ export default function GroupsPage() {
     setIsCreating(true)
     try {
       await adminApi.createGroup(token, newGroupName)
-      toast.success('Group created successfully')
+      toast.success('Tạo nhóm thành công')
       setIsCreateDialogOpen(false)
       setNewGroupName('')
       loadGroups()
     } catch (error) {
       console.error('Failed to create group:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to create group')
+      toast.error(error instanceof Error ? error.message : 'Tạo nhóm thất bại')
     } finally {
       setIsCreating(false)
     }
@@ -141,7 +141,7 @@ export default function GroupsPage() {
 
     try {
       await adminApi.addMemberToGroup(token, selectedGroup.id, selectedUserId)
-      toast.success('Member added successfully')
+      toast.success('Thêm thành viên thành công')
       setIsAddMemberDialogOpen(false)
       setSelectedUserId(null)
     } catch (error) {
@@ -152,16 +152,16 @@ export default function GroupsPage() {
 
   const handleDeleteGroup = async (group: GroupData) => {
     if (!token) return
-    if (!window.confirm(`Delete group "${group.name}"? This cannot be undone.`)) return
+    if (!window.confirm(`Xóa nhóm "${group.name}"? Hành động này không thể hoàn tác.`)) return
 
     try {
       await adminApi.deleteGroup(token, group.id)
-      toast.success('Group deleted successfully')
+      toast.success('Xóa nhóm thành công')
       setGroups((prev) => prev.filter((g) => g.id !== group.id))
       setFilteredGroups((prev) => prev.filter((g) => g.id !== group.id))
     } catch (error) {
       console.error('Failed to delete group:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to delete group')
+      toast.error(error instanceof Error ? error.message : 'Xóa nhóm thất bại')
     }
   }
 
@@ -172,12 +172,12 @@ export default function GroupsPage() {
     setIsRenaming(true)
     try {
       await conversationsApi.renameConversation(token, selectedGroup.id, renameInput)
-      toast.success('Group renamed successfully')
+      toast.success('Đổi tên nhóm thành công')
       setIsRenameDialogOpen(false)
       loadGroups()
     } catch (error) {
       console.error('Failed to rename group:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to rename group')
+      toast.error(error instanceof Error ? error.message : 'Đổi tên nhóm thất bại')
     } finally {
       setIsRenaming(false)
     }
@@ -191,7 +191,7 @@ export default function GroupsPage() {
       setGroupMembers(data)
     } catch (error) {
       console.error('Failed to load group members:', error)
-      toast.error('Failed to load group members')
+      toast.error('Không thể tải danh sách thành viên nhóm')
     } finally {
       setIsLoadingMembers(false)
     }
@@ -212,9 +212,9 @@ export default function GroupsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Group Management</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Quản lý nhóm</h2>
           <p className="text-muted-foreground">
-            Create and manage chat groups
+            Tạo và quản lý các nhóm trò chuyện
           </p>
         </div>
         {canManageGroups && (
@@ -222,19 +222,19 @@ export default function GroupsPage() {
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
-                Create Group
+                Tạo nhóm
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle>Create New Group</DialogTitle>
+                <DialogTitle>Tạo nhóm mới</DialogTitle>
                 <DialogDescription>
-                  Create a new chat group for team communication
+                  Tạo nhóm trò chuyện mới để trao đổi trong nhóm
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleCreateGroup} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="groupName">Group Name</Label>
+                  <Label htmlFor="groupName">Tên nhóm</Label>
                   <Input
                     id="groupName"
                     placeholder="e.g., Marketing Team"
@@ -249,10 +249,10 @@ export default function GroupsPage() {
                     variant="outline"
                     onClick={() => setIsCreateDialogOpen(false)}
                   >
-                    Cancel
+                    Hủy
                   </Button>
                   <Button type="submit" disabled={isCreating || !newGroupName.trim()}>
-                    {isCreating ? 'Creating...' : 'Create Group'}
+                    {isCreating ? 'Đang tạo...' : 'Tạo nhóm'}
                   </Button>
                 </DialogFooter>
               </form>
@@ -272,8 +272,8 @@ export default function GroupsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
-            <p className="text-lg font-medium">No groups found</p>
-            <p className="text-sm">Create a new group to get started</p>
+            <p className="text-lg font-medium">Không tìm thấy nhóm nào</p>
+            <p className="text-sm">Tạo nhóm mới để bắt đầu</p>
           </CardContent>
         </Card>
       ) : (
@@ -315,14 +315,14 @@ export default function GroupsPage() {
                           }}
                         >
                           <UserPlus className="mr-2 h-4 w-4" />
-                          Add Member
+                          Thêm thành viên
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => {
                           setSelectedGroup(group)
                           setIsViewMembersDialogOpen(true)
                         }}>
                           <Users className="mr-2 h-4 w-4" />
-                          View Members
+                          Xem thành viên
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => {
                           setSelectedGroup(group)
@@ -330,7 +330,7 @@ export default function GroupsPage() {
                           setIsRenameDialogOpen(true)
                         }}>
                           <Edit className="mr-2 h-4 w-4" />
-                          Rename
+                          Đổi tên
                         </DropdownMenuItem>
                         {isAdmin && (
                           <>
@@ -356,7 +356,7 @@ export default function GroupsPage() {
                   </p>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">
-                    No messages yet
+                    Chưa có tin nhắn nào
                   </p>
                 )}
               </CardContent>
@@ -369,14 +369,14 @@ export default function GroupsPage() {
       <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add Member</DialogTitle>
+            <DialogTitle>Thêm thành viên</DialogTitle>
             <DialogDescription>
-              Add a user to {selectedGroup?.name}
+              Thêm người dùng vào {selectedGroup?.name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Select User</Label>
+              <Label>Chọn người dùng</Label>
               <ScrollArea className="h-64 rounded-md border">
                 <div className="p-2 space-y-1">
                   {allUsers
@@ -415,10 +415,10 @@ export default function GroupsPage() {
                 setSelectedUserId(null)
               }}
             >
-              Cancel
+              Hủy
             </Button>
             <Button onClick={handleAddMember} disabled={!selectedUserId}>
-              Add Member
+              Thêm thành viên
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -428,14 +428,14 @@ export default function GroupsPage() {
       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Rename Group</DialogTitle>
+            <DialogTitle>Đổi tên nhóm</DialogTitle>
             <DialogDescription>
-              Change the name of {selectedGroup?.name}
+              Thay đổi tên cho nhóm {selectedGroup?.name}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleRenameGroup} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="renameInput">New Name</Label>
+              <Label htmlFor="renameInput">Tên mới</Label>
               <Input
                 id="renameInput"
                 placeholder="e.g., Development Team"
@@ -449,10 +449,10 @@ export default function GroupsPage() {
                 variant="outline"
                 onClick={() => setIsRenameDialogOpen(false)}
               >
-                Cancel
+                Hủy
               </Button>
               <Button type="submit" disabled={isRenaming || !renameInput.trim() || renameInput === selectedGroup?.name}>
-                {isRenaming ? 'Renaming...' : 'Save Changes'}
+                {isRenaming ? 'Đang đổi tên...' : 'Lưu thay đổi'}
               </Button>
             </DialogFooter>
           </form>
@@ -463,9 +463,9 @@ export default function GroupsPage() {
       <Dialog open={isViewMembersDialogOpen} onOpenChange={setIsViewMembersDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Group Members</DialogTitle>
+            <DialogTitle>Thành viên nhóm</DialogTitle>
             <DialogDescription>
-              Members of {selectedGroup?.name}
+              Các thành viên của {selectedGroup?.name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -476,7 +476,7 @@ export default function GroupsPage() {
                 </div>
               ) : groupMembers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <p className="text-sm">No members found</p>
+                  <p className="text-sm">Không tìm thấy thành viên</p>
                 </div>
               ) : (
                 <div className="p-2 space-y-1">
@@ -501,7 +501,7 @@ export default function GroupsPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm truncate">{m.fullName}</p>
                         <p className="text-xs text-muted-foreground">
-                          {m.isActive ? 'Online' : 'Offline'}
+                          {m.isActive ? 'Trực tuyến' : 'Ngoại tuyến'}
                         </p>
                       </div>
                     </div>
@@ -511,7 +511,7 @@ export default function GroupsPage() {
             </ScrollArea>
           </div>
           <DialogFooter>
-            <Button onClick={() => setIsViewMembersDialogOpen(false)}>Close</Button>
+            <Button onClick={() => setIsViewMembersDialogOpen(false)}>Đóng</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
