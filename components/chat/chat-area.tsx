@@ -600,19 +600,53 @@ export function ChatArea({
       )}
 
       {/* Pinned Message Bar */}
-      {latestPin && (
+      {pinnedList.length > 0 && (
         <div 
-          onClick={() => scrollToMessage(latestPin.id)}
-          className="bg-primary/5 border-b border-primary/10 py-2 px-4 flex items-center gap-3 cursor-pointer hover:bg-primary/10 transition-colors group"
+          className="bg-primary/5 dark:bg-primary/10 border-b border-primary/10 py-2.5 px-4 flex items-center gap-3 z-20 group relative backdrop-blur-md"
         >
-          <Hash className="h-4 w-4 text-primary shrink-0 transition-transform group-hover:scale-110" />
-          <div className="flex-1 min-w-0">
-            <p className="text-[9px] font-black text-primary uppercase tracking-[0.15em] mb-0.5 opacity-80">Tin nhắn đã ghim</p>
-            <p className="text-xs text-sidebar-foreground truncate font-medium">
-              {latestPin.stickerUrl ? '[Sticker]' : latestPin.encryptedContent}
-            </p>
+          <div 
+            onClick={() => scrollToMessage(latestPin.id)}
+            className="flex flex-1 items-center gap-3 cursor-pointer min-w-0"
+          >
+            <Hash className="h-4 w-4 text-primary shrink-0 transition-transform group-hover:scale-110" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5 flex items-center gap-2">
+                Tin nhắn ghim {pinnedList.length > 1 && <span className="bg-primary/20 px-1.5 py-0.5 rounded-full text-[9px]">+{pinnedList.length - 1}</span>}
+              </p>
+              <p className="text-xs text-foreground truncate font-medium opacity-90">
+                {latestPin.stickerUrl ? '[Nhãn dán]' : latestPin.encryptedContent}
+              </p>
+            </div>
           </div>
-          <ChevronDown className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition-colors" />
+          
+          <div className="flex items-center gap-1 shrink-0">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (confirm('Bạn có muốn bỏ ghim tin nhắn này không?')) {
+                        try {
+                          await togglePinMessage(latestPin.id);
+                          toast.success('Đã bỏ ghim tin nhắn');
+                        } catch (e) { toast.error('Lỗi khi bỏ ghim'); }
+                      }
+                    }}
+                  >
+                    <Trash className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Bỏ ghim tin này</TooltipContent>
+              </Tooltip>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/40" onClick={() => scrollToMessage(latestPin.id)}>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </TooltipProvider>
+          </div>
         </div>
       )}
 
@@ -801,11 +835,12 @@ export function ChatArea({
                                         Trả lời
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={async () => {
-                                        try {
-                                          await togglePinMessage(msg.id)
-                                          toast.success(msg.isPinned ? 'Đã bỏ ghim' : 'Đã ghim tin nhắn')
-                                        } catch (e) {
-                                          toast.error('Ghim tin nhắn thất bại. Vui lòng kiểm tra lại Database.')
+                                        if (msg.isPinned) {
+                                          if (confirm('Bạn có muốn bỏ ghim tin nhắn này không?')) {
+                                            togglePinMessage(msg.id).catch(() => toast.error('Lỗi khi bỏ ghim'));
+                                          }
+                                        } else {
+                                          togglePinMessage(msg.id).catch(() => toast.error('Lỗi khi ghim'));
                                         }
                                       }}>
                                         <Hash className="mr-2 h-4 w-4" />
