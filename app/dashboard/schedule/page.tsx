@@ -157,9 +157,6 @@ export default function SchedulePage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold">Lịch</h2>
-            <Button size="icon" variant="ghost" className="h-8 w-8">
-              <Plus className="h-4 w-4" />
-            </Button>
           </div>
           
           <div className="bg-card rounded-2xl border p-2 shadow-sm">
@@ -215,13 +212,6 @@ export default function SchedulePage() {
           </div>
 
           <div className="flex items-center gap-3">
-             <div className="relative group/search hidden md:block">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Tìm sự kiện..." 
-                className="pl-9 w-40 h-9 bg-background focus:w-64 transition-all duration-300 rounded-lg text-sm"
-              />
-            </div>
 
             <div className="flex items-center gap-1 bg-background border rounded-lg p-1">
               <Button 

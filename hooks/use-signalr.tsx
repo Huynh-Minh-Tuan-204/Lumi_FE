@@ -157,11 +157,21 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     })
 
     connection.on('ReceiveNotification', (data: any) => {
-      const { id, sender, message, createdAt, isSystem } = data;
-      toast.info(`📢 THÔNG BÁO: ${message}`, {
-        description: `Từ: ${sender || 'Admin'}`,
-        duration: 10000,
-      });
+      const { id, title, sender, message, category, forceConfirmed, createdAt, isSystem } = data;
+      
+      // Hiển thị toast cho tất cả thông báo
+      if (category === "Security" && forceConfirmed) {
+        toast.error(`🚨 CẢNH BÁO: ${title || "Security Alert"}`, {
+          description: message,
+          duration: 30000, // Cảnh báo bảo mật hiển thị lâu hơn
+        });
+      } else {
+        toast.info(`📢 THÔNG BÁO: ${message}`, {
+          description: `Từ: ${sender || 'Admin'}`,
+          duration: 10000,
+        });
+      }
+
       setNotifications(prev => [
         {
           id: id || Date.now(),
@@ -175,6 +185,24 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         },
         ...prev
       ])
+    })
+
+    // --- XỬ LÝ 1: Nhận tin BẢO MẬT KHẨN CẤP (Popup) ---
+    connection.on("receiveSecurityAlert", (data: any) => {
+      console.log('SIGNALR: receiveSecurityAlert received!', data)
+      toast.error(`🚨 BẢO MẬT: ${data.title}`, {
+        description: data.message,
+        duration: 0, // Click to close
+      });
+      // (Optional: trigger a global modal state if needed, but toast.error is a good start)
+    })
+
+    // --- XỬ LÝ 2: Nhận tin THƯỜNG (Chỉ hiện chấm đỏ/toast) ---
+    connection.on("receiveGeneralAnnouncement", (data: any) => {
+      console.log('SIGNALR: receiveGeneralAnnouncement received!', data)
+      toast.info(`📢 ${data.title || "Thông báo"}`, {
+        description: data.message,
+      });
     })
 
     connection.on('UserStatusChanged', (userId: number, isOnline: boolean) => {
