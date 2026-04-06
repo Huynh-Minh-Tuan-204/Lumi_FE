@@ -52,6 +52,7 @@ import {
   CheckCheck,
   Settings,
   ImagePlus as ImageasBgIcon,
+  Activity,
 } from 'lucide-react'
 import {
   Tabs,
@@ -647,7 +648,12 @@ export function ChatArea({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="z-[9999]">
                   <DropdownMenuItem onClick={() => scrollToMessage(latestPin.id)}>
-                    <Reply className="mr-2 h-4 w-4" /> Đi đến tin nhắn
+                    <Reply className="mr-2 h-4 w-4" /> Xem tin nhắn gốc
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => setIsPinnedListExpanded(true)}
+                  >
+                    <Activity className="mr-2 h-4 w-4" /> Mở bảng tin nhóm
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     className="text-destructive"
@@ -657,7 +663,7 @@ export function ChatArea({
                       }
                     }}
                   >
-                    <Trash className="mr-2 h-4 w-4" /> Bỏ ghim tin này
+                    <Trash className="mr-2 h-4 w-4" /> Bỏ ghim
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -748,197 +754,120 @@ export function ChatArea({
 
                     {/* Messages */}
                     <div className="space-y-3">
-                      {msgs.map((msg) => {
-                        const isOwn = msg.senderId === user?.id || (msg.senderId === 0 && msg.senderName === user?.fullName) || (!msg.senderId && msg.senderName === user?.fullName)
-                        const isSystem = msg.messageType === 'Announcement'
+                      {(() => {
+                        const renderedMessages: React.ReactNode[] = [];
+                        let i = 0;
+                        while (i < msgs.length) {
+                          const msg = msgs[i];
+                          const isSystem = msg.messageType === 'Announcement';
+                          const isPinNotify = isSystem && (msg.encryptedContent.includes('ghim') || msg.encryptedContent.includes('Ghim'));
 
-                        if (isSystem) {
-                          return (
-                            <div
-                              key={msg.id}
-                              className="flex justify-center"
-                            >
-                              <div className="bg-muted px-4 py-2 rounded-full text-sm text-muted-foreground">
-                                {msg.encryptedContent}
+                          if (isPinNotify) {
+                            // Find sequence of pin notifications
+                            const group: Message[] = [msg];
+                            let j = i + 1;
+                            while (j < msgs.length) {
+                              const nextMsg = msgs[j];
+                              const isNextPinNotify = nextMsg.messageType === 'Announcement' && (nextMsg.encryptedContent.includes('ghim') || nextMsg.encryptedContent.includes('Ghim'));
+                              if (isNextPinNotify) {
+                                group.push(nextMsg);
+                                j++;
+                              } else {
+                                break;
+                              }
+                            }
+
+                            if (group.length >= 3) {
+                              renderedMessages.push(<PinNotificationGroup key={`group-${msg.id}`} messages={group} />);
+                              i = j;
+                              continue;
+                            }
+                          }
+
+                          // Regular message rendering
+                          const isOwn = msg.senderId === user?.id || (msg.senderId === 0 && msg.senderName === user?.fullName) || (!msg.senderId && msg.senderName === user?.fullName)
+                          
+                          if (isSystem) {
+                            renderedMessages.push(
+                              <div key={msg.id} className="flex justify-center">
+                                <div className="bg-muted px-4 py-2 rounded-full text-[11px] text-muted-foreground flex items-center gap-2">
+                                  <Hash className="h-3 w-3 opacity-50" />
+                                  {msg.encryptedContent}
+                                </div>
                               </div>
-                            </div>
-                          )
-                        }
-
-                        return (
-                          <div
-                            key={msg.id}
-                            id={`message-${msg.id}`}
-                            className={cn(
-                              'flex gap-3 group',
-                              isOwn && 'flex-row-reverse'
-                            )}
-                          >
-                            {!isOwn && (
-                              <Avatar className="h-8 w-8 mt-1">
-                                {msg.avatarPath && <AvatarImage src={getAvatarUrl(msg.avatarPath)} />}
-                                <AvatarFallback className="text-xs bg-secondary">
-                                  {msg.senderName ? getInitials(msg.senderName) : 'U'}
-                                </AvatarFallback>
-                              </Avatar>
-                            )}
-                            <div
-                              className={cn(
-                                'max-w-[70%] space-y-1',
-                                isOwn && 'items-end flex flex-col'
-                              )}
-                            >
-                              {!isOwn && msg.senderName && (
-                                <span className="text-xs text-muted-foreground ml-1">
-                                  {msg.senderName}
-                                </span>
-                              )}
+                            );
+                          } else {
+                            renderedMessages.push(
                               <div
-                                className={cn(
-                                  'px-4 py-2.5 rounded-2xl relative shadow-sm',
-                                  isOwn
-                                    ? 'bg-primary text-primary-foreground rounded-br-md'
-                                    : 'bg-muted rounded-bl-md'
-                                )}
+                                key={msg.id}
+                                id={`message-${msg.id}`}
+                                className={cn('flex gap-3 group', isOwn && 'flex-row-reverse')}
                               >
-                                <div className="space-y-2">
-                                  {msg.attachments && msg.attachments.length > 0 ? (
-                                    msg.attachments.map((at, idx) => {
-                                      const fileName = at.fileName || 'File'
-                                      const mimeType = at.mimeType || ''
-                                      const id = at.id || `at-${idx}`
-
-                                      const isImage = mimeType.startsWith('image/')
-                                      // Fix properly: Use direct static file URL instead from wwwroot/uploads
-                                      const baseServerUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api').replace(/\/api\/?$/, '')
-                                      const urlFilePath = (at.encryptedFilePath || '').replace(/\\/g, '/').replace(/^\//, '')
-                                      const url = urlFilePath ? `${baseServerUrl}/${urlFilePath}` : '#'
-                                      
-                                      if (isImage) {
-                                        return (
-                                          <div key={id} className="rounded-lg overflow-hidden border border-white/10">
-                                            <img 
-                                              src={url} 
-                                              alt={fileName} 
-                                              className="max-w-full max-h-60 object-contain cursor-pointer transition-transform hover:scale-[1.02]" 
-                                              onClick={() => window.open(url, '_blank')}
-                                            />
+                                {!isOwn && (
+                                  <Avatar className="h-8 w-8 mt-1">
+                                    {msg.avatarPath && <AvatarImage src={getAvatarUrl(msg.avatarPath)} />}
+                                    <AvatarFallback className="text-xs bg-secondary">
+                                      {msg.senderName ? getInitials(msg.senderName) : 'U'}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                )}
+                                <div className={cn('max-w-[70%] space-y-1', isOwn && 'items-end flex flex-col')}>
+                                  {!isOwn && msg.senderName && <span className="text-xs text-muted-foreground ml-1">{msg.senderName}</span>}
+                                  <div className={cn('px-4 py-2.5 rounded-2xl relative shadow-sm', isOwn ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted rounded-bl-md')}>
+                                    <div className="space-y-2">
+                                      {msg.attachments?.map((at, idx) => {
+                                        const isImage = at.mimeType?.startsWith('image/')
+                                        const baseServerUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api').replace(/\/api\/?$/, '')
+                                        const url = `${baseServerUrl}/${(at.encryptedFilePath || '').replace(/\\/g, '/').replace(/^\//, '')}`
+                                        return isImage ? (
+                                          <div key={at.id || idx} className="rounded-lg overflow-hidden border border-white/10">
+                                            <img src={url} alt={at.fileName} className="max-w-full max-h-60 object-contain cursor-pointer" onClick={() => window.open(url, '_blank')} />
+                                          </div>
+                                        ) : (
+                                          <div key={at.id || idx} className="flex items-center gap-2 p-2 bg-black/5 rounded-lg border border-black/10">
+                                            <Paperclip className="h-4 w-4 text-primary" />
+                                            <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium hover:underline truncate max-w-50">{at.fileName}</a>
                                           </div>
                                         )
-                                      }
-                                      return (
-                                        <div key={id} className="flex items-center gap-2 p-2 bg-black/5 dark:bg-white/5 rounded-lg border border-black/10 dark:border-white/10 hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
-                                          <Paperclip className="h-4 w-4 shrink-0 text-primary" />
-                                          <a 
-                                            href={url} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer"
-                                            className="text-sm font-medium hover:underline underline-offset-2 truncate max-w-50 text-foreground"
-                                          >
-                                            {fileName}
-                                          </a>
+                                      })}
+                                      {msg.stickerUrl ? <img src={msg.stickerUrl} alt="sticker" className="w-32 h-32 object-contain" /> : msg.messageType === 'Reminder' ? (
+                                        <div className="bg-primary/5 p-3 rounded-xl border-l-4 border-primary space-y-2">
+                                          <p className="text-xs font-bold text-primary uppercase flex items-center gap-2"><Phone className="h-3 w-3" /> Nhắc nhở</p>
+                                          <p className="text-sm italic">{msg.encryptedContent}</p>
                                         </div>
-                                      )
-                                    })
-                                  ) : null}
-                                  {msg.stickerUrl ? (
-                                    <img 
-                                      src={msg.stickerUrl} 
-                                      alt="sticker" 
-                                      className="w-32 h-32 object-contain" 
-                                      loading="lazy"
-                                      decoding="async"
-                                    />
-                                  ) : msg.messageType === 'Reminder' ? (
-                                    <div className="bg-primary/5 p-3 rounded-xl border-l-4 border-primary space-y-2">
-                                      <p className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
-                                        <Phone className="h-3 w-3" />
-                                        Nhắc nhở
-                                      </p>
-                                      <p className="text-sm italic">{msg.encryptedContent}</p>
+                                      ) : msg.encryptedContent && msg.encryptedContent !== '[Attachment]' && <p className="text-sm whitespace-pre-wrap">{msg.encryptedContent}</p>}
+                                      {msg.isPinned && <div className="flex items-center gap-1 mt-1 opacity-60"><Hash className="h-3 w-3 text-primary" /><span className="text-[10px] font-medium">Đã ghim</span></div>}
                                     </div>
-                                  ) : msg.encryptedContent && msg.encryptedContent !== '[Attachment]' && (
-                                    <p className="text-sm whitespace-pre-wrap wrap-break-word">
-                                      {msg.encryptedContent}
-                                    </p>
-                                  )}
-                                  {msg.isPinned && (
-                                    <div className="flex items-center gap-1 mt-1 opacity-60">
-                                      <Hash className="h-3 w-3 text-primary" />
-                                      <span className="text-[10px] font-medium">Đã ghim</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                              <div
-                                className={cn(
-                                  'flex items-center gap-2 px-1',
-                                  isOwn && 'justify-end'
-                                )}
-                              >
-                                <span className="text-[10px] text-muted-foreground">
-                                  {formatMessageTime(msg.createdAt)}
-                                </span>
-                                {isOwn && (
-                                  <div className="flex ml-0.5">
-                                    {msg.readBy && msg.readBy.length > 0 ? (
-                                      <CheckCheck className="h-2.5 w-2.5 text-primary" />
-                                    ) : isConnected ? (
-                                      <CheckCheck className="h-2.5 w-2.5 text-muted-foreground/30" />
-                                    ) : (
-                                      <Check className="h-2.5 w-2.5 text-muted-foreground/30" />
-                                    )}
                                   </div>
-                                )}
-                                 {/* Action buttons on hover */}
-                                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                                        <MoreVertical className="h-3 w-3" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align={isOwn ? 'end' : 'start'} className="z-[9999]">
-                                      <DropdownMenuItem onClick={() => setReplyingTo(msg)}>
-                                        <Reply className="mr-2 h-4 w-4" />
-                                        Trả lời
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={async () => {
-                                        if (msg.isPinned) {
-                                          if (confirm('Bạn có muốn bỏ ghim tin nhắn này không?')) {
-                                            togglePinMessage(msg.id).catch(() => toast.error('Lỗi khi bỏ ghim'));
-                                          }
-                                        } else {
-                                          togglePinMessage(msg.id).catch(() => toast.error('Lỗi khi ghim'));
-                                        }
-                                      }}>
-                                        <Hash className="mr-2 h-4 w-4" />
-                                        {msg.isPinned ? 'Bỏ Ghim' : 'Ghim tin nhắn'}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => {
-                                        sendReminder(conversation.id, `Nhắc: ${msg.encryptedContent.substring(0, 30)}...`, new Date(Date.now() + 3600000).toISOString())
-                                        toast.success('Đã đặt nhắc nhở sau 1 giờ')
-                                      }}>
-                                        <Phone className="mr-2 h-4 w-4" />
-                                        Nhắc tôi (1 giờ)
-                                      </DropdownMenuItem>
-                                      {isOwn && (
-                                        <>
-                                          <DropdownMenuSeparator />
-                                          <DropdownMenuItem className="text-destructive">
-                                            <Trash className="mr-2 h-4 w-4" />
-                                            Xoá tin nhắn
+                                  <div className={cn('flex items-center gap-2 px-1', isOwn && 'justify-end')}>
+                                    <span className="text-[10px] text-muted-foreground">{formatMessageTime(msg.createdAt)}</span>
+                                    {isOwn && <div className="flex ml-0.5">{msg.readBy && msg.readBy.length > 0 ? <CheckCheck className="h-2.5 w-2.5 text-primary" /> : <CheckCheck className="h-2.5 w-2.5 text-muted-foreground/30" />}</div>}
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                        <DropdownMenuContent align={isOwn ? 'end' : 'start'} className="z-[9999]">
+                                          <DropdownMenuItem onClick={() => setReplyingTo(msg)}><Reply className="mr-2 h-4 w-4" /> Trả lời</DropdownMenuItem>
+                                          <DropdownMenuItem onClick={async () => {
+                                            if (msg.isPinned) {
+                                              if (confirm('Bạn có muốn bỏ ghim tin nhắn này không?')) togglePinMessage(msg.id).catch(() => toast.error('Lỗi khi bỏ ghim'));
+                                            } else {
+                                              togglePinMessage(msg.id).catch(() => toast.error('Lỗi khi ghim'));
+                                            }
+                                          }}>
+                                            <Hash className="mr-2 h-4 w-4" /> {msg.isPinned ? 'Bỏ Ghim' : 'Ghim tin nhắn'}
                                           </DropdownMenuItem>
-                                        </>
-                                      )}
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </div>
-                        )
-                      })}
+                            );
+                          }
+                          i++;
+                        }
+                        return renderedMessages;
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -1107,4 +1036,44 @@ export function ChatArea({
       </div>
     </div>
   )
+}
+
+function PinNotificationGroup({ messages }: { messages: Message[] }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  if (!isExpanded) {
+    return (
+      <div className="flex justify-center my-2">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="bg-muted/50 hover:bg-muted py-1.5 px-4 rounded-full text-[11px] font-medium text-primary flex items-center gap-2 h-auto"
+          onClick={() => setIsExpanded(true)}
+        >
+          Xem cập nhật trước
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 my-2 animate-in fade-in slide-in-from-top-1 duration-300">
+      <div className="flex justify-center mb-1">
+        <button 
+          className="text-[9px] font-bold text-primary/40 hover:text-primary transition-colors uppercase tracking-widest bg-primary/5 px-2 py-0.5 rounded" 
+          onClick={() => setIsExpanded(false)}
+        >
+          Thu gọn
+        </button>
+      </div>
+      {messages.map((m) => (
+        <div key={m.id} className="flex justify-center">
+          <div className="bg-muted/40 px-4 py-1.5 rounded-full text-[10px] text-muted-foreground flex items-center gap-2 border border-black/5 dark:border-white/5">
+            <Hash className="h-2.5 w-2.5 opacity-40 text-primary" />
+            {m.encryptedContent}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
