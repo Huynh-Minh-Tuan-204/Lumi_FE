@@ -279,13 +279,6 @@ export function ChatSidebar({
               </div>
             )}
 
-            <div className="p-3 bg-muted/30 border-t flex flex-col gap-2">
-              {notifications.length > 0 && (
-                <Button variant="ghost" size="sm" className="w-full text-[10px] font-bold uppercase tracking-widest h-auto py-2 flex items-center gap-2" onClick={handleMarkNotificationsRead}>
-                  <CheckCheck className="h-3 w-3" /> Đánh dấu đã đọc
-                </Button>
-              )}
-            </div>
           </PopoverContent>
         </Popover>
       </div>
