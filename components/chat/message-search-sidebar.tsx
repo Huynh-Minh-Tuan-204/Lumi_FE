@@ -11,11 +11,9 @@ import {
   Search, 
   X, 
   MessageSquare, 
-  ChevronLeft, 
-  ChevronRight, 
   ArrowLeft,
   Calendar,
-  User,
+  Clock,
   Hash
 } from 'lucide-react'
 import { formatToVNTime, formatToVNDate, getAvatarUrl } from '@/lib/utils'
@@ -42,20 +40,22 @@ export function MessageSearchSidebar({ conversationId, onClose }: MessageSearchS
   const [isSearching, setIsSearching] = useState(false)
 
   const handleSearch = async () => {
-    if (!query.trim() || !token) return
+    if (!query.trim() || !token) {
+        setResults([]);
+        return;
+    }
     setIsSearching(true)
     try {
-      // In a real app, this would be an API call for search.
-      // For now, we'll fetch all messages and filter locally or mock the search.
+      // Fetch current conversation messages to search within
       const messages = await conversationsApi.getMessages(token, conversationId)
       const filtered = messages
-        .filter((m: any) => (m.content || m.message || '').toLowerCase().includes(query.toLowerCase()))
+        .filter((m: any) => (m.encryptedContent || m.content || m.message || '').toLowerCase().includes(query.toLowerCase()))
         .map((m: any) => ({
           id: m.id,
           senderId: m.senderId,
           senderName: m.senderName || m.sender || 'Người dùng',
           avatarPath: m.avatarPath,
-          content: m.content || m.message || '',
+          content: m.encryptedContent || m.content || m.message || '',
           createdAt: m.createdAt || m.time || new Date().toISOString()
         }))
       setResults(filtered)
@@ -66,11 +66,10 @@ export function MessageSearchSidebar({ conversationId, onClose }: MessageSearchS
     }
   }
 
-  // Auto-search after 300ms skip delay for now, or just use button
   useEffect(() => {
     const timer = setTimeout(() => {
-        if(query.trim()) handleSearch();
-    }, 500);
+        handleSearch();
+    }, 400);
     return () => clearTimeout(timer);
   }, [query])
 
@@ -116,23 +115,22 @@ export function MessageSearchSidebar({ conversationId, onClose }: MessageSearchS
                     key={res.id} 
                     className="group bg-muted/10 p-4 rounded-2xl border border-primary/5 hover:bg-primary/5 cursor-pointer transition-all hover:border-primary/20"
                     onClick={() => {
-                        // In a real app, this would scroll the ChatArea to this message.
-                        // We need a global way or ref to scroll to message in ChatArea.
-                        // For now we'll close search and try to jump (placeholder)
+                        (window as any).scrollToMsg?.(res.id);
                         onClose();
-                        // (window as any).scrollToMsg?.(res.id)
                     }}
                  >
                     <div className="flex items-center gap-3 mb-3">
                         <Avatar className="h-8 w-8 border border-primary/10">
                             <AvatarImage src={getAvatarUrl(res.avatarPath)} />
-                            <AvatarFallback className="text-[10px] font-black">{res.senderName[0]}</AvatarFallback>
+                            <AvatarFallback className="text-[10px] font-black">{res.senderName?.[0] || 'U'}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
                             <p className="text-xs font-black truncate">{res.senderName}</p>
                             <div className="flex items-center gap-2 text-[9px] text-muted-foreground/60 font-black uppercase tracking-tighter">
                                 <Calendar className="h-2.5 w-2.5" />
-                                {formatToVNDate(res.createdAt)} lún {formatToVNTime(res.createdAt)}
+                                {formatToVNDate(res.createdAt)}
+                                <Clock className="ml-1 h-2.5 w-2.5" />
+                                {formatToVNTime(res.createdAt)}
                             </div>
                         </div>
                     </div>
@@ -148,7 +146,7 @@ export function MessageSearchSidebar({ conversationId, onClose }: MessageSearchS
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/30 opacity-60">
                <MessageSquare className="h-16 w-16 mb-4 stroke-[1px]" />
                <p className="text-sm font-black uppercase tracking-widest">Không tìm thấy tin nhắn</p>
-               <p className="text-[10px] mt-2 font-bold px-8 text-center leading-relaxed">Dữ liệu chỉ bao gồm tin nhắn không bị thu hồi</p>
+               <p className="text-[10px] mt-2 font-bold px-8 text-center leading-relaxed">Tìm kiếm theo từ khóa trong cuộc hội thoại này</p>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/20 italic">

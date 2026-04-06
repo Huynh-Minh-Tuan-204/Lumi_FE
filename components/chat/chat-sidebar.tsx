@@ -173,8 +173,8 @@ export function ChatSidebar({
   return (
     <div
       className={cn(
-        'flex flex-col bg-sidebar text-sidebar-foreground border-r border-sidebar-border',
-        isMobile ? 'w-full h-full' : 'w-80'
+        'flex flex-col h-full bg-sidebar text-sidebar-foreground border-r border-sidebar-border overflow-hidden',
+        isMobile ? 'w-full' : 'w-80'
       )}
     >
       {/* Header */}
