@@ -127,6 +127,7 @@ export function ChatArea({
     sendReminder,
     pinnedMessages
   } = useSignalR()
+  const [isPinnedListExpanded, setIsPinnedListExpanded] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -602,51 +603,119 @@ export function ChatArea({
       {/* Pinned Message Bar */}
       {pinnedList.length > 0 && (
         <div 
-          className="bg-primary/5 dark:bg-primary/10 border-b border-primary/10 py-2.5 px-4 flex items-center gap-3 z-20 group relative backdrop-blur-md"
+          className="bg-card/90 dark:bg-card/80 border-b border-primary/10 z-20 group relative backdrop-blur-md shadow-sm"
         >
-          <div 
-            onClick={() => scrollToMessage(latestPin.id)}
-            className="flex flex-1 items-center gap-3 cursor-pointer min-w-0"
-          >
-            <Hash className="h-4 w-4 text-primary shrink-0 transition-transform group-hover:scale-110" />
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-0.5 flex items-center gap-2">
-                Tin nhắn ghim {pinnedList.length > 1 && <span className="bg-primary/20 px-1.5 py-0.5 rounded-full text-[9px]">+{pinnedList.length - 1}</span>}
-              </p>
-              <p className="text-xs text-foreground truncate font-medium opacity-90">
-                {latestPin.stickerUrl ? '[Nhãn dán]' : latestPin.encryptedContent}
-              </p>
+          {/* Main Pin Bar */}
+          <div className="flex items-center gap-3 py-2 px-4">
+            <div 
+              onClick={() => scrollToMessage(latestPin.id)}
+              className="flex flex-1 items-center gap-3 cursor-pointer min-w-0"
+            >
+              <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Hash className="h-3.5 w-3.5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-bold text-primary uppercase tracking-wider mb-0.5 opacity-80">Tin nhắn ghim</p>
+                <p className="text-xs text-foreground truncate font-medium">
+                  {latestPin.senderName ? `${latestPin.senderName}: ` : ''}
+                  {latestPin.stickerUrl ? '[Nhãn dán]' : latestPin.encryptedContent}
+                </p>
+              </div>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-1 shrink-0">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                    onClick={async (e) => {
-                      e.stopPropagation();
+            
+            <div className="flex items-center gap-1 shrink-0">
+              {pinnedList.length > 1 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className={cn(
+                    "h-7 px-2 text-[10px] font-bold transition-all",
+                    isPinnedListExpanded ? "bg-primary text-primary-foreground" : "text-primary hover:bg-primary/10"
+                  )}
+                  onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}
+                >
+                  +{pinnedList.length - 1} ghim
+                  <ChevronDown className={cn("ml-1 h-3 w-3 transition-transform", isPinnedListExpanded && "rotate-180")} />
+                </Button>
+              )}
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/40 hover:text-foreground">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="z-[9999]">
+                  <DropdownMenuItem onClick={() => scrollToMessage(latestPin.id)}>
+                    <Reply className="mr-2 h-4 w-4" /> Đi đến tin nhắn
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    className="text-destructive"
+                    onClick={() => {
                       if (confirm('Bạn có muốn bỏ ghim tin nhắn này không?')) {
-                        try {
-                          await togglePinMessage(latestPin.id);
-                          toast.success('Đã bỏ ghim tin nhắn');
-                        } catch (e) { toast.error('Lỗi khi bỏ ghim'); }
+                        togglePinMessage(latestPin.id);
                       }
                     }}
                   >
-                    <Trash className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Bỏ ghim tin này</TooltipContent>
-              </Tooltip>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground/40" onClick={() => scrollToMessage(latestPin.id)}>
-                <ChevronDown className="h-4 w-4" />
-              </Button>
-            </TooltipProvider>
+                    <Trash className="mr-2 h-4 w-4" /> Bỏ ghim tin này
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
+
+          {/* Expanded List Panel */}
+          {isPinnedListExpanded && (
+            <div className="border-t border-primary/5 bg-muted/30 max-h-60 overflow-y-auto animate-in slide-in-from-top-2 duration-200">
+              <div className="px-4 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex justify-between items-center">
+                Danh sách ghim ({pinnedList.length})
+                <button onClick={() => setIsPinnedListExpanded(false)} className="hover:text-primary transition-colors uppercase">Thu gọn</button>
+              </div>
+              <div className="divide-y divide-primary/5">
+                {[...pinnedList].reverse().map((p) => (
+                  <div 
+                    key={p.id} 
+                    className="px-4 py-3 hover:bg-primary/5 transition-colors flex items-center justify-between group/item"
+                  >
+                    <div 
+                      className="flex-1 cursor-pointer min-w-0 pr-4"
+                      onClick={() => {
+                        scrollToMessage(p.id);
+                        setIsPinnedListExpanded(false);
+                      }}
+                    >
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <MessageSquare className="h-3 w-3 text-primary opacity-40" />
+                        <span className="text-[10px] font-bold text-foreground/70 uppercase truncate">{p.senderName || 'Người dùng'}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate leading-relaxed">
+                        {p.stickerUrl ? '[Nhãn dán]' : p.encryptedContent}
+                      </p>
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 opacity-0 group-hover/item:opacity-100 transition-opacity text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm('Bạn có muốn bỏ ghim tin nhắn này không?')) {
+                          togglePinMessage(p.id);
+                        }
+                      }}
+                    >
+                      <Trash className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              <div 
+                className="p-2 text-center border-t border-primary/5 hover:bg-primary/5 cursor-pointer transition-colors"
+                onClick={() => toast.info('Tính năng bảng tin nhóm đang được phát triển')}
+              >
+                <span className="text-[10px] font-medium text-primary">Xem tất cả ở bảng tin nhóm ›</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
