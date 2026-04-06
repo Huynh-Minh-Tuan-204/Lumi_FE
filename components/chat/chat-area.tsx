@@ -174,6 +174,7 @@ export function ChatArea({
     }
   }
 
+  // Reset states when conversation changes
   useEffect(() => {
     const loadMessages = async () => {
       if (!token || !conversation) { setMessages([]); return; }
@@ -198,7 +199,79 @@ export function ChatArea({
       } catch (error) { console.error(error) } finally { setIsLoading(false) }
     }
     loadMessages()
+    setReplyingTo(null)
+    setIsPinnedListExpanded(false)
   }, [token, conversation?.id])
+
+  // Component to handle grouped system notifications (Pin/Unpin)
+  const SystemNotificationGroup = ({ notifications }: { notifications: Message[] }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    
+    // Reset isExpanded when conversation changes (id is captured via closure if used properly, 
+    // but here we can just rely on the parent component re-rendering or use a key)
+    useEffect(() => {
+      setIsExpanded(false);
+    }, [conversation?.id]);
+
+    if (notifications.length === 0) return null;
+
+    const latest = notifications[notifications.length - 1];
+    const older = notifications.slice(0, -1);
+
+    return (
+      <div className="space-y-2 my-2 animate-in fade-in duration-300">
+        {older.length > 0 && !isExpanded && (
+          <div className="flex justify-center">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="bg-muted/30 hover:bg-muted/50 py-1 px-4 rounded-full text-[10px] font-black text-primary/60 flex items-center gap-2 h-auto uppercase tracking-tighter"
+              onClick={() => setIsExpanded(true)}
+            >
+              Xem cập nhật trước
+            </Button>
+          </div>
+        )}
+
+        {isExpanded && older.length > 0 && (
+          <div className="space-y-2 animate-in slide-in-from-top-1">
+            <div className="flex justify-center mb-1">
+              <button 
+                className="text-[9px] font-black text-primary/30 hover:text-primary transition-colors uppercase tracking-[0.2em]" 
+                onClick={() => setIsExpanded(false)}
+              >
+                Thu gọn
+              </button>
+            </div>
+            {older.map(m => (
+              <div key={m.id} className="flex justify-center">
+                <div className="bg-muted/20 px-4 py-1.5 rounded-full text-[10px] text-muted-foreground flex items-center gap-2 border border-black/5 dark:border-white/5 opacity-60">
+                   <Hash className="h-2.5 w-2.5 opacity-40" />
+                   <span>{m.encryptedContent}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* The Latest Notification - ALWAYS VISIBLE */}
+        <div className="flex justify-center">
+           <div className="bg-muted/50 px-4 py-1.5 rounded-full text-[10px] font-medium text-foreground flex items-center gap-2 border border-primary/10 shadow-sm">
+              <Hash className="h-3 w-3 text-primary animate-pulse" />
+              <span>{latest.encryptedContent}</span>
+              {latest.encryptedContent.toLowerCase().includes('ghim') && !latest.encryptedContent.toLowerCase().includes('bỏ ghim') && (
+                <button 
+                  className="text-primary font-black ml-1 hover:underline uppercase tracking-tighter"
+                  onClick={() => { if(latestPin) scrollToMessage(latestPin.id) }}
+                >
+                    [Xem]
+                </button>
+              )}
+           </div>
+        </div>
+      </div>
+    );
+  };
 
   useEffect(() => {
     if (!lastMessage || !conversation || lastMessage.conversationId !== conversation.id) return
@@ -306,28 +379,49 @@ export function ChatArea({
                     </div>
 
                     <div className="space-y-4">
-                       {msgs.map((m) => {
+                       {(() => {
+                        const items: React.ReactNode[] = [];
+                        let i = 0;
+                        while (i < msgs.length) {
+                          const m = msgs[i];
                           const isSystem = m.messageType === 'System' || m.messageType === 'Announcement';
+                          const content = m.encryptedContent.toLowerCase();
+                          const isPinNotification = isSystem && (content.includes('ghim') || content.includes('bỏ ghim'));
+
+                          if (isPinNotification) {
+                            const group: Message[] = [];
+                            let j = i;
+                            while (j < msgs.length) {
+                              const curr = msgs[j];
+                              const currSystem = curr.messageType === 'System' || curr.messageType === 'Announcement';
+                              const currContent = curr.encryptedContent.toLowerCase();
+                              if (currSystem && (currContent.includes('ghim') || currContent.includes('bỏ ghim'))) {
+                                group.push(curr);
+                                j++;
+                              } else {
+                                break;
+                              }
+                            }
+                            items.push(<SystemNotificationGroup key={`group-${m.id}`} notifications={group} />);
+                            i = j;
+                            continue;
+                          }
+
+                          if (isSystem) {
+                            items.push(
+                              <div key={m.id} className="flex justify-center">
+                                 <div className="bg-muted px-4 py-1.5 rounded-full text-[10px] text-muted-foreground flex items-center gap-2 border border-primary/5">
+                                    <Hash className="h-3 w-3 opacity-30" />
+                                    <span>{m.encryptedContent}</span>
+                                 </div>
+                              </div>
+                            );
+                            i++;
+                            continue;
+                          }
+
                           const isOwn = m.senderId === user?.id;
-
-                          if (isSystem) return (
-                            <div key={m.id} className="flex justify-center">
-                               <div className="bg-muted px-4 py-1.5 rounded-full text-[10px] text-muted-foreground flex items-center gap-2 border border-primary/5">
-                                  <Hash className="h-3 w-3 opacity-30" />
-                                  <span>{m.encryptedContent}</span>
-                                  {m.encryptedContent.toLowerCase().includes('ghim') && (
-                                    <button 
-                                      className="text-primary font-black ml-1 hover:underline uppercase tracking-tighter"
-                                      onClick={() => { if(latestPin) scrollToMessage(latestPin.id) }}
-                                    >
-                                        [Xem]
-                                    </button>
-                                  )}
-                               </div>
-                            </div>
-                          )
-
-                          return (
+                          items.push(
                             <div key={m.id} id={`message-${m.id}`} className={cn("flex gap-3 group animate-in slide-in-from-bottom-2", isOwn ? "flex-row-reverse" : "flex-row")}>
                                 <div className={cn("max-w-[70%] space-y-1", isOwn ? "items-end" : "items-start")}>
                                    {!isOwn && <p className="text-[10px] font-black opacity-60 ml-1">{m.senderName}</p>}
@@ -343,8 +437,11 @@ export function ChatArea({
                                    </div>
                                 </div>
                             </div>
-                          )
-                       })}
+                          );
+                          i++;
+                        }
+                        return items;
+                      })()}
                     </div>
                  </div>
               ))}
