@@ -54,6 +54,7 @@ import {
   ImagePlus as ImageasBgIcon,
   Activity,
   Plus,
+  Search,
 } from 'lucide-react'
 import {
   Tabs,
@@ -148,6 +149,19 @@ export function ChatArea({
     }
   }, [])
 
+  const handleStartCall = async (type: 'voice' | 'video') => {
+    if (!conversation || !token || !user) return
+    try {
+      const resp = await meetingsApi.startMeeting(token, conversation.id, `${type === 'voice' ? 'Cuộc gọi thoại' : 'Cuộc gọi video'} - ${conversation.name}`, [], type)
+      toast.success(`Đã khởi tạo cuộc gọi ${type === 'voice' ? 'thoại' : 'video'}.`)
+      if (resp && (resp.id || resp.meetingId)) {
+        router.push(`/call/${resp.id || resp.meetingId}?type=${type}`)
+      }
+    } catch (error) {
+      toast.error(`Không thể bắt đầu cuộc gọi.`)
+    }
+  }
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !conversation || !token) return
@@ -172,6 +186,12 @@ export function ChatArea({
     } catch (error) {
         toast.error('Cập nhật thất bại.')
     }
+  }
+
+  // Vietnamese Date Formatter
+  const getVNFullDate = (date: Date) => {
+    const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+    return `${days[date.getDay()]}, ${date.getDate()} tháng ${date.getMonth() + 1} năm ${date.getFullYear()}`;
   }
 
   // Reset states when conversation changes
@@ -335,22 +355,91 @@ export function ChatArea({
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-md z-20 border-b shadow-sm shrink-0">
         <div className="flex items-center gap-3">
-          <Avatar className="h-10 w-10">
+          <Avatar className="h-10 w-10 shrink-0">
             <AvatarImage src={getAvatarUrl(conversation.avatarPath)} />
             <AvatarFallback className="bg-primary/5 text-primary">{conversation.name?.[0]}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <h2 className="font-bold text-sm truncate">{conversation.name}</h2>
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest opacity-60">
-                {conversation.type === 'Group' ? 'Hội nhóm' : 'Trò chuyện cá nhân'}
-            </p>
+            <div className="flex items-center gap-2">
+               <div className="h-2 w-2 rounded-full bg-green-500" />
+               <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest opacity-60">
+                  {conversation.type === 'Group' ? 'Hội nhóm' : 'Liên lạc'}
+               </p>
+            </div>
           </div>
         </div>
+        
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => onShowMembers?.()}><Users className="h-5 w-5" /></Button>
-          <Button variant="ghost" size="icon"><MoreVertical className="h-5 w-5" /></Button>
+          <TooltipProvider>
+            {/* Call Buttons Logic */}
+            {conversation.type !== 'Group' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => handleStartCall('voice')}>
+                    <Phone className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Gọi thoại</TooltipContent>
+              </Tooltip>
+            )}
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => handleStartCall('video')}>
+                  <Video className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Gọi video</TooltipContent>
+            </Tooltip>
+
+            {/* Existing Sidebars Buttons */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-9 w-9 text-muted-foreground hover:text-primary"
+                  onClick={() => (window as any).toggleSearch?.()}
+                >
+                  <Search className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Tìm kiếm tin nhắn</TooltipContent>
+            </Tooltip>
+
+            {conversation.type === 'Group' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => onShowMembers?.()}>
+                    <Users className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Thành viên nhóm</TooltipContent>
+              </Tooltip>
+            )}
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary">
+                  <MoreVertical className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 overflow-hidden">
+                 <DropdownMenuItem onClick={onToggleBoard}>
+                    <Activity className="mr-2 h-4 w-4" /> Bảng tin nhóm
+                 </DropdownMenuItem>
+                 <DropdownMenuSeparator />
+                 <DropdownMenuItem className="text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" /> Rời khỏi hội thoại
+                 </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </TooltipProvider>
         </div>
       </header>
+
+      {/* Pinned Bar ... (existing) */}
 
       {/* Pinned Bar */}
       {pinnedList.length > 0 && (
@@ -374,7 +463,9 @@ export function ChatArea({
                  <div key={dateKey} className="space-y-6">
                     <div className="flex items-center gap-4 opacity-30">
                         <div className="flex-1 h-px bg-border" />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{dateKey === new Date().toDateString() ? 'Hôm nay' : dateKey}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em]">
+                          {dateKey === 'Ngày không xác định' ? dateKey : (dateKey === new Date().toDateString() ? 'Hôm nay' : getVNFullDate(new Date(dateKey)))}
+                        </span>
                         <div className="flex-1 h-px bg-border" />
                     </div>
 
