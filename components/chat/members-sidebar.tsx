@@ -35,6 +35,7 @@ interface MembersSidebarProps {
   isMobile?: boolean
   onBack?: () => void
   onlineUsers: Set<number>
+  onClose?: () => void
 }
 
 export function MembersSidebar({
@@ -43,6 +44,7 @@ export function MembersSidebar({
   isMobile = false,
   onBack,
   onlineUsers,
+  onClose,
 }: MembersSidebarProps) {
   const { token, user } = useAuth()
   const { lastUserUpdate } = useSignalR()

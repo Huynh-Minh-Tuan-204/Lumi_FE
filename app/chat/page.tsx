@@ -17,27 +17,37 @@ export interface Conversation {
   type: string
   avatarPath?: string
   backgroundPath?: string
-  lastMessage?: string
+  lastMessage?: any
   lastMessageTime?: string
   unreadCount?: number
   createdBy?: number
+  otherUserId?: number
 }
 
 export default function ChatPage() {
   const { token, user } = useAuth()
-  const { pinnedMessages } = useSignalR()
+  const { 
+    isConnected, 
+    onlineUsers, 
+    pinnedMessages 
+  } = useSignalR()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const [rightSidebar, setRightSidebar] = useState<'members' | 'board' | 'search' | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Derive unreadCounts from conversations list locally since SignalR hook doesn't provide them directly
+  const unreadCounts = conversations.reduce((acc, conv) => {
+    acc[conv.id] = conv.unreadCount || 0
+    return acc
+  }, {} as Record<number, number>)
+
   const selectedConversation = conversations.find((c) => c.id === selectedId) || null
 
   const loadConversations = async () => {
     if (!token) return
     try {
-      // Use getMyConversations as corrected
       const data = await conversationsApi.getMyConversations(token)
       setConversations(data)
     } catch (error) {
@@ -51,8 +61,8 @@ export default function ChatPage() {
     loadConversations()
   }, [token])
 
-  const handleSelectConversation = (id: number) => {
-    setSelectedId(id)
+  const handleSelectConversation = (conversation: Conversation) => {
+    setSelectedId(conversation.id)
     setIsSidebarOpen(false) 
     setRightSidebar(null) 
   }
@@ -77,27 +87,32 @@ export default function ChatPage() {
       delete (window as any).toggleSearch;
       delete (window as any).scrollToMsg;
     }
-  }, [rightSidebar]) // Re-bind if needed or just empty deps if handlers are stable
+  }, [rightSidebar])
 
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
       {/* Left Chat Sidebar */}
       <div 
         className={cn(
-          "w-80 border-r shrink-0 h-full flex flex-col transition-all duration-300 z-30 bg-background",
+          "w-80 border-r shrink-0 h-full flex flex-col transition-all duration-300 z-30 bg-background text-foreground",
           !isSidebarOpen && "md:w-80 -ml-80 md:ml-0"
         )}
       >
         <ChatSidebar 
           conversations={conversations}
-          onSelect={handleSelectConversation}
-          onRefresh={loadConversations}
+          selectedConversation={selectedConversation}
+          onSelectConversation={handleSelectConversation}
+          isLoading={isLoading}
+          isConnected={isConnected}
+          user={user}
+          onlineUsers={onlineUsers}
+          unreadCounts={unreadCounts}
         />
       </div>
 
       {/* Main Container: Chat Area + Right Sidebar Parent */}
       <div className="flex-1 flex min-w-0 h-full overflow-hidden relative">
-        <main className="flex-1 h-full min-w-0 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]">
+        <main className="flex-1 h-full min-w-0 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] bg-background">
           <ChatArea 
             conversation={selectedConversation}
             onBack={() => setIsSidebarOpen(true)}
@@ -118,9 +133,14 @@ export default function ChatPage() {
           )}
         >
           <div className="w-80 h-full">
-            <MembersSidebar 
-              conversationId={selectedId || 0} 
-            />
+            {selectedConversation && (
+              <MembersSidebar 
+                conversationId={selectedId || 0}
+                conversationName={selectedConversation.name || ""}
+                onlineUsers={onlineUsers}
+                onClose={() => setRightSidebar(null)}
+              />
+            )}
           </div>
         </div>
 

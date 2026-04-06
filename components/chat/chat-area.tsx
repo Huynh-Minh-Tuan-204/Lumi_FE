@@ -476,7 +476,7 @@ export function ChatArea({
                         while (i < msgs.length) {
                           const m = msgs[i];
                           const isSystem = m.messageType === 'System' || m.messageType === 'Announcement';
-                          const content = m.encryptedContent.toLowerCase();
+                          const content = (m.encryptedContent || "").toLowerCase();
                           const isPinNotification = isSystem && (content.includes('ghim') || content.includes('bỏ ghim'));
 
                           if (isPinNotification) {
@@ -485,7 +485,7 @@ export function ChatArea({
                             while (j < msgs.length) {
                               const curr = msgs[j];
                               const currSystem = curr.messageType === 'System' || curr.messageType === 'Announcement';
-                              const currContent = curr.encryptedContent.toLowerCase();
+                              const currContent = (curr.encryptedContent || "").toLowerCase();
                               if (currSystem && (currContent.includes('ghim') || currContent.includes('bỏ ghim'))) {
                                 group.push(curr);
                                 j++;
