@@ -800,9 +800,13 @@ export function ChatArea({
                                         <Reply className="mr-2 h-4 w-4" />
                                         Trả lời
                                       </DropdownMenuItem>
-                                      <DropdownMenuItem onClick={() => {
-                                        togglePinMessage(msg.id)
-                                        toast.success(msg.isPinned ? 'Đã bỏ ghim' : 'Đã ghim tin nhắn')
+                                      <DropdownMenuItem onClick={async () => {
+                                        try {
+                                          await togglePinMessage(msg.id)
+                                          toast.success(msg.isPinned ? 'Đã bỏ ghim' : 'Đã ghim tin nhắn')
+                                        } catch (e) {
+                                          toast.error('Ghim tin nhắn thất bại. Vui lòng kiểm tra lại Database.')
+                                        }
                                       }}>
                                         <Hash className="mr-2 h-4 w-4" />
                                         {msg.isPinned ? 'Bỏ Ghim' : 'Ghim tin nhắn'}
