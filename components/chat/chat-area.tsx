@@ -53,6 +53,7 @@ import {
   Settings,
   ImagePlus as ImageasBgIcon,
   Activity,
+  Plus,
 } from 'lucide-react'
 import {
   Tabs,
@@ -129,6 +130,7 @@ export function ChatArea({
     pinnedMessages
   } = useSignalR()
   const [isPinnedListExpanded, setIsPinnedListExpanded] = useState(false)
+  const [showGroupBoard, setShowGroupBoard] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -647,11 +649,11 @@ export function ChatArea({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="z-[9999]">
-                  <DropdownMenuItem onClick={() => scrollToMessage(latestPin.id)}>
-                    <Reply className="mr-2 h-4 w-4" /> Xem tin nhắn gốc
-                  </DropdownMenuItem>
                   <DropdownMenuItem 
-                    onClick={() => setIsPinnedListExpanded(true)}
+                    onClick={() => {
+                      setShowGroupBoard(true);
+                      setIsPinnedListExpanded(false);
+                    }}
                   >
                     <Activity className="mr-2 h-4 w-4" /> Mở bảng tin nhóm
                   </DropdownMenuItem>
@@ -725,172 +727,187 @@ export function ChatArea({
         </div>
       )}
 
-      {/* Messages */}
-      <div className="flex-1 min-h-0 relative z-10">
-        <ScrollArea className="h-full w-full">
-          <div className="p-4">
-            {isLoading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              </div>
-            ) : messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                <MessageSquare className="h-12 w-12 mb-3 opacity-20" />
-                <p className="text-sm">Chưa có tin nhắn nào</p>
-                <p className="text-xs mt-1">Hãy bắt đầu cuộc trò chuyện!</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {Object.entries(groupedMessages).map(([dateKey, msgs]) => (
-                  <div key={dateKey}>
-                    {/* Date separator */}
-                    <div className="flex items-center gap-4 my-4">
-                      <div className="flex-1 h-px bg-border" />
-                      <span className="text-xs text-muted-foreground px-2">
-                        {formatMessageDate(msgs[0].createdAt)}
-                      </span>
-                      <div className="flex-1 h-px bg-border" />
-                    </div>
+      {/* Main Chat & Right Sidebar Layout */}
+      <div className="flex-1 flex overflow-hidden relative">
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Scrollable Chat Area */}
+          <ScrollArea className="flex-1 w-full">
+            <div className="p-4">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                  <MessageSquare className="h-12 w-12 mb-3 opacity-20" />
+                  <p className="text-sm">Chưa có tin nhắn nào</p>
+                  <p className="text-xs mt-1">Hãy bắt đầu cuộc trò chuyện!</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {Object.entries(groupedMessages).map(([dateKey, msgs]) => (
+                    <div key={dateKey}>
+                      {/* Date separator */}
+                      <div className="flex items-center gap-4 my-4">
+                        <div className="flex-1 h-px bg-border" />
+                        <span className="text-xs text-muted-foreground px-2">
+                          {formatMessageDate(msgs[0].createdAt)}
+                        </span>
+                        <div className="flex-1 h-px bg-border" />
+                      </div>
 
-                    {/* Messages */}
-                    <div className="space-y-3">
-                      {(() => {
-                        const renderedMessages: React.ReactNode[] = [];
-                        let i = 0;
-                        while (i < msgs.length) {
-                          const msg = msgs[i];
-                          const isSystem = msg.messageType === 'Announcement';
-                          const isPinNotify = isSystem && (msg.encryptedContent.includes('ghim') || msg.encryptedContent.includes('Ghim'));
+                      {/* Messages */}
+                      <div className="space-y-3">
+                        {(() => {
+                          const renderedMessages: React.ReactNode[] = [];
+                          let i = 0;
+                          while (i < msgs.length) {
+                            const msg = msgs[i];
+                            const isSystem = msg.messageType === 'Announcement';
+                            const isPinNotify = isSystem && (msg.encryptedContent.includes('ghim') || msg.encryptedContent.includes('Ghim'));
 
-                          if (isPinNotify) {
-                            // Find sequence of pin notifications
-                            const group: Message[] = [msg];
-                            let j = i + 1;
-                            while (j < msgs.length) {
-                              const nextMsg = msgs[j];
-                              const isNextPinNotify = nextMsg.messageType === 'Announcement' && (nextMsg.encryptedContent.includes('ghim') || nextMsg.encryptedContent.includes('Ghim'));
-                              if (isNextPinNotify) {
-                                group.push(nextMsg);
-                                j++;
-                              } else {
-                                break;
+                            if (isPinNotify) {
+                              // Find sequence of pin notifications
+                              const group: Message[] = [msg];
+                              let j = i + 1;
+                              while (j < msgs.length) {
+                                const nextMsg = msgs[j];
+                                const isNextPinNotify = nextMsg.messageType === 'Announcement' && (nextMsg.encryptedContent.includes('ghim') || nextMsg.encryptedContent.includes('Ghim'));
+                                if (isNextPinNotify) {
+                                  group.push(nextMsg);
+                                  j++;
+                                } else {
+                                  break;
+                                }
+                              }
+
+                              if (group.length >= 3) {
+                                renderedMessages.push(<PinNotificationGroup key={`group-${msg.id}`} messages={group} />);
+                                i = j;
+                                continue;
                               }
                             }
 
-                            if (group.length >= 3) {
-                              renderedMessages.push(<PinNotificationGroup key={`group-${msg.id}`} messages={group} />);
-                              i = j;
-                              continue;
+                            // Regular message rendering
+                            const isOwn = msg.senderId === user?.id || (msg.senderId === 0 && msg.senderName === user?.fullName) || (!msg.senderId && msg.senderName === user?.fullName)
+                            
+                            if (isSystem) {
+                              renderedMessages.push(
+                                <div key={msg.id} className="flex justify-center">
+                                  <div className="bg-muted px-4 py-2 rounded-full text-[11px] text-muted-foreground flex items-center gap-2">
+                                    <Hash className="h-3 w-3 opacity-50" />
+                                    {msg.encryptedContent}
+                                  </div>
+                                </div>
+                              );
+                            } else {
+                              renderedMessages.push(
+                                <div
+                                  key={msg.id}
+                                  id={`message-${msg.id}`}
+                                  className={cn('flex gap-3 group', isOwn && 'flex-row-reverse')}
+                                >
+                                  {!isOwn && (
+                                    <Avatar className="h-8 w-8 mt-1">
+                                      {msg.avatarPath && <AvatarImage src={getAvatarUrl(msg.avatarPath)} />}
+                                      <AvatarFallback className="text-xs bg-secondary">
+                                        {msg.senderName ? getInitials(msg.senderName) : 'U'}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  )}
+                                  <div className={cn('max-w-[70%] space-y-1', isOwn && 'items-end flex flex-col')}>
+                                    {!isOwn && msg.senderName && <span className="text-xs text-muted-foreground ml-1">{msg.senderName}</span>}
+                                    <div className={cn('px-4 py-2.5 rounded-2xl relative shadow-sm', isOwn ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted rounded-bl-md')}>
+                                      <div className="space-y-2">
+                                        {msg.attachments?.map((at, idx) => {
+                                          const isImage = at.mimeType?.startsWith('image/')
+                                          const baseServerUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api').replace(/\/api\/?$/, '')
+                                          const url = `${baseServerUrl}/${(at.encryptedFilePath || '').replace(/\\/g, '/').replace(/^\//, '')}`
+                                          return isImage ? (
+                                            <div key={at.id || idx} className="rounded-lg overflow-hidden border border-white/10">
+                                              <img src={url} alt={at.fileName} className="max-w-full max-h-60 object-contain cursor-pointer" onClick={() => window.open(url, '_blank')} />
+                                            </div>
+                                          ) : (
+                                            <div key={at.id || idx} className="flex items-center gap-2 p-2 bg-black/5 rounded-lg border border-black/10">
+                                              <Paperclip className="h-4 w-4 text-primary" />
+                                              <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium hover:underline truncate max-w-50">{at.fileName}</a>
+                                            </div>
+                                          )
+                                        })}
+                                        {msg.stickerUrl ? <img src={msg.stickerUrl} alt="sticker" className="w-32 h-32 object-contain" /> : msg.messageType === 'Reminder' ? (
+                                          <div className="bg-primary/5 p-3 rounded-xl border-l-4 border-primary space-y-2">
+                                            <p className="text-xs font-bold text-primary uppercase flex items-center gap-2"><Phone className="h-3 w-3" /> Nhắc nhở</p>
+                                            <p className="text-sm italic">{msg.encryptedContent}</p>
+                                          </div>
+                                        ) : msg.encryptedContent && msg.encryptedContent !== '[Attachment]' && <p className="text-sm whitespace-pre-wrap">{msg.encryptedContent}</p>}
+                                        {msg.isPinned && <div className="flex items-center gap-1 mt-1 opacity-60"><Hash className="h-3 w-3 text-primary" /><span className="text-[10px] font-medium">Đã ghim</span></div>}
+                                      </div>
+                                    </div>
+                                    <div className={cn('flex items-center gap-2 px-1', isOwn && 'justify-end')}>
+                                      <span className="text-[10px] text-muted-foreground">{formatMessageTime(msg.createdAt)}</span>
+                                      {isOwn && <div className="flex ml-0.5">{msg.readBy && msg.readBy.length > 0 ? <CheckCheck className="h-2.5 w-2.5 text-primary" /> : <CheckCheck className="h-2.5 w-2.5 text-muted-foreground/30" />}</div>}
+                                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-3 w-3" /></Button></DropdownMenuTrigger>
+                                          <DropdownMenuContent align={isOwn ? 'end' : 'start'} className="z-[9999]">
+                                            <DropdownMenuItem onClick={() => setReplyingTo(msg)}><Reply className="mr-2 h-4 w-4" /> Trả lời</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={async () => {
+                                              if (msg.isPinned) {
+                                                if (confirm('Bạn có muốn bỏ ghim tin nhắn này không?')) togglePinMessage(msg.id).catch(() => toast.error('Lỗi khi bỏ ghim'));
+                                              } else {
+                                                togglePinMessage(msg.id).catch(() => toast.error('Lỗi khi ghim'));
+                                              }
+                                            }}>
+                                              <Hash className="mr-2 h-4 w-4" /> {msg.isPinned ? 'Bỏ Ghim' : 'Ghim tin nhắn'}
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
                             }
+                            i++;
                           }
-
-                          // Regular message rendering
-                          const isOwn = msg.senderId === user?.id || (msg.senderId === 0 && msg.senderName === user?.fullName) || (!msg.senderId && msg.senderName === user?.fullName)
-                          
-                          if (isSystem) {
-                            renderedMessages.push(
-                              <div key={msg.id} className="flex justify-center">
-                                <div className="bg-muted px-4 py-2 rounded-full text-[11px] text-muted-foreground flex items-center gap-2">
-                                  <Hash className="h-3 w-3 opacity-50" />
-                                  {msg.encryptedContent}
-                                </div>
-                              </div>
-                            );
-                          } else {
-                            renderedMessages.push(
-                              <div
-                                key={msg.id}
-                                id={`message-${msg.id}`}
-                                className={cn('flex gap-3 group', isOwn && 'flex-row-reverse')}
-                              >
-                                {!isOwn && (
-                                  <Avatar className="h-8 w-8 mt-1">
-                                    {msg.avatarPath && <AvatarImage src={getAvatarUrl(msg.avatarPath)} />}
-                                    <AvatarFallback className="text-xs bg-secondary">
-                                      {msg.senderName ? getInitials(msg.senderName) : 'U'}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                )}
-                                <div className={cn('max-w-[70%] space-y-1', isOwn && 'items-end flex flex-col')}>
-                                  {!isOwn && msg.senderName && <span className="text-xs text-muted-foreground ml-1">{msg.senderName}</span>}
-                                  <div className={cn('px-4 py-2.5 rounded-2xl relative shadow-sm', isOwn ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted rounded-bl-md')}>
-                                    <div className="space-y-2">
-                                      {msg.attachments?.map((at, idx) => {
-                                        const isImage = at.mimeType?.startsWith('image/')
-                                        const baseServerUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api').replace(/\/api\/?$/, '')
-                                        const url = `${baseServerUrl}/${(at.encryptedFilePath || '').replace(/\\/g, '/').replace(/^\//, '')}`
-                                        return isImage ? (
-                                          <div key={at.id || idx} className="rounded-lg overflow-hidden border border-white/10">
-                                            <img src={url} alt={at.fileName} className="max-w-full max-h-60 object-contain cursor-pointer" onClick={() => window.open(url, '_blank')} />
-                                          </div>
-                                        ) : (
-                                          <div key={at.id || idx} className="flex items-center gap-2 p-2 bg-black/5 rounded-lg border border-black/10">
-                                            <Paperclip className="h-4 w-4 text-primary" />
-                                            <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium hover:underline truncate max-w-50">{at.fileName}</a>
-                                          </div>
-                                        )
-                                      })}
-                                      {msg.stickerUrl ? <img src={msg.stickerUrl} alt="sticker" className="w-32 h-32 object-contain" /> : msg.messageType === 'Reminder' ? (
-                                        <div className="bg-primary/5 p-3 rounded-xl border-l-4 border-primary space-y-2">
-                                          <p className="text-xs font-bold text-primary uppercase flex items-center gap-2"><Phone className="h-3 w-3" /> Nhắc nhở</p>
-                                          <p className="text-sm italic">{msg.encryptedContent}</p>
-                                        </div>
-                                      ) : msg.encryptedContent && msg.encryptedContent !== '[Attachment]' && <p className="text-sm whitespace-pre-wrap">{msg.encryptedContent}</p>}
-                                      {msg.isPinned && <div className="flex items-center gap-1 mt-1 opacity-60"><Hash className="h-3 w-3 text-primary" /><span className="text-[10px] font-medium">Đã ghim</span></div>}
-                                    </div>
-                                  </div>
-                                  <div className={cn('flex items-center gap-2 px-1', isOwn && 'justify-end')}>
-                                    <span className="text-[10px] text-muted-foreground">{formatMessageTime(msg.createdAt)}</span>
-                                    {isOwn && <div className="flex ml-0.5">{msg.readBy && msg.readBy.length > 0 ? <CheckCheck className="h-2.5 w-2.5 text-primary" /> : <CheckCheck className="h-2.5 w-2.5 text-muted-foreground/30" />}</div>}
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
-                                      <DropdownMenu>
-                                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-6 w-6"><MoreVertical className="h-3 w-3" /></Button></DropdownMenuTrigger>
-                                        <DropdownMenuContent align={isOwn ? 'end' : 'start'} className="z-[9999]">
-                                          <DropdownMenuItem onClick={() => setReplyingTo(msg)}><Reply className="mr-2 h-4 w-4" /> Trả lời</DropdownMenuItem>
-                                          <DropdownMenuItem onClick={async () => {
-                                            if (msg.isPinned) {
-                                              if (confirm('Bạn có muốn bỏ ghim tin nhắn này không?')) togglePinMessage(msg.id).catch(() => toast.error('Lỗi khi bỏ ghim'));
-                                            } else {
-                                              togglePinMessage(msg.id).catch(() => toast.error('Lỗi khi ghim'));
-                                            }
-                                          }}>
-                                            <Hash className="mr-2 h-4 w-4" /> {msg.isPinned ? 'Bỏ Ghim' : 'Ghim tin nhắn'}
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          }
-                          i++;
-                        }
-                        return renderedMessages;
-                      })()}
+                          return renderedMessages;
+                        })()}
+                      </div>
                     </div>
-                  </div>
-                ))}
-                
-                {/* Typing indicators */}
-                {typingUsers.filter(t => t.conversationId === conversation?.id && t.userId !== user?.id).length > 0 && (
-                  <div className="flex items-center gap-2 mt-2 px-2 animate-pulse">
-                    <div className="flex gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.3s]" />
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.15s]" />
-                      <span className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce" />
+                  ))}
+                  
+                  {/* Typing indicators */}
+                  {typingUsers.filter(t => t.conversationId === conversation?.id && t.userId !== user?.id).length > 0 && (
+                    <div className="flex items-center gap-2 mt-2 px-2 animate-pulse">
+                      <div className="flex gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.3s]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.15s]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce" />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground font-medium italic">
+                        {typingUsers.filter(t => t.conversationId === conversation?.id && t.userId !== user?.id).map(t => t.userName).join(', ')} đang nhắn...
+                      </span>
                     </div>
-                    <span className="text-[10px] text-muted-foreground font-medium italic">
-                      {typingUsers.filter(t => t.conversationId === conversation?.id && t.userId !== user?.id).map(t => t.userName).join(', ')} đang nhắn...
-                    </span>
-                  </div>
-                )}
+                  )}
 
-                <div ref={scrollRef} />
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+                  <div ref={scrollRef} />
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Group Board Sidebar (Zalo Style) */}
+        {showGroupBoard && (
+          <GroupBoard 
+            pinnedMessages={pinnedList} 
+            onClose={() => setShowGroupBoard(false)} 
+            onGoToMessage={(id) => {
+              scrollToMessage(id);
+              setShowGroupBoard(false);
+            }} 
+          />
+        )}
       </div>
 
       {/* Reply preview */}
@@ -1074,6 +1091,108 @@ function PinNotificationGroup({ messages }: { messages: Message[] }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+interface GroupBoardProps {
+  pinnedMessages: Message[]
+  onClose: () => void
+  onGoToMessage: (id: number) => void
+}
+
+function GroupBoard({ pinnedMessages, onClose, onGoToMessage }: GroupBoardProps) {
+  const [activeTab, setActiveTab] = useState<'all' | 'pins' | 'notes' | 'polls'>('pins')
+
+  return (
+    <div className="w-80 border-l bg-card flex flex-col h-full animate-in slide-in-from-right duration-300 z-30 shadow-xl">
+      <div className="p-4 border-b flex items-center justify-between bg-background/50">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h3 className="font-bold text-sm">Bảng tin nhóm</h3>
+        </div>
+        <Button variant="ghost" size="icon" className="h-8 w-8">
+          <Plus className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <div className="flex border-b">
+        {(['all', 'pins', 'notes', 'polls'] as const).map((tab) => (
+          <button
+            key={tab}
+            className={cn(
+              "flex-1 py-3 text-xs font-bold font-sans transition-all border-b-2",
+              activeTab === tab 
+                ? "border-primary text-primary" 
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            )}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === 'all' ? 'Tất cả' : tab === 'pins' ? 'Tin ghim' : tab === 'notes' ? 'Ghi chú' : 'Bình chọn'}
+          </button>
+        ))}
+      </div>
+
+      <ScrollArea className="flex-1 p-3">
+        {activeTab === 'pins' && (
+          <div className="space-y-4">
+            {pinnedMessages.length === 0 ? (
+              <div className="py-20 text-center space-y-3 opacity-40">
+                <Hash className="h-12 w-12 mx-auto mb-2" />
+                <p className="text-xs font-bold uppercase tracking-widest">Chưa có tin ghim</p>
+                <p className="text-[10px]">Nhấn giữ tin nhắn để ghim thông tin<br/>thiết kế tại đây</p>
+              </div>
+            ) : (
+              [...pinnedMessages].reverse().map((msg) => (
+                <div key={msg.id} className="bg-muted/40 rounded-xl p-4 border border-primary/5 space-y-3 hover:bg-muted/60 transition-colors group">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8 ring-2 ring-background">
+                      <AvatarImage src={getAvatarUrl(msg.avatarPath)} />
+                      <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                        {msg.senderName ? msg.senderName.substring(0, 2).toUpperCase() : 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black truncate">{msg.senderName || 'Người dùng'}</p>
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase opacity-60">
+                        <MessageSquare className="h-2.5 w-2.5" />
+                        Tin ghim
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="pl-11 pr-2">
+                    <div className="bg-background/40 p-3 rounded-lg border border-primary/5 mb-3 relative group-hover:bg-background/60 transition-colors">
+                       <p className="text-xs text-foreground/90 leading-relaxed font-medium">
+                        {msg.stickerUrl ? '[Nhãn dán]' : msg.encryptedContent}
+                       </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-bold text-muted-foreground/50 tabular-nums uppercase">
+                        Hôm nay lúc {formatToVNTime(msg.createdAt || new Date().toISOString())}
+                      </span>
+                      <button 
+                        className="text-[10px] font-black text-primary hover:underline underline-offset-4 decoration-2"
+                        onClick={() => onGoToMessage(msg.id)}
+                      >
+                        Xem tin nhắn gốc
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+        
+        {(activeTab === 'all' || activeTab === 'notes' || activeTab === 'polls') && (
+           <div className="py-20 text-center opacity-20">
+              <p className="text-xs font-black uppercase tracking-[0.2em]">Sắp ra mắt</p>
+           </div>
+        )}
+      </ScrollArea>
     </div>
   );
 }
