@@ -90,49 +90,56 @@ export function GroupBoard({ conversationId, token, onClose, onGoToMessage }: Gr
                 <p className="text-[10px]">Nhấn giữ tin nhắn để ghim thông tin<br/>thiết kế tại đây</p>
               </div>
             ) : (
-              [...pinnedMessages].reverse().map((msg) => (
-                <div key={msg.id} className="bg-muted/40 rounded-xl p-4 border border-primary/5 space-y-3 hover:bg-muted/60 transition-colors group relative overflow-hidden">
-                   <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-30 transition-opacity">
-                      <Hash className="h-4 w-4" />
-                   </div>
+                  {[...pinnedMessages].reverse().map((msg) => {
+                  // Normalize data from various API/Hub sources
+                  const senderName = msg.senderName ?? msg.SenderName ?? msg.sender ?? 'Người dùng';
+                  const content = msg.encryptedContent ?? msg.EncryptedContent ?? msg.content ?? msg.message ?? '';
+                  const createdAt = msg.createdAt ?? msg.CreatedAt ?? msg.time ?? new Date().toISOString();
+                  const avatarPath = msg.avatarPath ?? msg.AvatarPath;
 
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8 ring-2 ring-background">
-                      <AvatarImage src={getAvatarUrl(msg.avatarPath)} />
-                      <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
-                        {msg.senderName ? msg.senderName.substring(0, 2).toUpperCase() : 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black truncate">{msg.senderName || 'Người dùng'}</p>
-                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-bold uppercase opacity-60">
-                        <MessageSquare className="h-2.5 w-2.5" />
-                        Tin ghim
+                  return (
+                    <div key={msg.id} className="bg-muted/30 rounded-2xl p-4 border border-primary/5 space-y-4 hover:bg-muted/50 transition-all group relative overflow-hidden shadow-sm">
+                      <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:opacity-20 transition-opacity">
+                        <Hash className="h-6 w-6 rotate-12" />
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-9 w-9 ring-2 ring-background shrink-0 shadow-sm border border-primary/5">
+                          <AvatarImage src={getAvatarUrl(avatarPath)} />
+                          <AvatarFallback className="text-xs font-black bg-primary/5 text-primary">
+                            {senderName.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-black truncate text-foreground/90">{senderName}</p>
+                          <div className="flex items-center gap-2 text-[9px] text-muted-foreground font-black uppercase tracking-widest opacity-60">
+                            <MessageSquare className="h-2.5 w-2.5 text-primary" />
+                            Ghim tin nhắn
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="pl-1 space-y-3">
+                        <div className="bg-background/80 p-3 rounded-2xl border border-primary/5 relative group-hover:bg-background transition-colors min-h-[40px] shadow-inner">
+                           <p className="text-xs text-foreground leading-relaxed font-bold opacity-80 whitespace-pre-wrap">
+                            {msg.stickerUrl ? '[Nhãn dán]' : content}
+                           </p>
+                        </div>
+                        <div className="flex items-center justify-between px-1">
+                          <span className="text-[9px] font-black text-muted-foreground/40 tabular-nums uppercase tracking-tighter">
+                            {formatToVNTime(createdAt)} {formatToVNDate(createdAt)}
+                          </span>
+                          <button 
+                            className="text-[10px] font-black text-primary hover:text-primary/70 transition-colors uppercase tracking-widest border-b-2 border-primary/20 hover:border-primary"
+                            onClick={() => onGoToMessage(msg.id)}
+                          >
+                            Xem tin nhắn gốc
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="pl-11 pr-2">
-                    <div className="bg-background/40 p-3 rounded-lg border border-primary/5 mb-3 relative group-hover:bg-background/60 transition-colors">
-                       <p className="text-xs text-foreground/90 leading-relaxed font-medium">
-                        {msg.stickerUrl ? '[Nhãn dán]' : msg.encryptedContent}
-                       </p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] font-bold text-muted-foreground/50 tabular-nums uppercase">
-                        Hôm nay lúc {formatToVNTime(msg.createdAt || new Date().toISOString())}
-                      </span>
-                      <button 
-                        className="text-[10px] font-black text-primary hover:underline underline-offset-4 decoration-2"
-                        onClick={() => onGoToMessage(msg.id)}
-                      >
-                        Xem tin nhắn gốc
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
+                  );
+                })}
           </div>
         )}
         
