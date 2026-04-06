@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { conversationsApi } from '@/lib/api'
 import { ChatSidebar } from '@/components/chat/chat-sidebar'
 import { ChatArea } from '@/components/chat/chat-area'
 import { MembersSidebar } from '@/components/chat/members-sidebar'
+import { GroupBoard } from '@/components/chat/group-board'
 import { MobileNavigation } from '@/components/chat/mobile-navigation'
 import { useSignalR } from '@/hooks/use-signalr'
 import { useRouter } from 'next/navigation'
@@ -40,6 +41,7 @@ export default function ChatPage() {
   const [showMobileChat, setShowMobileChat] = useState(false)
   const [showMobileMembers, setShowMobileMembers] = useState(false)
   const [showDesktopMembers, setShowDesktopMembers] = useState(false)
+  const [showDesktopBoard, setShowDesktopBoard] = useState(false)
   const [isLoadingConversations, setIsLoadingConversations] = useState(true)
   const [unreadCounts, setUnreadCounts] = useState<Record<number, number>>({})
   const { isConnected, onlineUsers, lastMessage, lastGroupUpdate, lastUserUpdate, markAsRead, lastDeletedMessage } = useSignalR()
@@ -192,6 +194,12 @@ export default function ChatPage() {
   const handleShowMembers = () => {
     setShowMobileMembers(true)
     setShowDesktopMembers(prev => !prev)
+    setShowDesktopBoard(false) // Close board when showing members
+  }
+
+  const handleToggleBoard = () => {
+    setShowDesktopBoard(prev => !prev)
+    setShowDesktopMembers(false) // Close members when showing board
   }
 
   const handleHideMembers = () => {
@@ -218,26 +226,48 @@ export default function ChatPage() {
         <ChatArea
           conversation={selectedConversation}
           onShowMembers={handleShowMembers}
+          onToggleBoard={handleToggleBoard}
           onRefreshConversations={loadConversations}
           className="flex-1"
         />
         
-        {/* Right sidebar - Members */}
+        {/* Right sidebar - Members or Group Board */}
         {selectedConversation && selectedConversation.type === 'Group' && (
-          <div 
-            className={cn(
-              "transition-all duration-300 ease-in-out shrink-0 overflow-hidden flex border-l bg-card",
-              showDesktopMembers ? "w-80 opacity-100" : "w-0 opacity-0 border-none"
-            )}
-          >
-            <div className="w-80 h-full">
-              <MembersSidebar
-                conversationId={selectedConversation.id}
-                conversationName={selectedConversation.name}
-                onlineUsers={onlineUsers}
-              />
+          <>
+            <div 
+              className={cn(
+                "transition-all duration-300 ease-in-out shrink-0 overflow-hidden flex border-l bg-card",
+                showDesktopMembers ? "w-80 opacity-100" : "w-0 opacity-0 border-none"
+              )}
+            >
+              <div className="w-80 h-full">
+                <MembersSidebar
+                  conversationId={selectedConversation.id}
+                  conversationName={selectedConversation.name}
+                  onlineUsers={onlineUsers}
+                />
+              </div>
             </div>
-          </div>
+
+            <div 
+              className={cn(
+                "transition-all duration-300 ease-in-out shrink-0 overflow-hidden flex border-l bg-card",
+                showDesktopBoard ? "w-80 opacity-100" : "w-0 opacity-0 border-none"
+              )}
+            >
+              <div className="w-80 h-full">
+                <GroupBoard
+                  conversationId={selectedConversation.id}
+                  token={token || ''}
+                  onClose={() => setShowDesktopBoard(false)}
+                  onGoToMessage={(id) => {
+                     // Need to trigger scroll in ChatArea
+                     setShowDesktopBoard(false)
+                  }}
+                />
+              </div>
+            </div>
+          </>
         )}
       </div>
 
