@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
@@ -84,7 +85,8 @@ export default function SchedulePage() {
       setSchedules(sch.filter(s => !isNaN(new Date(s.startTime).getTime())))
       
       const usersData = await adminApi.getAllUsers(token!)
-      setAllUsers(usersData.filter((u: any) => u.id !== user?.id))
+      // Show all users but allow excluding current user if needed, or keeping it for verification
+      setAllUsers(usersData)
     } catch (e) {
       console.error(e)
       toast.error('Không thể tải dữ liệu lịch trình')
@@ -248,6 +250,9 @@ export default function SchedulePage() {
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[550px] rounded-3xl p-0 overflow-hidden">
+                <DialogDescription className="sr-only">
+                    Tạo một lịch hẹn hoặc sự kiện mới và mời các thành viên tham gia thảo luận.
+                </DialogDescription>
                 <div className="bg-primary p-6 text-primary-foreground">
                    <DialogTitle className="text-2xl font-bold flex items-center gap-2">
                     <CalendarIcon className="h-6 w-6" />

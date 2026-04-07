@@ -40,7 +40,8 @@ import {
   Plus,
   Phone,
   Video as VideoIcon,
-  Activity as ActivityIcon
+  Activity as ActivityIcon,
+  Calendar as CalendarIcon
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -81,6 +82,7 @@ interface ChatAreaProps {
   onShowMembers?: () => void
   onToggleBoard?: () => void
   onToggleSearch?: () => void
+  onToggleCalendar?: () => void
   onRefreshConversations?: () => void
   isMobile?: boolean
   className?: string
@@ -92,6 +94,7 @@ export function ChatArea({
   onShowMembers, 
   onToggleBoard, 
   onToggleSearch, 
+  onToggleCalendar,
   onRefreshConversations, 
   isMobile = false, 
   className 
@@ -322,6 +325,12 @@ export function ChatArea({
               <DropdownMenuContent align="end" className="w-56 overflow-hidden p-1 rounded-2xl shadow-2xl">
                  <DropdownMenuItem onClick={onToggleBoard} className="p-2.5 rounded-xl text-xs font-black uppercase tracking-widest gap-3">
                     <ActivityIcon className="h-4 w-4 text-primary" /> Bảng tin nhóm
+                 </DropdownMenuItem>
+                 <DropdownMenuItem onClick={onToggleSearch} className="p-2.5 rounded-xl text-xs font-black uppercase tracking-widest gap-3">
+                    <Search className="h-4 w-4 text-primary" /> Tìm kiếm tin nhắn
+                 </DropdownMenuItem>
+                 <DropdownMenuItem onClick={onToggleCalendar} className="p-2.5 rounded-xl text-xs font-black uppercase tracking-widest gap-3">
+                    <CalendarIcon className="h-4 w-4 text-primary" /> Tạo lịch hẹn
                  </DropdownMenuItem>
                  <DropdownMenuSeparator />
                  <DropdownMenuItem className="text-destructive p-2.5 rounded-xl text-xs font-black uppercase tracking-widest gap-3">

@@ -7,6 +7,7 @@ import { MembersSidebar } from '@/components/chat/members-sidebar'
 import { GroupBoard } from '@/components/chat/group-board'
 import { MessageSearchSidebar } from '@/components/chat/message-search-sidebar'
 import { ProjectNotes } from '@/components/chat/project-notes'
+import { CreateEventModal } from '@/components/chat/create-event-modal'
 import { useAuth } from '@/lib/auth-context'
 import { conversationsApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
@@ -189,6 +190,7 @@ export default function ChatPage() {
   const [rightSidebar, setRightSidebar] = useState<'members' | 'board' | 'search' | 'notes' | null>(null)
   const [showNotifModal, setShowNotifModal] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
+  const [showCreateEvent, setShowCreateEvent] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
   const selectedConversation = conversations.find((c) => c.id === selectedId) || null
@@ -263,6 +265,7 @@ export default function ChatPage() {
           onShowMembers={() => setRightSidebar(prev => prev === 'members' ? null : 'members')}
           onToggleBoard={() => setRightSidebar(prev => prev === 'board' ? null : 'board')}
           onToggleSearch={() => setRightSidebar(prev => prev === 'search' ? null : 'search')}
+          onToggleCalendar={() => setShowCreateEvent(true)}
           onRefreshConversations={loadConversations}
         />
       </main>
@@ -373,6 +376,15 @@ export default function ChatPage() {
            </div>
         </div>
       )}
+
+      {/* 5. Create Event Modal */}
+      <CreateEventModal 
+        token={token || ""}
+        isOpen={showCreateEvent}
+        onClose={() => setShowCreateEvent(false)}
+        conversationName={selectedConversation?.name}
+        initialParticipants={selectedConversation ? [user?.id, selectedConversation.otherUserId].filter((id): id is number => !!id) : []}
+      />
     </div>
   )
 }
