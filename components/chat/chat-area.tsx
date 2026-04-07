@@ -408,61 +408,26 @@ export function ChatArea({
                                                  </div>
                                                )}
 
-                                               {/* 2. Nội dung văn bản (TEXT) - FIX TRIỆT ĐỂ LỖI . và [Attachment] */}
-                                               {(() => {
-                                                  // Hỗ trợ tất cả các biến content từ Backend (camelCase hoặc PascalCase)
-                                                  const rawText = (m as any).content || m.encryptedContent || (m as any).EncryptedContent || (m as any).message;
-                                                  const hasFile = m.attachments && m.attachments.length > 0;
-                                                  const hasSticker = !!m.stickerUrl;
-                                                  
-                                                  // Lọc bỏ placeholder nếu có nội dung thực sự khác đi kèm
-                                                  const isPlaceholder = rawText === '.' || rawText === '[Attachment]';
-                                                  const shouldShowPlaceholder = isPlaceholder && !hasFile && !hasSticker;
-                                                  
-                                                  if (!rawText) return null;
-                                                  if (isPlaceholder && !shouldShowPlaceholder) return null;
-                                                  
-                                                  return (
-                                                    <p className={cn(
-                                                      "font-medium leading-relaxed whitespace-pre-wrap select-text",
-                                                      isPlaceholder ? "opacity-20 italic text-xs" : ""
-                                                    )}>
-                                                       {rawText}
-                                                    </p>
-                                                  )
-                                               })()}
+                                               {/* Hiển thị Text Content */}
+                                               {m.encryptedContent && m.encryptedContent !== '.' && m.encryptedContent !== '[Attachment]' && (
+                                                  <p className="font-medium leading-relaxed whitespace-pre-wrap select-text">
+                                                    {m.encryptedContent}
+                                                  </p>
+                                               )}
 
-                                               {/* 3. Tệp đính kèm / Ảnh (HIỆN BÊN CẠNH/DƯỚI VĂN BẢN) */}
+                                               {/* Hiển thị Attachment nếu có */}
                                                {m.attachments && m.attachments.length > 0 && (
-                                                 <div className="flex flex-col gap-2 mt-1">
-                                                   {m.attachments.map((att: any, idx: number) => {
-                                                     const isImg = att.contentType?.startsWith('image/') || att.fileName?.match(/\.(jpg|jpeg|png|gif)$/i);
-                                                     if (isImg) {
-                                                       return (
-                                                         <div key={idx} className="relative group/img overflow-hidden rounded-xl border-4 border-background/20 shadow-xl bg-background/5 transition-all hover:border-background/40 max-w-full">
-                                                            <img src={getAvatarUrl(att.filePath)} className="max-w-full h-auto max-h-[400px] object-cover transition-transform duration-500 group-hover/img:scale-105" alt={att.fileName} />
-                                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                                               <Button variant="secondary" size="icon" className="rounded-full blur-none" onClick={(e) => { e.stopPropagation(); window.open(getAvatarUrl(att.filePath), '_blank'); }}>
-                                                                  <Download className="h-4 w-4" />
-                                                               </Button>
-                                                            </div>
-                                                         </div>
-                                                       )
-                                                     }
-                                                     return (
-                                                       <a key={idx} href={getAvatarUrl(att.filePath)} target="_blank" download className={cn("flex items-center gap-3 p-3 border rounded-xl hover:scale-[1.02] transition-transform shadow-sm", isOwn ? "bg-white/10 border-white/20 hover:bg-white/20" : "bg-muted/30 border-primary/5 hover:bg-muted/50")}>
-                                                          <div className="h-10 w-10 flex items-center justify-center bg-primary/20 rounded-lg shrink-0">
-                                                             <FileText className="h-5 w-5 text-primary" />
-                                                          </div>
-                                                          <div className="min-w-0 flex-1">
-                                                             <p className="text-[11px] font-black truncate uppercase tracking-tight opacity-90">{att.fileName}</p>
-                                                             <p className="text-[9px] opacity-40 uppercase font-bold">{(att.fileSize / 1024).toFixed(1)} KB</p>
-                                                          </div>
-                                                          <Download className="h-4 w-4 opacity-30" />
-                                                       </a>
-                                                     )
-                                                   })}
-                                                 </div>
+                                                  <div className="mt-2 space-y-2">
+                                                    {m.attachments.map((att: any, idx: number) => (
+                                                       <div key={idx} className="flex items-center gap-2 p-2 bg-background/50 rounded-lg border">
+                                                         <FileText className="h-4 w-4 text-primary" />
+                                                         <span className="text-xs truncate flex-1">{att.fileName}</span>
+                                                         <a href={getAvatarUrl(att.filePath)} download target="_blank">
+                                                            <Download className="h-4 w-4 hover:text-primary cursor-pointer" />
+                                                         </a>
+                                                       </div>
+                                                    ))}
+                                                  </div>
                                                )}
                                            </div>
 
@@ -484,7 +449,7 @@ export function ChatArea({
                                    </DropdownMenu>
 
                                    <div className="flex items-center gap-2 px-1 opacity-20">
-                                      <span className="text-[9px] font-black uppercase tracking-widest">{formatMessageTime(m.createdAt)}</span>
+                                      <span className="text-[9px] font-black uppercase tracking-widest">{formatMessageTime(m.createdAt || new Date().toISOString())}</span>
                                       {isOwn && (m.readBy?.length ? <CheckCheck className="h-3 w-3 text-primary" /> : <Check className="h-3 w-3" />)}
                                    </div>
                                 </div>
