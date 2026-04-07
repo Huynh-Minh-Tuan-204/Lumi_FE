@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ThemeToggle } from '@/components/theme-toggle'
 import Link from 'next/link'
+import { toast } from 'sonner'
 
 interface Conversation {
   id: number
@@ -93,7 +94,12 @@ export function ChatSidebar({
                </div>
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="h-8 w-8 rounded-full"
+            onClick={() => toast.info('Thông báo hệ thống: Bạn không có thông báo mới.')}
+          >
             <Bell className="h-4 w-4" />
           </Button>
         </div>

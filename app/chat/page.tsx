@@ -24,6 +24,53 @@ export interface Conversation {
   otherUserId?: number
 }
 
+import { Calendar, NotebookText, BellRing, ChevronLeft, ChevronRight } from 'lucide-react'
+
+function RightTabbar() {
+  return (
+    <div className="w-[50px] border-l bg-background flex flex-col items-center py-4 gap-6 shrink-0 z-50">
+       <div className="flex flex-col gap-5 items-center">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-primary/10 hover:text-primary transition-all group">
+                   <Calendar className="h-5 w-5 opacity-40 group-hover:opacity-100" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Lịch làm việc</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-primary/10 hover:text-primary transition-all group">
+                   <NotebookText className="h-5 w-5 opacity-40 group-hover:opacity-100" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Ghi chú nhanh</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-primary/10 hover:text-primary transition-all group">
+                   <BellRing className="h-5 w-5 opacity-40 group-hover:opacity-100" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Nhắc hẹn</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+       </div>
+       <div className="mt-auto">
+          <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full opacity-40 hover:opacity-100">
+             <ChevronRight className="h-4 w-4" />
+          </Button>
+       </div>
+    </div>
+  )
+}
+
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
+
 export default function ChatPage() {
   const { token, user } = useAuth()
   const { 
@@ -176,8 +223,11 @@ export default function ChatPage() {
                 onClose={() => setRightSidebar(null)}
               />
              )}
-          </div>
+           </div>
         </div>
+
+        {/* Small Right Tabbar (Zalo Style) */}
+        <RightTabbar />
       </div>
     </div>
   )

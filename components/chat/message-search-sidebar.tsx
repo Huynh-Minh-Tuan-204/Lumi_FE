@@ -18,6 +18,15 @@ import {
 } from 'lucide-react'
 import { formatToVNTime, formatToVNDate, getAvatarUrl } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ChevronDown, User, Calendar as CalendarIcon, FilterX } from 'lucide-react'
 
 interface SearchResult {
   id: number
@@ -38,9 +47,12 @@ export function MessageSearchSidebar({ conversationId, onClose }: MessageSearchS
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [senderFilter, setSenderFilter] = useState<string | null>(null)
+  const [dateFilter, setDateFilter] = useState<string | null>(null)
+  const [senders, setSenders] = useState<string[]>([])
 
   const handleSearch = async () => {
-    if (!query.trim() || !token) {
+    if ((!query.trim() && !senderFilter && !dateFilter) || !token) {
         setResults([]);
         return;
     }
@@ -48,8 +60,12 @@ export function MessageSearchSidebar({ conversationId, onClose }: MessageSearchS
     try {
       // Fetch current conversation messages to search within
       const messages = await conversationsApi.getMessages(token, conversationId)
-      const filtered = messages
-        .filter((m: any) => (m.encryptedContent || m.content || m.message || '').toLowerCase().includes(query.toLowerCase()))
+      
+      // Extract unique senders for the filter
+      const uniqueSenders = Array.from(new Set(messages.map((m: any) => m.senderName || m.sender || 'Người dùng'))) as string[]
+      setSenders(uniqueSenders)
+
+      let filtered = messages
         .map((m: any) => ({
           id: m.id,
           senderId: m.senderId,
@@ -58,6 +74,18 @@ export function MessageSearchSidebar({ conversationId, onClose }: MessageSearchS
           content: m.encryptedContent || m.content || m.message || '',
           createdAt: m.createdAt || m.time || new Date().toISOString()
         }))
+
+      // Apply Filter Logic
+      if (query.trim()) {
+        filtered = filtered.filter((m: any) => m.content.toLowerCase().includes(query.toLowerCase()))
+      }
+      if (senderFilter) {
+        filtered = filtered.filter((m: any) => m.senderName === senderFilter)
+      }
+      if (dateFilter) {
+        filtered = filtered.filter((m: any) => new Date(m.createdAt).toDateString() === new Date(dateFilter).toDateString())
+      }
+
       setResults(filtered)
     } catch (error) {
       console.error('Search failed:', error)
@@ -71,7 +99,7 @@ export function MessageSearchSidebar({ conversationId, onClose }: MessageSearchS
         handleSearch();
     }, 400);
     return () => clearTimeout(timer);
-  }, [query])
+  }, [query, senderFilter, dateFilter])
 
   return (
     <div className="flex flex-col h-full bg-background border-l shadow-2xl animate-in slide-in-from-right-1 duration-300">
@@ -98,6 +126,59 @@ export function MessageSearchSidebar({ conversationId, onClose }: MessageSearchS
             autoFocus
           />
         </div>
+
+        <div className="flex items-center gap-2 mt-3">
+           <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                 <Button variant="outline" size="sm" className="flex-1 h-8 text-[10px] font-black uppercase tracking-tight gap-2 rounded-lg bg-background/50 border-primary/5">
+                    <User className="h-3 w-3 opacity-40" />
+                    <span className="truncate">{senderFilter || 'Người gửi'}</span>
+                    <ChevronDown className="h-3 w-3 opacity-20 ml-auto" />
+                 </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48 p-1 rounded-xl">
+                 <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest opacity-40 px-2 py-1">Lọc theo người gửi</DropdownMenuLabel>
+                 <DropdownMenuSeparator />
+                 <DropdownMenuItem onClick={() => setSenderFilter(null)} className="text-[10px] font-black uppercase tracking-tight rounded-lg">Tất cả</DropdownMenuItem>
+                 {senders.map(s => (
+                    <DropdownMenuItem key={s} onClick={() => setSenderFilter(s)} className="text-[10px] font-black uppercase tracking-tight rounded-lg">{s}</DropdownMenuItem>
+                 ))}
+              </DropdownMenuContent>
+           </DropdownMenu>
+
+           <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                 <Button variant="outline" size="sm" className="flex-1 h-8 text-[10px] font-black uppercase tracking-tight gap-2 rounded-lg bg-background/50 border-primary/5">
+                    <CalendarIcon className="h-3 w-3 opacity-40" />
+                    <span className="truncate">{dateFilter ? formatToVNDate(dateFilter) : 'Ngày gửi'}</span>
+                    <ChevronDown className="h-3 w-3 opacity-20 ml-auto" />
+                 </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 p-1 rounded-xl">
+                  <DropdownMenuLabel className="text-[10px] font-black uppercase tracking-widest opacity-40 px-2 py-1">Lọc theo ngày</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setDateFilter(null)} className="text-[10px] font-black uppercase tracking-tight rounded-lg">Tất cả thời gian</DropdownMenuItem>
+                  {/* Simplification: Just show a few options or ideally a date picker. For now, let's just allow clearing or showing some defaults if any result exists */}
+                  {results.length > 0 && Array.from(new Set(results.map(r => new Date(r.createdAt).toDateString()))).map(d => (
+                    <DropdownMenuItem key={d} onClick={() => setDateFilter(d)} className="text-[10px] font-black uppercase tracking-tight rounded-lg">{formatToVNDate(d)}</DropdownMenuItem>
+                  ))}
+              </DropdownMenuContent>
+           </DropdownMenu>
+
+           {(senderFilter || dateFilter) && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 text-destructive/40 hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                onClick={() => {
+                  setSenderFilter(null)
+                  setDateFilter(null)
+                }}
+              >
+                <FilterX className="h-4 w-4" />
+              </Button>
+           )}
+        </div>
       </div>
 
       <ScrollArea className="flex-1">
@@ -116,7 +197,6 @@ export function MessageSearchSidebar({ conversationId, onClose }: MessageSearchS
                     className="group bg-muted/10 p-4 rounded-2xl border border-primary/5 hover:bg-primary/5 cursor-pointer transition-all hover:border-primary/20"
                     onClick={() => {
                         (window as any).scrollToMsg?.(res.id);
-                        onClose();
                     }}
                  >
                     <div className="flex items-center gap-3 mb-3">

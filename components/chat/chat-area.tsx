@@ -35,7 +35,11 @@ import {
   Download, 
   Trash2, 
   Pin, 
-  PinOff 
+  PinOff,
+  Plus,
+  Phone,
+  Video as VideoIcon,
+  Activity as ActivityIcon
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -58,9 +62,9 @@ import { useRouter } from 'next/navigation'
 
 interface Message {
   id: number
-  conversationId: number
+  conversationId?: number
   senderId: number
-  senderName: string
+  senderName?: string
   encryptedContent: string
   messageType: string
   createdAt: string
@@ -126,6 +130,9 @@ export function ChatArea({ conversation, onBack, onShowMembers, onToggleBoard, o
       toast.info('Đang tải tệp lên...')
       await attachmentsApi.upload(token, file, conversation.id)
       toast.success('Thành công!')
+      // Immediate update
+      const updatedMessages = await conversationsApi.getMessages(token, conversation.id)
+      setMessages(updatedMessages.map((m: any) => ({ ...m, conversationId: m.conversationId || conversation.id })))
     } catch (error) {
       toast.error('Thất bại.')
     }
@@ -141,7 +148,7 @@ export function ChatArea({ conversation, onBack, onShowMembers, onToggleBoard, o
       if (!conversation || !token) return
       try {
         const data = await conversationsApi.getMessages(token, conversation.id)
-        setMessages(data)
+        setMessages(data.map((m: any) => ({ ...m, conversationId: m.conversationId || conversation.id })))
         markAsRead(conversation.id)
       } catch (error) {
         console.error('Failed to load messages:', error)
@@ -249,7 +256,7 @@ export function ChatArea({ conversation, onBack, onShowMembers, onToggleBoard, o
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => handleStartCall('video')}>
-                  <Video className="h-5 w-5" />
+                  <VideoIcon className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Gọi video</TooltipContent>
@@ -480,20 +487,3 @@ export function ChatArea({ conversation, onBack, onShowMembers, onToggleBoard, o
   )
 }
 
-function ActivityIcon(props: any) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-  )
-}
-
-function Phone(props: any) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-  )
-}
-
-function Video(props: any) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>
-  )
-}

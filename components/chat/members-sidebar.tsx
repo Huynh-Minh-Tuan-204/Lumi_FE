@@ -143,8 +143,8 @@ export function MembersSidebar({
   return (
     <div
       className={cn(
-        'flex flex-col bg-card border-l',
-        isMobile ? 'w-full h-full' : 'w-72'
+        'flex flex-col bg-card border-l h-full',
+        isMobile ? 'w-full' : 'w-full'
       )}
     >
       {/* Header */}
