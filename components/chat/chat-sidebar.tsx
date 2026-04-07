@@ -94,14 +94,6 @@ export function ChatSidebar({
                </div>
             </div>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 rounded-full"
-            onClick={() => toast.info('Thông báo hệ thống: Bạn không có thông báo mới.')}
-          >
-            <Bell className="h-4 w-4" />
-          </Button>
         </div>
 
         <div className="flex p-0.5 bg-sidebar-accent/50 rounded-xl border border-sidebar-border">
@@ -136,7 +128,6 @@ export function ChatSidebar({
         </div>
       </div>
 
-      {/* Chat List - FLEX GROW to push profile down */}
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-6">
@@ -180,7 +171,7 @@ export function ChatSidebar({
                           isSelected={selectedConversation?.id === c.id}
                           onSelect={() => onSelectConversation(c)}
                           unreadCount={unreadCounts[c.id] || 0}
-                          isOnline={onlineUsers.has(c.id)} // This needs proper mapping usually
+                          isOnline={onlineUsers.has(c.id)}
                         />
                       ))}
                     </div>
@@ -190,50 +181,6 @@ export function ChatSidebar({
             )}
           </div>
         </ScrollArea>
-      </div>
-
-      {/* Profile Section - ABSOLUTELY PINNED TO BOTTOM */}
-      <div className="p-3 border-t border-sidebar-border shrink-0 bg-sidebar/80 backdrop-blur-md">
-        <DropdownMenu>
-           <DropdownMenuTrigger asChild>
-              <button className="w-full flex items-center gap-3 p-2 rounded-2xl hover:bg-sidebar-accent transition-all group border border-transparent hover:border-sidebar-border active:scale-95 shadow-sm">
-                 <div className="relative">
-                    <Avatar className="h-10 w-10 border-2 border-primary/20 p-0.5">
-                       <AvatarImage src={getAvatarUrl(user?.avatarPath)} className="rounded-full overflow-hidden object-cover" />
-                       <AvatarFallback className="bg-primary/10 text-primary font-black uppercase text-xs">
-                          {user?.fullName ? getInitials(user.fullName) : 'U'}
-                       </AvatarFallback>
-                    </Avatar>
-                    <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-sidebar shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                 </div>
-                 <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-black truncate text-sidebar-foreground">{user?.fullName}</p>
-                    <p className="text-[9px] font-bold text-sidebar-foreground/40 uppercase tracking-widest">
-                       {user?.role === 'Admin' ? 'Quản trị viên' : 'Nhân viên'}
-                    </p>
-                 </div>
-                 <Settings className="h-4 w-4 text-sidebar-foreground/20 group-hover:text-primary transition-colors" />
-              </button>
-           </DropdownMenuTrigger>
-           <DropdownMenuContent side="top" align="start" className="w-64 mb-2 p-2 rounded-2xl shadow-2xl">
-              <div className="flex items-center gap-3 p-3 border-b border-sidebar-border mb-2 pb-4">
-                 <Avatar className="h-12 w-12 border-2 border-primary/10">
-                    <AvatarImage src={getAvatarUrl(user?.avatarPath)} />
-                    <AvatarFallback className="bg-primary/5 text-primary font-black">{user?.fullName?.[0]}</AvatarFallback>
-                 </Avatar>
-                 <div className="min-w-0">
-                    <p className="font-black text-sm uppercase truncate">{user?.fullName}</p>
-                    <p className="text-[10px] opacity-40 font-bold">{user?.email}</p>
-                 </div>
-              </div>
-              <DropdownMenuItem className="rounded-xl p-2.5 cursor-pointer font-bold text-xs gap-3">
-                 <UserIcon className="h-4 w-4 text-primary" /> Hồ sơ cá nhân
-              </DropdownMenuItem>
-              <DropdownMenuItem className="rounded-xl p-2.5 cursor-pointer font-bold text-xs gap-3 text-destructive">
-                 <LogOut className="h-4 w-4" /> Đăng xuất
-              </DropdownMenuItem>
-           </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </div>
   )
