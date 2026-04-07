@@ -120,9 +120,10 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
+                   id="btn-project-notes"
                    variant="ghost" 
                    size="icon"
-                   onClick={onToggleNotes}
+                   onClick={() => onToggleNotes()}
                    className={cn(
                     "h-12 w-12 rounded-xl transition-all group",
                     activeTab === 'notes' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" : "text-white/40 hover:bg-white/5 hover:text-white"
@@ -131,7 +132,7 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                    <NotebookText className="h-6 w-6" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Ghi chú dự án</TooltipContent>
+              <TooltipContent side="right">Ghi chú dự án (Minh Tuấn)</TooltipContent>
             </Tooltip>
           </TooltipProvider>
        </div>
@@ -232,8 +233,9 @@ export default function ChatPage() {
         onToggleBoard={() => setRightSidebar(prev => prev === 'board' ? null : 'board')}
         onToggleCalendar={() => setShowCalendar(true)}
         onToggleNotes={() => {
+           console.log("Opening notes...");
            setRightSidebar(prev => prev === 'notes' ? null : 'notes');
-           setActiveTab('notes');
+           setActiveTab(prev => prev === 'notes' ? 'chat' : 'notes');
         }}
         activeTab={activeTab}
         setActiveTab={setActiveTab}

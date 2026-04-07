@@ -25,6 +25,7 @@ import {
   Image as ImageIcon, 
   Users, 
   LogOut, 
+  ChevronRight,
   ChevronDown, 
   Hash, 
   Reply, 
@@ -313,23 +314,51 @@ export function ChatArea({
       </header>
 
 
+      {/* 2. PINNED MESSAGE BAR (Restored with EXTREMELY CLEAN layout) */}
       {pinnedList.length > 0 && (
-         <div className="z-20 bg-background/90 border-b px-4 py-2 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-all border-l-4 border-l-primary animate-in slide-in-from-top-1 shadow-sm" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}>
-             <Pin className="h-3 w-3 text-primary fill-primary" />
-             <div className="flex-1 min-w-0">
-                <p className="text-[9px] font-black uppercase text-primary tracking-tighter opacity-70">Tin nhắn đã ghim ({pinnedList.length})</p>
-                <p className="text-xs truncate opacity-90 font-bold">
-                    {latestPin.senderName}: {latestPin.stickerUrl ? '[Nhãn dán]' : latestPin.encryptedContent}
-                </p>
+         <div className="z-20 bg-background/95 backdrop-blur-md border-b flex flex-col transition-all duration-300 border-l-4 border-l-primary animate-in slide-in-from-top-1 shadow-md overflow-hidden">
+             <div 
+               className="px-4 py-2 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors h-12" 
+               onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}
+             >
+                <Pin className="h-3 w-3 text-primary fill-primary animate-pulse" />
+                <div className="flex-1 min-w-0">
+                   <p className="text-[9px] font-black uppercase text-primary tracking-tighter opacity-70">Tin nhắn đã ghim ({pinnedList.length})</p>
+                   <p className="text-xs truncate opacity-90 font-bold">
+                       {latestPin.senderName}: {latestPin.stickerUrl ? '[Nhãn dán]' : (latestPin.encryptedContent || '[Tệp đính kèm]')}
+                   </p>
+                </div>
+                <ChevronDown className={cn("h-4 w-4 transition-transform opacity-30", isPinnedListExpanded && "rotate-180")} />
              </div>
-             <ChevronDown className={cn("h-4 w-4 transition-transform opacity-30", isPinnedListExpanded && "rotate-180")} />
+
+             {/* Expanded Pinned List (Showing all pins horizontally/vertically as cards) */}
+             {isPinnedListExpanded && (
+               <div className="bg-muted/30 border-t p-3 animate-in slide-in-from-top-2 duration-300 max-h-48 overflow-y-auto">
+                  <div className="grid grid-cols-1 gap-2">
+                     {pinnedList.map((pin) => (
+                        <div key={pin.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-background/50 border border-primary/5 hover:border-primary/20 transition-all group">
+                           <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                              <Pin className="h-3 w-3 text-primary" />
+                           </div>
+                           <div className="min-w-0 flex-1">
+                              <p className="text-[10px] font-black uppercase opacity-40">{pin.senderName}</p>
+                              <p className="text-xs truncate font-bold opacity-80">{pin.encryptedContent}</p>
+                           </div>
+                           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full opacity-0 group-hover:opacity-100" onClick={() => scrollToMessage(pin.id)}>
+                              <ChevronRight className="h-4 w-4" />
+                           </Button>
+                        </div>
+                     ))}
+                  </div>
+               </div>
+             )}
          </div>
       )}
 
-      <div className="flex-1 relative overflow-hidden bg-background">
+      <div className="flex-1 relative overflow-hidden bg-[#0a101f]">
         {/* Chat Background Layer (Deep visual depth) */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] z-0" />
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background/50 pointer-events-none z-0" />
+        <div className="absolute inset-0 opacity-[0.06] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] z-0 bg-repeat" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a101f] via-[#0d1425]/50 to-[#0a101f] pointer-events-none z-0" />
         
         <ScrollArea className="h-full relative z-10">
            <div className="p-4 flex flex-col justify-end min-h-full space-y-8 pb-10">
@@ -372,28 +401,45 @@ export function ChatArea({
                                            isOwn ? "bg-primary text-primary-foreground rounded-tr-none shadow-primary/20" : "bg-card border rounded-tl-none shadow-black/5"
                                        )}>
                                            <div className="flex flex-col gap-3">
-                                               {/* 1. Show Sticker if exists */}
+                                               {/* 1. Nhãn dán (Sticker) */}
                                                {m.stickerUrl && (
                                                  <div className="relative animate-in zoom-in-50 duration-300">
                                                     <img src={m.stickerUrl} className="w-32 h-32 object-contain" alt="Sticker" />
                                                  </div>
                                                )}
 
-                                               {/* 2. Show Main Content (Text) - Priority Fix */}
-                                               {m.encryptedContent && m.encryptedContent !== '.' && m.encryptedContent !== '[Attachment]' && (
-                                                  <p className="font-medium leading-relaxed whitespace-pre-wrap select-text">
-                                                     {m.encryptedContent}
-                                                  </p>
-                                               )}
+                                               {/* 2. Nội dung văn bản (TEXT) - FIX TRIỆT ĐỂ LỖI . và [Attachment] */}
+                                               {(() => {
+                                                  // Hỗ trợ tất cả các biến content từ Backend (camelCase hoặc PascalCase)
+                                                  const rawText = (m as any).content || m.encryptedContent || (m as any).EncryptedContent || (m as any).message;
+                                                  const hasFile = m.attachments && m.attachments.length > 0;
+                                                  const hasSticker = !!m.stickerUrl;
+                                                  
+                                                  // Lọc bỏ placeholder nếu có nội dung thực sự khác đi kèm
+                                                  const isPlaceholder = rawText === '.' || rawText === '[Attachment]';
+                                                  const shouldShowPlaceholder = isPlaceholder && !hasFile && !hasSticker;
+                                                  
+                                                  if (!rawText) return null;
+                                                  if (isPlaceholder && !shouldShowPlaceholder) return null;
+                                                  
+                                                  return (
+                                                    <p className={cn(
+                                                      "font-medium leading-relaxed whitespace-pre-wrap select-text",
+                                                      isPlaceholder ? "opacity-20 italic text-xs" : ""
+                                                    )}>
+                                                       {rawText}
+                                                    </p>
+                                                  )
+                                               })()}
 
-                                               {/* 3. Show Attachments if exist */}
+                                               {/* 3. Tệp đính kèm / Ảnh (HIỆN BÊN CẠNH/DƯỚI VĂN BẢN) */}
                                                {m.attachments && m.attachments.length > 0 && (
                                                  <div className="flex flex-col gap-2 mt-1">
                                                    {m.attachments.map((att: any, idx: number) => {
                                                      const isImg = att.contentType?.startsWith('image/') || att.fileName?.match(/\.(jpg|jpeg|png|gif)$/i);
                                                      if (isImg) {
                                                        return (
-                                                         <div key={idx} className="relative group/img overflow-hidden rounded-xl border-4 border-background/20 shadow-xl bg-background/5 transition-all hover:border-background/40">
+                                                         <div key={idx} className="relative group/img overflow-hidden rounded-xl border-4 border-background/20 shadow-xl bg-background/5 transition-all hover:border-background/40 max-w-full">
                                                             <img src={getAvatarUrl(att.filePath)} className="max-w-full h-auto max-h-[400px] object-cover transition-transform duration-500 group-hover/img:scale-105" alt={att.fileName} />
                                                             <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                                                                <Button variant="secondary" size="icon" className="rounded-full blur-none" onClick={(e) => { e.stopPropagation(); window.open(getAvatarUrl(att.filePath), '_blank'); }}>
@@ -417,11 +463,6 @@ export function ChatArea({
                                                      )
                                                    })}
                                                  </div>
-                                               )}
-
-                                               {/* 4. Fallback for placeholder text if only that exists */}
-                                               {(m.encryptedContent === '.' || m.encryptedContent === '[Attachment]') && (!m.attachments || m.attachments.length === 0) && !m.stickerUrl && (
-                                                  <p className="font-medium opacity-20 italic text-xs">{m.encryptedContent}</p>
                                                )}
                                            </div>
 
