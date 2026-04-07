@@ -68,12 +68,17 @@ export function ChatSidebar({
   const [searchQuery, setSearchQuery] = useState('')
   const [searchMode, setSearchMode] = useState<'chat' | 'global'>('chat')
 
-  const filteredConversations = conversations.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const uniqueConversations = useMemo(() => {
+    const seen = new Set();
+    return conversations.filter(c => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return c.name.toLowerCase().includes(searchQuery.toLowerCase());
+    });
+  }, [conversations, searchQuery]);
 
-  const groupChats = filteredConversations.filter(c => c.type === 'Group')
-  const privateChats = filteredConversations.filter(c => c.type === 'Private')
+  const groupChats = useMemo(() => uniqueConversations.filter(c => c.type === 'Group'), [uniqueConversations]);
+  const privateChats = useMemo(() => uniqueConversations.filter(c => c.type === 'Private'), [uniqueConversations]);
 
   return (
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border overflow-hidden">

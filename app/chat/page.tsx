@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ChatSidebar } from '@/components/chat/chat-sidebar'
 import { ChatArea } from '@/components/chat/chat-area'
 import { MembersSidebar } from '@/components/chat/members-sidebar'
@@ -11,7 +11,7 @@ import { conversationsApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
 import { cn, getAvatarUrl } from '@/lib/utils'
 import { 
-  Calendar, 
+  Calendar as CalendarIcon, 
   NotebookText, 
   Bell, 
   Search, 
@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { toast } from 'sonner'
 
 export interface Conversation {
   id: number
@@ -51,15 +52,15 @@ interface LeftTabbarProps {
   onToggleNotifications: () => void
   onToggleSearch: () => void
   onToggleBoard: () => void
+  onToggleCalendar: () => void
   activeTab: string | null
   setActiveTab: (tab: string | null) => void
 }
 
-function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onToggleBoard, activeTab, setActiveTab }: LeftTabbarProps) {
+function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onToggleBoard, onToggleCalendar, activeTab, setActiveTab }: LeftTabbarProps) {
   return (
-    <div className="w-[64px] bg-[#1a1c1e] flex flex-col items-center py-6 gap-6 shrink-0 z-[60] shadow-2xl h-full border-r border-white/5">
+    <div className="w-[64px] bg-[#0a0a0a] flex flex-col items-center py-6 gap-6 shrink-0 z-[60] shadow-2xl h-full border-r border-white/5">
        <div className="flex flex-col gap-6 items-center flex-1 w-full">
-          {/* Logo or Top Icon */}
           <div className="h-10 w-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 mb-2 active:scale-95 transition-transform cursor-pointer">
              <MessageSquare className="h-5 w-5 text-primary-foreground" />
           </div>
@@ -73,7 +74,7 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                   onClick={() => setActiveTab('chat')}
                   className={cn(
                     "h-12 w-12 rounded-xl transition-all group",
-                    activeTab === 'chat' ? "bg-white/10 text-primary" : "text-white/40 hover:bg-white/5 hover:text-white"
+                    activeTab === 'chat' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" : "text-white/40 hover:bg-white/5 hover:text-white"
                   )}
                 >
                    <MessageSquare className="h-6 w-6" />
@@ -90,13 +91,13 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                   onClick={onToggleNotifications}
                   className={cn(
                     "h-12 w-12 rounded-xl transition-all group",
-                    activeTab === 'notifications' ? "bg-white/10 text-primary" : "text-white/40 hover:bg-white/5 hover:text-white"
+                    activeTab === 'notifications' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" : "text-white/40 hover:bg-white/5 hover:text-white"
                   )}
                 >
                    <Bell className="h-6 w-6" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Thông báo</TooltipContent>
+              <TooltipContent side="right">Thông báo hệ thống</TooltipContent>
             </Tooltip>
 
             <Tooltip>
@@ -104,30 +105,30 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                 <Button 
                    variant="ghost" 
                    size="icon" 
+                   onClick={onToggleCalendar}
                    className="h-12 w-12 text-white/40 hover:bg-white/5 hover:text-white rounded-xl"
                 >
-                   <Calendar className="h-6 w-6" />
+                   <CalendarIcon className="h-6 w-6" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Lịch làm việc</TooltipContent>
+              <TooltipContent side="right">Lịch công tác</TooltipContent>
             </Tooltip>
 
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button 
                    variant="ghost" 
-                   size="icon" 
+                   size="icon"
                    className="h-12 w-12 text-white/40 hover:bg-white/5 hover:text-white rounded-xl"
                 >
                    <NotebookText className="h-6 w-6" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Ghi chú</TooltipContent>
+              <TooltipContent side="right">Ghi chú dự án</TooltipContent>
             </Tooltip>
           </TooltipProvider>
        </div>
 
-       {/* Bottom Profile & Logout */}
        <div className="mt-auto flex flex-col items-center gap-6 w-full pb-2">
           <TooltipProvider>
             <Tooltip>
@@ -136,7 +137,7 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                     variant="ghost" 
                     size="icon" 
                     onClick={onLogout}
-                    className="h-12 w-12 rounded-xl text-red-500/60 hover:text-red-500 hover:bg-red-500/10 transition-all"
+                    className="h-12 w-12 rounded-xl text-red-500 hover:bg-red-500/10 transition-all"
                   >
                      <LogOut className="h-6 w-6" />
                   </Button>
@@ -151,14 +152,14 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                         <AvatarImage src={getAvatarUrl(user?.avatarPath)} className="object-cover" />
                         <AvatarFallback className="bg-primary/10 text-primary font-black text-xs uppercase">{user?.fullName?.[0]}</AvatarFallback>
                      </Avatar>
-                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-[#1a1c1e]" />
+                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-[#0a0a0a]" />
                   </button>
                </DropdownMenuTrigger>
                <DropdownMenuContent side="right" align="end" className="w-64 p-3 rounded-2xl shadow-2xl mb-4 ml-2 bg-popover border-white/5">
                   <div className="flex items-center gap-4 p-2 border-b border-white/5 mb-3 pb-4">
                      <Avatar className="h-12 w-12">
                         <AvatarImage src={getAvatarUrl(user?.avatarPath)} />
-                        <AvatarFallback className="bg-primary/10 text-primary font-black uppercase">{user?.fullName?.[0]}</AvatarFallback>
+                        <AvatarFallback className="bg-primary/10 text-primary font-black uppercase text-xs">{user?.fullName?.[0]}</AvatarFallback>
                      </Avatar>
                      <div className="min-w-0">
                         <p className="font-black text-sm uppercase truncate text-foreground">{user?.fullName}</p>
@@ -167,11 +168,11 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                         </p>
                      </div>
                   </div>
-                  <DropdownMenuItem className="p-3 rounded-xl font-bold text-xs gap-3">
+                  <DropdownMenuItem className="p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest gap-3">
                      <UserIcon className="h-4 w-4 text-primary" /> Hồ sơ cá nhân
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="p-3 rounded-xl font-bold text-xs gap-3">
-                     <Settings className="h-4 w-4 text-primary" /> Cài đặt hệ thống
+                  <DropdownMenuItem className="p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest gap-3">
+                     <Settings className="h-4 w-4 text-primary" /> Cài đặt chung
                   </DropdownMenuItem>
                </DropdownMenuContent>
             </DropdownMenu>
@@ -183,21 +184,14 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
 
 export default function ChatPage() {
   const { token, user, logout } = useAuth()
-  const { 
-    isConnected, 
-    onlineUsers, 
-    pinnedMessages 
-  } = useSignalR()
+  const { isConnected, onlineUsers, notifications, lastUserLeft } = useSignalR()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<string | null>('chat')
-  const [rightSidebar, setRightSidebar] = useState<'members' | 'board' | 'search' | 'notifications' | null>(null)
+  const [rightSidebar, setRightSidebar] = useState<'members' | 'board' | 'search' | null>(null)
+  const [showNotifModal, setShowNotifModal] = useState(false)
+  const [showCalendar, setShowCalendar] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
-
-  const unreadCounts = conversations.reduce((acc, conv) => {
-    acc[conv.id] = conv.unreadCount || 0
-    return acc
-  }, {} as Record<number, number>)
 
   const selectedConversation = conversations.find((c) => c.id === selectedId) || null
 
@@ -222,37 +216,26 @@ export default function ChatPage() {
     setRightSidebar(null) 
   }
 
-  const toggleBoard = () => setRightSidebar(prev => prev === 'board' ? null : 'board')
-  const toggleMembers = () => setRightSidebar(prev => prev === 'members' ? null : 'members')
-  const toggleSearch = () => setRightSidebar(prev => prev === 'search' ? null : 'search')
-  const toggleNotifications = () => setRightSidebar(prev => prev === 'notifications' ? null : 'notifications')
-
+  // Handle participant removal on UserLeft
   useEffect(() => {
-    (window as any).scrollToMsg = (msgId: number) => {
-        const el = document.getElementById(`message-${msgId}`);
-        if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('bg-primary/20');
-            setTimeout(() => el.classList.remove('bg-primary/20'), 2000);
-        }
-    };
-    return () => { delete (window as any).scrollToMsg; }
-  }, [])
+    if (lastUserLeft) {
+      // Logic for participants check in call would go here if meetingState is global
+      console.log(`User ${lastUserLeft} left signal received. Syncing UI...`)
+    }
+  }, [lastUserLeft])
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      {/* 1. Left Navigation Tabbar (Zalo style) */}
+    <div className="flex h-screen bg-background overflow-hidden relative">
+      {/* 1. Left Navigation Tabbar */}
       <LeftTabbar 
         user={user} 
-        onLogout={() => { if(confirm('Xác nhận đăng xuất khỏi hệ thống?')) logout() }} 
-        onToggleNotifications={toggleNotifications}
-        onToggleSearch={toggleSearch}
-        onToggleBoard={toggleBoard}
-        activeTab={activeTab === 'chat' && rightSidebar === 'notifications' ? 'notifications' : 'chat'}
-        setActiveTab={(t) => {
-           setActiveTab(t);
-           if (t === 'chat') setRightSidebar(null);
-        }}
+        onLogout={() => { if(confirm('Đăng xuất khỏi hệ thống Lumi?')) logout() }} 
+        onToggleNotifications={() => setShowNotifModal(true)}
+        onToggleSearch={() => setRightSidebar(prev => prev === 'search' ? null : 'search')}
+        onToggleBoard={() => setRightSidebar(prev => prev === 'board' ? null : 'board')}
+        onToggleCalendar={() => setShowCalendar(true)}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
 
       {/* 2. Conversations Sidebar */}
@@ -265,104 +248,117 @@ export default function ChatPage() {
           isConnected={isConnected}
           user={user}
           onlineUsers={onlineUsers}
-          unreadCounts={unreadCounts}
+          unreadCounts={{}}
         />
       </div>
 
-      {/* 3. Main Chat Container */}
-      <div className="flex-1 flex min-w-0 h-full overflow-hidden relative">
-        <main className="flex-1 h-full min-w-0 bg-background transition-all">
-          <ChatArea 
-            conversation={selectedConversation}
-            onBack={() => {}}
-            onShowMembers={toggleMembers}
-            onToggleBoard={toggleBoard}
-            onRefreshConversations={loadConversations}
-            isMobile={false}
+      {/* 3. Main Chat Area */}
+      <main className="flex-1 h-full min-w-0 bg-background relative z-10">
+        <ChatArea 
+          conversation={selectedConversation}
+          onBack={() => setSelectedId(null)}
+          onShowMembers={() => setRightSidebar('members')}
+          onToggleBoard={() => setRightSidebar('board')}
+          onRefreshConversations={loadConversations}
+        />
+      </main>
+
+      {/* 4. Slide-over Search & Panels (Drawer style to not push content) */}
+      <div 
+        className={cn(
+          "fixed top-0 right-0 h-full w-80 md:w-96 bg-card border-l shadow-2xl z-50 transition-transform duration-300 ease-in-out transform",
+          rightSidebar === 'search' ? "translate-x-0" : "translate-x-full"
+        )}
+      >
+        {selectedId && (
+          <MessageSearchSidebar 
+            conversationId={selectedId}
+            onClose={() => setRightSidebar(null)}
           />
-        </main>
+        )}
+      </div>
 
-        {/* 4. Right Sidebars (Fixed to absolute right to never overlap Tabbar) */}
-        
-        {/* Members Sidebar */}
-        <div 
-          className={cn(
-            "fixed md:relative top-0 right-0 h-full bg-background border-l transition-all duration-500 ease-in-out z-40 overflow-hidden",
-            rightSidebar === 'members' ? "w-80" : "w-0 border-none"
-          )}
-        >
-          <div className="w-80 h-full">
-            {selectedConversation && (
-              <MembersSidebar 
-                conversationId={selectedId || 0}
-                conversationName={selectedConversation.name || ""}
-                onlineUsers={onlineUsers}
-                onClose={() => setRightSidebar(null)}
-              />
-            )}
-          </div>
-        </div>
+      <div 
+        className={cn(
+          "fixed top-0 right-0 h-full w-80 border-l shadow-2xl z-50 transition-transform duration-300 ease-in-out transform flex flex-col bg-background",
+          rightSidebar === 'members' ? "translate-x-0" : "translate-x-full"
+        )}
+      >
+        {selectedConversation && (
+          <MembersSidebar 
+            conversationId={selectedId || 0}
+            conversationName={selectedConversation.name || ""}
+            onlineUsers={onlineUsers}
+            onClose={() => setRightSidebar(null)}
+          />
+        )}
+      </div>
 
-        {/* Group News Board */}
-        <div 
-          className={cn(
-            "fixed md:relative top-0 right-0 h-full bg-background border-l transition-all duration-500 ease-in-out z-40 overflow-hidden",
-            rightSidebar === 'board' ? "w-80 md:w-96" : "w-0 border-none"
-          )}
-        >
-          <div className="w-80 md:w-96 h-full">
-            <GroupBoard 
-              conversationId={selectedId || 0}
-              token={token || ""}
-              onClose={() => setRightSidebar(null)}
-              onGoToMessage={(id) => (window as any).scrollToMsg?.(id)}
-              lastPinSignal={pinnedMessages}
-            />
-          </div>
-        </div>
-
-        {/* Message Search Sidebar */}
-        <div 
-          className={cn(
-            "fixed md:relative top-0 right-0 h-full bg-background border-l transition-all duration-500 ease-in-out z-40 overflow-hidden",
-            rightSidebar === 'search' ? "w-80 md:w-90" : "w-0 border-none"
-          )}
-        >
-          <div className="w-80 md:w-90 h-full">
-             {selectedId && (
-               <MessageSearchSidebar 
-                conversationId={selectedId}
-                onClose={() => setRightSidebar(null)}
-              />
-             )}
-          </div>
-        </div>
-
-        {/* Notifications Sidebar */}
-        <div 
-          className={cn(
-            "fixed md:relative top-0 right-0 h-full bg-background border-l transition-all duration-500 ease-in-out z-40 overflow-hidden",
-            rightSidebar === 'notifications' ? "w-80 md:w-90" : "w-0 border-none"
-          )}
-        >
-          <div className="w-80 md:w-90 h-full flex flex-col">
-             <header className="p-4 border-b flex items-center justify-between bg-muted/50">
-                <h3 className="font-black text-xs uppercase tracking-[0.2em] text-primary">Thông báo</h3>
-                <Button variant="ghost" size="icon" onClick={() => setRightSidebar(null)} className="h-8 w-8"><X className="h-4 w-4" /></Button>
-             </header>
-             <ScrollArea className="flex-1">
-                <div className="p-4 flex flex-col gap-3">
-                   {/* Realistic notification load logic would go here */}
-                   <div className="p-3 rounded-xl bg-primary/5 border border-primary/10">
-                      <p className="font-extrabold text-[11px] text-primary uppercase">Hệ thống</p>
-                      <p className="text-xs mt-1 font-medium">Chào mừng bạn đã trở lại Lumi Chat. Chúc bạn một ngày làm việc hiệu quả!</p>
-                      <p className="text-[9px] opacity-40 mt-2 font-bold uppercase">{new Date().toLocaleTimeString()}</p>
+      {/* 5. Notifications Modal (Big Central Modal) */}
+      {showNotifModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setShowNotifModal(false)} />
+          <div className="w-full max-w-2xl bg-card border shadow-2xl rounded-3xl overflow-hidden relative animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
+             <header className="p-6 border-b flex items-center justify-between bg-primary/5">
+                <div className="flex items-center gap-4">
+                   <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <Bell className="h-6 w-6 text-primary" />
+                   </div>
+                   <div>
+                      <h2 className="text-xl font-black uppercase tracking-tight">Thông báo hệ thống</h2>
+                      <p className="text-xs font-bold text-primary/60 uppercase tracking-widest">Trung tâm quản lý Lumi</p>
                    </div>
                 </div>
+                <Button variant="ghost" size="icon" onClick={() => setShowNotifModal(false)} className="rounded-xl h-10 w-10">
+                   <X className="h-6 w-6" />
+                </Button>
+             </header>
+             <ScrollArea className="flex-1 p-6">
+                <div className="space-y-4">
+                   {notifications.length > 0 ? (
+                      notifications.map((n: any) => (
+                        <div key={n.id} className="p-5 rounded-2xl bg-muted/30 border border-primary/5 hover:border-primary/20 transition-all group">
+                           <div className="flex justify-between items-start gap-4">
+                              <p className="font-black text-sm uppercase tracking-tight text-primary">{n.sender || 'Hệ thống'}</p>
+                              <span className="text-[10px] font-black opacity-30 uppercase">{new Date(n.time).toLocaleString()}</span>
+                           </div>
+                           <p className="text-sm mt-2 leading-relaxed opacity-80">{n.message}</p>
+                        </div>
+                      ))
+                   ) : (
+                      <div className="flex flex-col items-center justify-center py-20 opacity-20 italic">
+                         <Search className="h-12 w-12 mb-4" />
+                         <p className="font-bold uppercase tracking-widest">Chưa có thông báo mới</p>
+                      </div>
+                   )}
+                </div>
              </ScrollArea>
+             <footer className="p-6 border-t bg-muted/20 flex justify-end">
+                <Button variant="outline" onClick={() => setShowNotifModal(false)} className="rounded-xl px-8 font-black uppercase tracking-widest text-xs">Đóng</Button>
+             </footer>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* 6. Calendar Integration Placeholder */}
+      {showCalendar && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setShowCalendar(false)} />
+           <div className="w-full max-w-4xl bg-card border shadow-2xl rounded-3xl overflow-hidden relative animate-in slide-in-from-bottom-10 duration-300 flex flex-col h-[70vh]">
+              <header className="p-6 bg-primary text-primary-foreground flex justify-between items-center">
+                 <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3"><CalendarIcon className="h-6 w-6" /> Lịch công tác cá nhân</h2>
+                 <Button variant="ghost" size="icon" onClick={() => setShowCalendar(false)} className="text-white"><X className="h-6 w-6" /></Button>
+              </header>
+              <div className="flex-1 flex items-center justify-center p-12 text-center opacity-20 flex-col gap-6">
+                 <CalendarIcon className="h-24 w-24" />
+                 <div>
+                    <h3 className="text-2xl font-black uppercase tracking-widest">Đang kết nối API Admin</h3>
+                    <p className="text-xs font-bold mt-2 uppercase tracking-[0.4em]">Đồng bộ dữ liệu phân công cho: {user?.fullName}</p>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   )
 }

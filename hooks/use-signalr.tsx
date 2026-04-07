@@ -51,6 +51,7 @@ export interface SignalRHookReturn {
   lastDeletedMessage: { conversationId: number, messageId: number } | null
   markAllNotificationsRead: () => Promise<void>
   lastScheduleUpdate: { type: 'created' | 'status' | 'deleted', data: any } | null
+  lastUserLeft: number | null
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -75,6 +76,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [pinnedMessages, setPinnedMessages] = useState<{ messageId: number, isPinned: boolean, pinnedBy?: number, conversationId: number } | null>(null)
   const [lastDeletedMessage, setLastDeletedMessage] = useState<{ conversationId: number, messageId: number } | null>(null)
   const [lastScheduleUpdate, setLastScheduleUpdate] = useState<{ type: 'created' | 'status' | 'deleted', data: any } | null>(null)
+  const [lastUserLeft, setLastUserLeft] = useState<number | null>(null)
 
   useEffect(() => {
     if (!token) {
@@ -285,6 +287,16 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       setLastScheduleUpdate({ type: 'deleted', data: scheduleId })
     })
 
+    connection.on('UserLeft', (userId: number) => {
+      setLastUserLeft(userId)
+      // Also remove from onlineUsers
+      setOnlineUsers(prev => {
+        const next = new Set(prev)
+        next.delete(userId)
+        return next
+      })
+    })
+
     connection.onreconnecting(() => {
       setIsConnected(false)
       setIsReconnecting(true)
@@ -389,6 +401,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         pinnedMessages,
         lastDeletedMessage,
         lastScheduleUpdate,
+        lastUserLeft,
         onTriggeredReminder: (cb: any) => {}, 
       }}
     >
