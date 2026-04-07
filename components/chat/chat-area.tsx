@@ -164,9 +164,17 @@ export function ChatArea({
         // Handle both direct array or paginated response with .items
         const data = Array.isArray(response) ? response : (response.items || [])
         
-        const mappedMessages = data.map((m: any) => ({ ...m, conversationId: m.conversationId || conversation.id }))
+        const mappedMessages = data.map((m: any) => ({
+          ...m,
+          id: m.id || m.Id,
+          conversationId: m.conversationId || m.ConversationId || conversation.id,
+          senderId: m.senderId || m.SenderId,
+          encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
+          createdAt: m.createdAt || m.CreatedAt,
+          attachments: m.attachments || m.Attachments || []
+        }))
         
-        // Sort by createdAt ascending (đảm bảo thứ tự thời gian)
+        // Sort by createdAt ascending
         const sortedMessages = mappedMessages.sort((a: any, b: any) => 
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         )
@@ -337,11 +345,11 @@ export function ChatArea({
                 <div className="flex-1 min-w-0">
                    <p className="text-[9px] font-black uppercase text-primary tracking-tighter opacity-70">Tin nhắn đã ghim ({pinnedList.length})</p>
                    <p className="text-xs truncate opacity-90 font-bold">
-                       {latestPin.senderName}: {latestPin.stickerUrl ? '[Nhãn dán]' : (
-                          (latestPin.encryptedContent && latestPin.encryptedContent !== '.' && latestPin.encryptedContent !== '[Attachment]') 
-                          ? latestPin.encryptedContent 
-                          : (latestPin.attachments && latestPin.attachments.length > 0 ? latestPin.attachments[0].fileName : '[Tệp đính kèm]')
-                       )}
+                       {latestPin.senderName}: {
+                         (latestPin.encryptedContent && latestPin.encryptedContent !== "." && latestPin.encryptedContent !== "[Attachment]") 
+                         ? latestPin.encryptedContent 
+                         : (latestPin.attachments?.length > 0 ? `[Tệp đính kèm: ${latestPin.attachments[0].fileName}]` : "Tin nhắn không có nội dung")
+                       }
                    </p>
                 </div>
                 <ChevronDown className={cn("h-4 w-4 transition-transform opacity-30", isPinnedListExpanded && "rotate-180")} />
@@ -416,61 +424,45 @@ export function ChatArea({
                                            "px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words relative cursor-pointer group",
                                            isOwn ? "bg-primary text-primary-foreground rounded-tr-none shadow-primary/20" : "bg-card border rounded-tl-none shadow-black/5"
                                        )}>
-                                           <div className="flex flex-col gap-3">
-                                               {/* 1. Nhãn dán (Sticker) */}
-                                               {m.stickerUrl && (
-                                                 <div className="relative animate-in zoom-in-50 duration-300">
-                                                    <img src={m.stickerUrl} className="w-32 h-32 object-contain" alt="Sticker" />
-                                                 </div>
-                                               )}
+                                           <div className="flex flex-col gap-2">
+                                             {/* Hiển thị Text Content: Chỉ hiện nếu nội dung không phải là placeholder */}
+                                             {(() => {
+                                               const text = m.encryptedContent;
+                                               const isPlaceholder = text === "." || text === "[Attachment]";
+                                               if (text && !isPlaceholder) {
+                                                 return <p className="font-medium leading-relaxed whitespace-pre-wrap select-text">{text}</p>;
+                                               }
+                                               return null;
+                                             })()}
 
-                                               {/* Hiển thị Text Content */}
-                                               {m.encryptedContent && m.encryptedContent !== '.' && m.encryptedContent !== '[Attachment]' && (
-                                                  <p className="font-medium leading-relaxed whitespace-pre-wrap select-text">
-                                                    {m.encryptedContent}
-                                                  </p>
-                                               )}
-
-                                               {/* Hiển thị Attachment nếu có */}
-                                               {m.attachments && m.attachments.length > 0 && (
-                                                  <div className="mt-2 space-y-2">
-                                                    {m.attachments.map((att: any, idx: number) => {
-                                                      const isImage = att.contentType?.startsWith('image/') || att.fileName?.match(/\.(jpg|jpeg|png|gif)$/i);
-                                                      
-                                                      if (isImage) {
-                                                        return (
-                                                          <div key={idx} className="relative group/img overflow-hidden rounded-xl border bg-background/50">
-                                                            <img 
-                                                              src={getAvatarUrl(att.filePath)} 
-                                                              className="max-w-full h-auto max-h-[300px] object-cover" 
-                                                              alt={att.fileName}
-                                                              onError={(e) => {
-                                                                (e.target as HTMLImageElement).src = 'https://placehold.co/400x300?text=Image+Load+Error';
-                                                              }}
-                                                            />
-                                                            <div className="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity">
-                                                              <a href={getAvatarUrl(att.filePath)} download target="_blank">
-                                                                <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full shadow-lg">
-                                                                  <Download className="h-4 w-4" />
-                                                                </Button>
-                                                              </a>
-                                                            </div>
-                                                          </div>
-                                                        );
-                                                      }
-
-                                                      return (
-                                                       <div key={idx} className="flex items-center gap-2 p-2 bg-background/50 rounded-lg border">
-                                                         <FileText className="h-4 w-4 text-primary" />
-                                                         <span className="text-xs truncate flex-1">{att.fileName}</span>
-                                                         <a href={getAvatarUrl(att.filePath)} download target="_blank">
-                                                            <Download className="h-4 w-4 hover:text-primary cursor-pointer" />
-                                                         </a>
+                                             {/* Hiển thị Attachments: Luôn hiển thị nếu có file, không được đè lên text */}
+                                             {m.attachments && m.attachments.length > 0 && (
+                                               <div className="flex flex-col gap-2 mt-1">
+                                                 {m.attachments.map((att: any, idx: number) => {
+                                                   const fileUrl = getAvatarUrl(att.filePath || att.encryptedFilePath || att.FilePath);
+                                                   const isImg = att.contentType?.startsWith('image/') || att.mimeType?.startsWith('image/') || att.fileName?.match(/\.(jpg|jpeg|png|gif)$/i);
+                                                   
+                                                   if (isImg) {
+                                                     return (
+                                                       <div key={idx} className="rounded-xl overflow-hidden border-2 border-background/20">
+                                                         <img src={fileUrl} className="max-w-full h-auto max-h-[300px] object-cover" alt={att.fileName} />
+                                                         <a href={fileUrl} download target="_blank" className="p-2 block bg-black/20 text-[10px] text-center hover:bg-black/40 transition-colors uppercase font-black">Tải ảnh</a>
                                                        </div>
-                                                      );
-                                                    })}
-                                                  </div>
-                                               )}
+                                                     );
+                                                   }
+                                                   return (
+                                                     <a key={idx} href={fileUrl} download target="_blank" className="flex items-center gap-2 p-2 bg-white/10 rounded-lg border border-white/10 hover:bg-white/20 transition-all">
+                                                       <FileText className="h-4 w-4 text-primary" />
+                                                       <div className="flex-1 min-w-0">
+                                                         <p className="text-[10px] truncate font-bold uppercase">{att.fileName}</p>
+                                                         <p className="text-[8px] opacity-50">{(att.fileSize / 1024).toFixed(1)} KB</p>
+                                                       </div>
+                                                       <Download className="h-3 w-3" />
+                                                     </a>
+                                                   );
+                                                 })}
+                                               </div>
+                                             )}
                                            </div>
 
                                            {isPinned && <Pin className="h-3 w-3 absolute -top-1.5 -right-1.5 text-orange-500 fill-orange-500 drop-shadow-md" />}
