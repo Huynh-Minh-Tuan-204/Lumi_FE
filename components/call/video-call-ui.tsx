@@ -342,11 +342,11 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
 
       <header className="relative flex h-14 items-center justify-between bg-[#1A1A1A]/80 backdrop-blur-2xl px-6 border-b border-white/5 z-30 shadow-2xl">
         <div className="flex items-center gap-4">
-            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center font-bold text-xs shadow-lg shadow-red-500/30">L</div>
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-xs shadow-lg shadow-primary/30">L</div>
             <div className="flex flex-col -space-y-0.5">
                <span className="text-sm font-black tracking-tight">{participantName} Meeting</span>
                <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
-                 <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                 <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                  Lumi Live | {formatDuration(callDuration)}
                </div>
             </div>
@@ -355,7 +355,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
             {meetingParticipants.slice(0, 3).map((p, i) => (
                 <Avatar key={i} className="w-8 h-8 border-2 border-[#1A1A1A] ring-1 ring-white/10">
                     <AvatarImage src={getAvatarUrl(p.avatarPath)} />
-                    <AvatarFallback className="bg-red-600/10 text-red-500 text-[10px] font-black">{p.fullName?.substring(0, 1)}</AvatarFallback>
+                    <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-black">{p.fullName?.substring(0, 1)}</AvatarFallback>
                 </Avatar>
             ))}
         </div>
@@ -368,7 +368,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
                 allStreams.length === 1 ? "grid-cols-1" : allStreams.length === 2 ? "grid-cols-2" : "grid-cols-2 md:grid-cols-3"
              )}>
                 {allStreams.map((p) => (
-                  <div key={p.id} className="relative rounded-3xl overflow-hidden bg-[#1A1A1A] aspect-video border border-white/5 shadow-2xl group transition-all duration-500 hover:border-red-500/30">
+                  <div key={p.id} className="relative rounded-3xl overflow-hidden bg-[#1A1A1A] aspect-video border border-white/5 shadow-2xl group transition-all duration-500 hover:border-primary/30">
                     <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.isLocal ? isCameraOn : true} />
                     <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-xl px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ring-1 ring-white/10">
                         {p.name} {p.isLocal && "(Tôi)"}
@@ -378,21 +378,21 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
              </div>
 
              <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#1A1A1A]/90 backdrop-blur-2xl p-2 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5">
-                <Button variant="ghost" size="icon" onClick={toggleCamera} className={cn("h-14 w-14 rounded-full", !isCameraOn && "bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/30")}>
+                <Button variant="ghost" size="icon" onClick={toggleCamera} className={cn("h-14 w-14 rounded-full", !isCameraOn && "bg-primary text-white hover:bg-primary/80 shadow-lg shadow-primary/30")}>
                     {isCameraOn ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
                 </Button>
-                <Button variant="ghost" size="icon" onClick={toggleMic} className={cn("h-14 w-14 rounded-full", isMuted && "bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/30")}>
+                <Button variant="ghost" size="icon" onClick={toggleMic} className={cn("h-14 w-14 rounded-full", isMuted && "bg-primary text-white hover:bg-primary/80 shadow-lg shadow-primary/30")}>
                     {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
                 </Button>
                 <div className="w-[1px] h-8 bg-white/10 mx-1" />
-                <Button variant="ghost" size="icon" onClick={toggleScreenShare} className={cn("h-14 w-14 rounded-full", isScreenSharing && "bg-red-600 text-white shadow-lg shadow-red-600/30")}>
+                <Button variant="ghost" size="icon" onClick={toggleScreenShare} className={cn("h-14 w-14 rounded-full", isScreenSharing && "bg-primary text-white shadow-lg shadow-primary/30")}>
                     <Monitor className="h-6 w-6" />
                 </Button>
                 <div className="w-[1px] h-8 bg-white/10 mx-1" />
-                <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showPeople && "text-red-500 bg-red-500/10")} onClick={() => { setShowPeople(!showPeople); setShowChat(false); }}>
+                <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showPeople && "text-primary bg-primary/10")} onClick={() => { setShowPeople(!showPeople); setShowChat(false); }}>
                     <Users className="h-6 w-6" />
                 </Button>
-                <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showChat && "text-red-500 bg-red-500/10")} onClick={() => { setShowChat(!showChat); setShowPeople(false); }}>
+                <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showChat && "text-primary bg-primary/10")} onClick={() => { setShowChat(!showChat); setShowPeople(false); }}>
                     <MessageSquare className="h-6 w-6" />
                 </Button>
                 <div className="ml-2">
@@ -406,7 +406,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
         {(showPeople || showChat) && (
             <aside className="w-96 bg-[#121212]/95 border-l border-white/5 backdrop-blur-3xl flex flex-col z-20 animate-in slide-in-from-right duration-500 shadow-2xl">
                 <header className="p-6 border-b border-white/5 flex items-center justify-between">
-                    <h3 className="font-black text-sm uppercase tracking-widest text-red-500">{showPeople ? 'Người tham gia' : 'Trò chuyện'}</h3>
+                    <h3 className="font-black text-sm uppercase tracking-widest text-primary">{showPeople ? 'Người tham gia' : 'Trò chuyện'}</h3>
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => { setShowPeople(false); setShowChat(false); }}><X className="h-4 w-4" /></Button>
                 </header>
                 
@@ -417,11 +417,11 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
                                 <div key={i} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/5">
                                     <Avatar className="h-10 w-10">
                                         <AvatarImage src={getAvatarUrl(p.avatarPath)} />
-                                        <AvatarFallback className="bg-red-600/10 text-red-500 text-xs font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
+                                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
                                     </Avatar>
                                     <div className="min-w-0 flex-1">
                                         <p className="text-xs font-black truncate text-white/90">{p.fullName} {p.userId === user?.id && '(Bạn)'}</p>
-                                        <p className="text-[10px] font-bold text-red-500/60 uppercase tracking-tighter">Đang tham gia</p>
+                                        <p className="text-[10px] font-bold text-primary/60 uppercase tracking-tighter">Đang tham gia</p>
                                     </div>
                                 </div>
                             ))}
@@ -436,7 +436,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
                                 {filteredCallMessages.map((msg: any) => (
                                     <div key={msg.id} className={cn("flex flex-col gap-2", msg.senderId === user?.id ? "items-end" : "items-start")}>
                                         <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">{msg.sender}</p>
-                                        <div className={cn("px-4 py-2 text-sm rounded-2xl max-w-[90%] break-words", msg.senderId === user?.id ? "bg-red-600 text-white rounded-tr-none shadow-lg shadow-red-600/20" : "bg-white/5 border border-white/10 shadow-inner rounded-tl-none")}>
+                                        <div className={cn("px-4 py-2 text-sm rounded-2xl max-w-[90%] break-words", msg.senderId === user?.id ? "bg-primary text-white rounded-tr-none shadow-lg shadow-primary/20" : "bg-white/5 border border-white/10 shadow-inner rounded-tl-none")}>
                                             {msg.message}
                                         </div>
                                     </div>
@@ -446,13 +446,13 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
                         </ScrollArea>
                         <div className="p-6 border-t border-white/5 flex gap-2">
                             <input 
-                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs outline-none focus:border-red-500/50 transition-all font-bold placeholder:text-white/20" 
+                                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-xs outline-none focus:border-primary/50 transition-all font-bold placeholder:text-white/20" 
                                 placeholder="Nhập tin nhắn..." 
                                 value={chatInput} 
                                 onChange={(e) => setChatInput(e.target.value)} 
                                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), sendMessage(convId!, chatInput, 'PLAIN'), setChatInput(''))} 
                             />
-                            <Button size="icon" className="h-9 w-9 rounded-xl bg-red-600 hover:bg-red-700" onClick={() => (sendMessage(convId!, chatInput, 'PLAIN'), setChatInput(''))}><Send className="h-4 w-4" /></Button>
+                            <Button size="icon" className="h-9 w-9 rounded-xl bg-primary hover:bg-primary/80" onClick={() => (sendMessage(convId!, chatInput, 'PLAIN'), setChatInput(''))}><Send className="h-4 w-4" /></Button>
                         </div>
                     </div>
                 )}
@@ -460,7 +460,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
         )}
 
         {error && (
-            <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-full font-black uppercase tracking-widest text-[10px] shadow-2xl animate-in fade-in slide-in-from-top-4 z-50">{error}</div>
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-destructive text-white px-6 py-3 rounded-full font-black uppercase tracking-widest text-[10px] shadow-2xl animate-in fade-in slide-in-from-top-4 z-50">{error}</div>
         )}
       </main>
     </div>

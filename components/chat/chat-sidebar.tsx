@@ -71,8 +71,9 @@ export function ChatSidebar({
   const uniqueConversations = useMemo(() => {
     const seen = new Set();
     return conversations.filter(c => {
-      if (seen.has(c.id)) return false;
-      seen.add(c.id);
+      const key = c.type === 'Private' ? `user-${c.name}` : `group-${c.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
       return c.name.toLowerCase().includes(searchQuery.toLowerCase());
     });
   }, [conversations, searchQuery]);

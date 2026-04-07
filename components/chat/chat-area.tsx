@@ -79,12 +79,22 @@ interface ChatAreaProps {
   onBack?: () => void
   onShowMembers?: () => void
   onToggleBoard?: () => void
+  onToggleSearch?: () => void
   onRefreshConversations?: () => void
   isMobile?: boolean
   className?: string
 }
 
-export function ChatArea({ conversation, onBack, onShowMembers, onToggleBoard, onRefreshConversations, isMobile = false, className }: ChatAreaProps) {
+export function ChatArea({ 
+  conversation, 
+  onBack, 
+  onShowMembers, 
+  onToggleBoard, 
+  onToggleSearch, 
+  onRefreshConversations, 
+  isMobile = false, 
+  className 
+}: ChatAreaProps) {
   const { token, user } = useAuth()
   const { isConnected, sendMessage, lastMessage, markAsRead, sendTyping, typingUsers, togglePinMessage, lastDeletedMessage } = useSignalR()
   const [messages, setMessages] = useState<Message[]>([])
@@ -241,9 +251,6 @@ export function ChatArea({ conversation, onBack, onShowMembers, onToggleBoard, o
         </div>
         
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary transition-all active:scale-90" onClick={() => (window as any).toggleSearch?.()}>
-            <Search className="h-5 w-5" />
-          </Button>
           <TooltipProvider>
             {conversation.type !== 'Group' && (
               <Tooltip>
@@ -267,7 +274,7 @@ export function ChatArea({ conversation, onBack, onShowMembers, onToggleBoard, o
 
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => (window as any).toggleSearch?.()}>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={onToggleSearch}>
                   <Search className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>

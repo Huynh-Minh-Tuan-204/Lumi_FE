@@ -28,6 +28,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -131,20 +132,6 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
 
        <div className="mt-auto flex flex-col items-center gap-6 w-full pb-2">
           <TooltipProvider>
-            <Tooltip>
-               <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={onLogout}
-                    className="h-12 w-12 rounded-xl text-red-500 hover:bg-red-500/10 transition-all"
-                  >
-                     <LogOut className="h-6 w-6" />
-                  </Button>
-               </TooltipTrigger>
-               <TooltipContent side="right">Đăng xuất</TooltipContent>
-            </Tooltip>
-
             <DropdownMenu>
                <DropdownMenuTrigger asChild>
                   <button className="relative group active:scale-90 transition-transform mb-4">
@@ -152,7 +139,7 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                         <AvatarImage src={getAvatarUrl(user?.avatarPath)} className="object-cover" />
                         <AvatarFallback className="bg-primary/10 text-primary font-black text-xs uppercase">{user?.fullName?.[0]}</AvatarFallback>
                      </Avatar>
-                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-[#0a0a0a]" />
+                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-[#1a1c1e]" />
                   </button>
                </DropdownMenuTrigger>
                <DropdownMenuContent side="right" align="end" className="w-64 p-3 rounded-2xl shadow-2xl mb-4 ml-2 bg-popover border-white/5">
@@ -173,6 +160,10 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                   </DropdownMenuItem>
                   <DropdownMenuItem className="p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest gap-3">
                      <Settings className="h-4 w-4 text-primary" /> Cài đặt chung
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-white/5" />
+                  <DropdownMenuItem onClick={onLogout} className="p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest gap-3 text-red-500 focus:text-red-500 focus:bg-red-500/10">
+                     <LogOut className="h-4 w-4" /> Đăng xuất
                   </DropdownMenuItem>
                </DropdownMenuContent>
             </DropdownMenu>
@@ -253,45 +244,48 @@ export default function ChatPage() {
       </div>
 
       {/* 3. Main Chat Area */}
-      <main className="flex-1 h-full min-w-0 bg-background relative z-10">
+      <main className="flex-1 h-full min-w-0 bg-background relative z-10 transition-all duration-300">
         <ChatArea 
           conversation={selectedConversation}
           onBack={() => setSelectedId(null)}
-          onShowMembers={() => setRightSidebar('members')}
-          onToggleBoard={() => setRightSidebar('board')}
+          onShowMembers={() => setRightSidebar(prev => prev === 'members' ? null : 'members')}
+          onToggleBoard={() => setRightSidebar(prev => prev === 'board' ? null : 'board')}
+          onToggleSearch={() => setRightSidebar(prev => prev === 'search' ? null : 'search')}
           onRefreshConversations={loadConversations}
         />
       </main>
 
-      {/* 4. Slide-over Search & Panels (Drawer style to not push content) */}
+      {/* 4. Resizing Side Panels (Pushes ChatArea) */}
       <div 
         className={cn(
-          "fixed top-0 right-0 h-full w-80 md:w-96 bg-card border-l shadow-2xl z-50 transition-transform duration-300 ease-in-out transform",
-          rightSidebar === 'search' ? "translate-x-0" : "translate-x-full"
+          "h-full border-l transition-all duration-300 ease-in-out bg-card overflow-hidden",
+          rightSidebar ? "w-80 md:w-96 opacity-100" : "w-0 opacity-0 border-none"
         )}
       >
-        {selectedId && (
-          <MessageSearchSidebar 
-            conversationId={selectedId}
-            onClose={() => setRightSidebar(null)}
-          />
-        )}
-      </div>
-
-      <div 
-        className={cn(
-          "fixed top-0 right-0 h-full w-80 border-l shadow-2xl z-50 transition-transform duration-300 ease-in-out transform flex flex-col bg-background",
-          rightSidebar === 'members' ? "translate-x-0" : "translate-x-full"
-        )}
-      >
-        {selectedConversation && (
-          <MembersSidebar 
-            conversationId={selectedId || 0}
-            conversationName={selectedConversation.name || ""}
-            onlineUsers={onlineUsers}
-            onClose={() => setRightSidebar(null)}
-          />
-        )}
+        <div className="w-80 md:w-96 h-full flex flex-col">
+            {rightSidebar === 'search' && selectedId && (
+              <MessageSearchSidebar 
+                conversationId={selectedId}
+                onClose={() => setRightSidebar(null)}
+              />
+            )}
+            {rightSidebar === 'members' && selectedConversation && (
+              <MembersSidebar 
+                conversationId={selectedId || 0}
+                conversationName={selectedConversation.name || ""}
+                onlineUsers={onlineUsers}
+                onClose={() => setRightSidebar(null)}
+              />
+            )}
+            {rightSidebar === 'board' && selectedConversation && (
+              <GroupBoard 
+                conversationId={selectedId || 0}
+                token={token || ""}
+                onGoToMessage={(id) => (window as any).scrollToMsg?.(id)}
+                onClose={() => setRightSidebar(null)}
+              />
+            )}
+        </div>
       </div>
 
       {/* 5. Notifications Modal (Big Central Modal) */}
