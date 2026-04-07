@@ -6,6 +6,7 @@ import { ChatArea } from '@/components/chat/chat-area'
 import { MembersSidebar } from '@/components/chat/members-sidebar'
 import { GroupBoard } from '@/components/chat/group-board'
 import { MessageSearchSidebar } from '@/components/chat/message-search-sidebar'
+import { ProjectNotes } from '@/components/chat/project-notes'
 import { useAuth } from '@/lib/auth-context'
 import { conversationsApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
@@ -54,11 +55,12 @@ interface LeftTabbarProps {
   onToggleSearch: () => void
   onToggleBoard: () => void
   onToggleCalendar: () => void
+  onToggleNotes: () => void
   activeTab: string | null
   setActiveTab: (tab: string | null) => void
 }
 
-function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onToggleBoard, onToggleCalendar, activeTab, setActiveTab }: LeftTabbarProps) {
+function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onToggleBoard, onToggleCalendar, onToggleNotes, activeTab, setActiveTab }: LeftTabbarProps) {
   return (
     <div className="w-[64px] bg-[#0a0a0a] flex flex-col items-center py-6 gap-6 shrink-0 z-[60] shadow-2xl h-full border-r border-white/5">
        <div className="flex flex-col gap-6 items-center flex-1 w-full">
@@ -120,7 +122,11 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                 <Button 
                    variant="ghost" 
                    size="icon"
-                   className="h-12 w-12 text-white/40 hover:bg-white/5 hover:text-white rounded-xl"
+                   onClick={onToggleNotes}
+                   className={cn(
+                    "h-12 w-12 rounded-xl transition-all group",
+                    activeTab === 'notes' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" : "text-white/40 hover:bg-white/5 hover:text-white"
+                   )}
                 >
                    <NotebookText className="h-6 w-6" />
                 </Button>
@@ -179,7 +185,7 @@ export default function ChatPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<string | null>('chat')
-  const [rightSidebar, setRightSidebar] = useState<'members' | 'board' | 'search' | null>(null)
+  const [rightSidebar, setRightSidebar] = useState<'members' | 'board' | 'search' | 'notes' | null>(null)
   const [showNotifModal, setShowNotifModal] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -225,6 +231,10 @@ export default function ChatPage() {
         onToggleSearch={() => setRightSidebar(prev => prev === 'search' ? null : 'search')}
         onToggleBoard={() => setRightSidebar(prev => prev === 'board' ? null : 'board')}
         onToggleCalendar={() => setShowCalendar(true)}
+        onToggleNotes={() => {
+           setRightSidebar(prev => prev === 'notes' ? null : 'notes');
+           setActiveTab('notes');
+        }}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
@@ -283,6 +293,14 @@ export default function ChatPage() {
                 token={token || ""}
                 onGoToMessage={(id) => (window as any).scrollToMsg?.(id)}
                 onClose={() => setRightSidebar(null)}
+              />
+            )}
+            {rightSidebar === 'notes' && (
+              <ProjectNotes 
+                onClose={() => {
+                   setRightSidebar(null);
+                   if(activeTab === 'notes') setActiveTab('chat');
+                }}
               />
             )}
         </div>

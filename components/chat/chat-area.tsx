@@ -312,17 +312,6 @@ export function ChatArea({
         </div>
       </header>
 
-      {/* Message Search Sub-header (Zalo style) */}
-      <div className="relative px-4 py-2 border-b bg-muted/20 shrink-0">
-          <div className="relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <input 
-                type="text"
-                placeholder="Tìm kiếm tin nhắn trong hội thoại..."
-                className="w-full bg-background/50 border border-transparent focus:border-primary/20 focus:bg-background h-8 rounded-lg pl-9 text-[11px] font-medium outline-none transition-all placeholder:font-bold placeholder:uppercase placeholder:tracking-[0.1em] placeholder:opacity-50"
-              />
-          </div>
-      </div>
 
       {pinnedList.length > 0 && (
          <div className="z-20 bg-background/90 border-b px-4 py-2 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-all border-l-4 border-l-primary animate-in slide-in-from-top-1 shadow-sm" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}>
@@ -337,8 +326,12 @@ export function ChatArea({
          </div>
       )}
 
-      <div className="flex-1 relative overflow-hidden bg-muted/5">
-        <ScrollArea className="h-full">
+      <div className="flex-1 relative overflow-hidden bg-background">
+        {/* Chat Background Layer (Deep visual depth) */}
+        <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] z-0" />
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-transparent to-background/50 pointer-events-none z-0" />
+        
+        <ScrollArea className="h-full relative z-10">
            <div className="p-4 flex flex-col justify-end min-h-full space-y-8 pb-10">
               {Object.entries(groupedMessages).map(([dateKey, msgs]) => (
                  <div key={dateKey} className="space-y-6">
@@ -378,39 +371,59 @@ export function ChatArea({
                                            "px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words relative cursor-pointer group",
                                            isOwn ? "bg-primary text-primary-foreground rounded-tr-none shadow-primary/20" : "bg-card border rounded-tl-none shadow-black/5"
                                        )}>
-                                           {(() => {
-                                              if (m.stickerUrl) {
-                                                return <img src={m.stickerUrl} className="w-32 h-32 object-contain" />
-                                              }
-                                              
-                                              if (m.attachments && m.attachments.length > 0) {
-                                                return (
-                                                  <div className="space-y-2 py-1">
-                                                    {m.attachments.map((att: any, idx: number) => {
-                                                      const isImg = att.contentType?.startsWith('image/') || att.fileName?.match(/\.(jpg|jpeg|png|gif)$/i);
-                                                      if (isImg) {
-                                                        return <img key={idx} src={getAvatarUrl(att.filePath)} className="max-w-full rounded-xl h-auto max-h-64 object-cover shadow-2xl border-4 border-background" />
-                                                      }
-                                                      return (
-                                                        <a key={idx} href={getAvatarUrl(att.filePath)} target="_blank" download className={cn("flex items-center gap-3 p-3 border rounded-xl hover:scale-[1.02] transition-transform", isOwn ? "bg-white/10 border-white/20" : "bg-muted/30 border-primary/5")}>
-                                                           <div className="h-10 w-10 flex items-center justify-center bg-primary/20 rounded-lg shrink-0">
-                                                              <FileText className="h-5 w-5 text-primary" />
-                                                           </div>
-                                                           <div className="min-w-0 flex-1">
-                                                              <p className="text-xs font-black truncate uppercase tracking-tight">{att.fileName}</p>
-                                                              <p className="text-[9px] opacity-40 uppercase font-bold">{(att.fileSize / 1024).toFixed(1)} KB</p>
-                                                           </div>
-                                                           <Download className="h-4 w-4 opacity-30" />
-                                                        </a>
-                                                      )
-                                                    })}
-                                                    {m.encryptedContent && <p className="mt-2 font-medium leading-relaxed">{m.encryptedContent}</p>}
-                                                  </div>
-                                                )
-                                              }
+                                           <div className="flex flex-col gap-3">
+                                               {/* 1. Show Sticker if exists */}
+                                               {m.stickerUrl && (
+                                                 <div className="relative animate-in zoom-in-50 duration-300">
+                                                    <img src={m.stickerUrl} className="w-32 h-32 object-contain" alt="Sticker" />
+                                                 </div>
+                                               )}
 
-                                              return <p className="font-medium leading-relaxed">{m.encryptedContent}</p>
-                                           })()}
+                                               {/* 2. Show Main Content (Text) - Priority Fix */}
+                                               {m.encryptedContent && m.encryptedContent !== '.' && m.encryptedContent !== '[Attachment]' && (
+                                                  <p className="font-medium leading-relaxed whitespace-pre-wrap select-text">
+                                                     {m.encryptedContent}
+                                                  </p>
+                                               )}
+
+                                               {/* 3. Show Attachments if exist */}
+                                               {m.attachments && m.attachments.length > 0 && (
+                                                 <div className="flex flex-col gap-2 mt-1">
+                                                   {m.attachments.map((att: any, idx: number) => {
+                                                     const isImg = att.contentType?.startsWith('image/') || att.fileName?.match(/\.(jpg|jpeg|png|gif)$/i);
+                                                     if (isImg) {
+                                                       return (
+                                                         <div key={idx} className="relative group/img overflow-hidden rounded-xl border-4 border-background/20 shadow-xl bg-background/5 transition-all hover:border-background/40">
+                                                            <img src={getAvatarUrl(att.filePath)} className="max-w-full h-auto max-h-[400px] object-cover transition-transform duration-500 group-hover/img:scale-105" alt={att.fileName} />
+                                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                               <Button variant="secondary" size="icon" className="rounded-full blur-none" onClick={(e) => { e.stopPropagation(); window.open(getAvatarUrl(att.filePath), '_blank'); }}>
+                                                                  <Download className="h-4 w-4" />
+                                                               </Button>
+                                                            </div>
+                                                         </div>
+                                                       )
+                                                     }
+                                                     return (
+                                                       <a key={idx} href={getAvatarUrl(att.filePath)} target="_blank" download className={cn("flex items-center gap-3 p-3 border rounded-xl hover:scale-[1.02] transition-transform shadow-sm", isOwn ? "bg-white/10 border-white/20 hover:bg-white/20" : "bg-muted/30 border-primary/5 hover:bg-muted/50")}>
+                                                          <div className="h-10 w-10 flex items-center justify-center bg-primary/20 rounded-lg shrink-0">
+                                                             <FileText className="h-5 w-5 text-primary" />
+                                                          </div>
+                                                          <div className="min-w-0 flex-1">
+                                                             <p className="text-[11px] font-black truncate uppercase tracking-tight opacity-90">{att.fileName}</p>
+                                                             <p className="text-[9px] opacity-40 uppercase font-bold">{(att.fileSize / 1024).toFixed(1)} KB</p>
+                                                          </div>
+                                                          <Download className="h-4 w-4 opacity-30" />
+                                                       </a>
+                                                     )
+                                                   })}
+                                                 </div>
+                                               )}
+
+                                               {/* 4. Fallback for placeholder text if only that exists */}
+                                               {(m.encryptedContent === '.' || m.encryptedContent === '[Attachment]') && (!m.attachments || m.attachments.length === 0) && !m.stickerUrl && (
+                                                  <p className="font-medium opacity-20 italic text-xs">{m.encryptedContent}</p>
+                                               )}
+                                           </div>
 
                                            {isPinned && <Pin className="h-3 w-3 absolute -top-1.5 -right-1.5 text-orange-500 fill-orange-500 drop-shadow-md" />}
                                        </div>
