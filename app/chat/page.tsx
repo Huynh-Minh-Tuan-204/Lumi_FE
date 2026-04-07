@@ -8,6 +8,7 @@ import { GroupBoard } from '@/components/chat/group-board'
 import { MessageSearchSidebar } from '@/components/chat/message-search-sidebar'
 import { ProjectNotes } from '@/components/chat/project-notes'
 import { CreateEventModal } from '@/components/chat/create-event-modal'
+import { PersonalCalendar } from '@/components/chat/personal-calendar'
 import { useAuth } from '@/lib/auth-context'
 import { conversationsApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
@@ -356,22 +357,17 @@ export default function ChatPage() {
           </div>
         </div>
       )}
-
-      {/* 6. Calendar Integration Placeholder */}
+      {/* 6. Calendar Integration (Personal Schedule) */}
       {showCalendar && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setShowCalendar(false)} />
-           <div className="w-full max-w-4xl bg-card border shadow-2xl rounded-3xl overflow-hidden relative animate-in slide-in-from-bottom-10 duration-300 flex flex-col h-[70vh]">
-              <header className="p-6 bg-primary text-primary-foreground flex justify-between items-center">
+           <div className="w-full max-w-5xl bg-card border shadow-2xl rounded-3xl overflow-hidden relative animate-in slide-in-from-bottom-10 duration-300 flex flex-col h-[80vh]">
+              <header className="p-6 bg-primary text-primary-foreground flex justify-between items-center shrink-0">
                  <h2 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3"><CalendarIcon className="h-6 w-6" /> Lịch công tác cá nhân</h2>
                  <Button variant="ghost" size="icon" onClick={() => setShowCalendar(false)} className="text-white"><X className="h-6 w-6" /></Button>
               </header>
-              <div className="flex-1 flex items-center justify-center p-12 text-center opacity-20 flex-col gap-6">
-                 <CalendarIcon className="h-24 w-24" />
-                 <div>
-                    <h3 className="text-2xl font-black uppercase tracking-widest">Đang kết nối API Admin</h3>
-                    <p className="text-xs font-bold mt-2 uppercase tracking-[0.4em]">Đồng bộ dữ liệu phân công cho: {user?.fullName}</p>
-                 </div>
+              <div className="flex-1 overflow-hidden">
+                  <PersonalCalendar token={token || ""} />
               </div>
            </div>
         </div>

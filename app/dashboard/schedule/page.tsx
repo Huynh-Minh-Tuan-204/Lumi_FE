@@ -168,6 +168,23 @@ export default function SchedulePage() {
               onSelect={(date) => date && setSelectedDate(date)}
               className="w-full"
               locale={vi}
+              modifiers={{
+                hasEvent: (date) => schedules.some(s => isSameDay(parseISO(s.startTime), date)),
+                unfinished: (date) => schedules.some(s => isSameDay(parseISO(s.startTime), date) && !isPast(new Date(s.endTime))),
+                ongoing: (date) => schedules.some(s => {
+                   const start = new Date(s.startTime);
+                   const end = new Date(s.endTime);
+                   const now = new Date();
+                   return isSameDay(start, date) && now >= start && now <= end;
+                }),
+                completed: (date) => schedules.every(s => isSameDay(parseISO(s.startTime), date) ? isPast(new Date(s.endTime)) : true) && schedules.some(s => isSameDay(parseISO(s.startTime), date))
+              }}
+              modifiersStyles={{
+                hasEvent: { fontWeight: 'bold', color: 'hsl(var(--primary))' },
+                unfinished: { borderBottom: '2px solid #ef4444' }, // Red dot/line
+                ongoing: { borderBottom: '2px solid #eab308' },    // Yellow dot/line
+                completed: { borderBottom: '2px solid #22c55e' }   // Green dot/line
+              }}
             />
           </div>
         </div>
@@ -372,16 +389,27 @@ export default function SchedulePage() {
                 const isCreator = sch.userRole === 'Creator';
                 const meParticipant = sch.participants.find(p => p.userId === user?.id);
                 const myStatus = meParticipant?.status;
-                const past = isPast(new Date(sch.endTime));
+                const now = new Date();
+                const start = new Date(sch.startTime);
+                const end = new Date(sch.endTime);
+                
+                const isFinished = isPast(end);
+                const isOngoing = now >= start && now <= end;
+                const isUpcoming = now < start;
+
+                let statusColor = "bg-primary"; // Default
+                if (isFinished) statusColor = "bg-green-500";
+                else if (isOngoing) statusColor = "bg-yellow-500";
+                else if (isUpcoming) statusColor = "bg-red-500";
 
                 return (
                   <Card key={sch.id} className={cn(
                     "group relative overflow-hidden transition-all duration-300 border hover:shadow-lg",
-                    past ? "opacity-60 bg-muted/5" : "bg-card shadow-sm"
+                    isFinished ? "opacity-60 bg-muted/5" : "bg-card shadow-sm"
                   )}>
                     <div className={cn(
                       "absolute left-0 top-0 bottom-0 w-1",
-                      past ? "bg-muted" : "bg-primary"
+                      statusColor
                     )} />
                     
                     <CardContent className="p-0">
@@ -402,7 +430,9 @@ export default function SchedulePage() {
                                 <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
                                   {sch.title}
                                 </h3>
-                                {past && <Badge variant="secondary" className="text-[8px] font-bold">ĐÃ QUA</Badge>}
+                                {isFinished && <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/20 text-[8px] font-bold border-none uppercase">Hoàn thành</Badge>}
+                                {isOngoing && <Badge className="bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/20 text-[8px] font-bold border-none uppercase animate-pulse">Đang diễn ra</Badge>}
+                                {isUpcoming && <Badge className="bg-red-500/10 text-red-500 hover:bg-red-500/20 text-[8px] font-bold border-none uppercase">Sắp diễn ra</Badge>}
                               </div>
                               {sch.description && (
                                 <p className="text-sm text-muted-foreground line-clamp-1 mt-1 font-medium">
