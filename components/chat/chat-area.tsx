@@ -158,8 +158,20 @@ export function ChatArea({
     const loadMessages = async () => {
       if (!conversation || !token) return
       try {
-        const data = await conversationsApi.getMessages(token, conversation.id)
-        setMessages(data.map((m: any) => ({ ...m, conversationId: m.conversationId || conversation.id })))
+        const response: any = await conversationsApi.getMessages(token, conversation.id)
+        console.log("Messages loaded for conversation:", conversation.id, response)
+        
+        // Handle both direct array or paginated response with .items
+        const data = Array.isArray(response) ? response : (response.items || [])
+        
+        const mappedMessages = data.map((m: any) => ({ ...m, conversationId: m.conversationId || conversation.id }))
+        
+        // Sort by createdAt ascending (đảm bảo thứ tự thời gian)
+        const sortedMessages = mappedMessages.sort((a: any, b: any) => 
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        )
+        
+        setMessages(sortedMessages)
         markAsRead(conversation.id)
       } catch (error) {
         console.error('Failed to load messages:', error)
@@ -325,7 +337,11 @@ export function ChatArea({
                 <div className="flex-1 min-w-0">
                    <p className="text-[9px] font-black uppercase text-primary tracking-tighter opacity-70">Tin nhắn đã ghim ({pinnedList.length})</p>
                    <p className="text-xs truncate opacity-90 font-bold">
-                       {latestPin.senderName}: {latestPin.stickerUrl ? '[Nhãn dán]' : (latestPin.encryptedContent || '[Tệp đính kèm]')}
+                       {latestPin.senderName}: {latestPin.stickerUrl ? '[Nhãn dán]' : (
+                          (latestPin.encryptedContent && latestPin.encryptedContent !== '.' && latestPin.encryptedContent !== '[Attachment]') 
+                          ? latestPin.encryptedContent 
+                          : (latestPin.attachments && latestPin.attachments.length > 0 ? latestPin.attachments[0].fileName : '[Tệp đính kèm]')
+                       )}
                    </p>
                 </div>
                 <ChevronDown className={cn("h-4 w-4 transition-transform opacity-30", isPinnedListExpanded && "rotate-180")} />
@@ -418,7 +434,32 @@ export function ChatArea({
                                                {/* Hiển thị Attachment nếu có */}
                                                {m.attachments && m.attachments.length > 0 && (
                                                   <div className="mt-2 space-y-2">
-                                                    {m.attachments.map((att: any, idx: number) => (
+                                                    {m.attachments.map((att: any, idx: number) => {
+                                                      const isImage = att.contentType?.startsWith('image/') || att.fileName?.match(/\.(jpg|jpeg|png|gif)$/i);
+                                                      
+                                                      if (isImage) {
+                                                        return (
+                                                          <div key={idx} className="relative group/img overflow-hidden rounded-xl border bg-background/50">
+                                                            <img 
+                                                              src={getAvatarUrl(att.filePath)} 
+                                                              className="max-w-full h-auto max-h-[300px] object-cover" 
+                                                              alt={att.fileName}
+                                                              onError={(e) => {
+                                                                (e.target as HTMLImageElement).src = 'https://placehold.co/400x300?text=Image+Load+Error';
+                                                              }}
+                                                            />
+                                                            <div className="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                                                              <a href={getAvatarUrl(att.filePath)} download target="_blank">
+                                                                <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full shadow-lg">
+                                                                  <Download className="h-4 w-4" />
+                                                                </Button>
+                                                              </a>
+                                                            </div>
+                                                          </div>
+                                                        );
+                                                      }
+
+                                                      return (
                                                        <div key={idx} className="flex items-center gap-2 p-2 bg-background/50 rounded-lg border">
                                                          <FileText className="h-4 w-4 text-primary" />
                                                          <span className="text-xs truncate flex-1">{att.fileName}</span>
@@ -426,7 +467,8 @@ export function ChatArea({
                                                             <Download className="h-4 w-4 hover:text-primary cursor-pointer" />
                                                          </a>
                                                        </div>
-                                                    ))}
+                                                      );
+                                                    })}
                                                   </div>
                                                )}
                                            </div>
