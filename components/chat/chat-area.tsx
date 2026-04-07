@@ -241,6 +241,9 @@ export function ChatArea({ conversation, onBack, onShowMembers, onToggleBoard, o
         </div>
         
         <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary transition-all active:scale-90" onClick={() => (window as any).toggleSearch?.()}>
+            <Search className="h-5 w-5" />
+          </Button>
           <TooltipProvider>
             {conversation.type !== 'Group' && (
               <Tooltip>
@@ -301,6 +304,18 @@ export function ChatArea({ conversation, onBack, onShowMembers, onToggleBoard, o
           </TooltipProvider>
         </div>
       </header>
+
+      {/* Message Search Sub-header (Zalo style) */}
+      <div className="relative px-4 py-2 border-b bg-muted/20 shrink-0">
+          <div className="relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <input 
+                type="text"
+                placeholder="Tìm kiếm tin nhắn trong hội thoại..."
+                className="w-full bg-background/50 border border-transparent focus:border-primary/20 focus:bg-background h-8 rounded-lg pl-9 text-[11px] font-medium outline-none transition-all placeholder:font-bold placeholder:uppercase placeholder:tracking-[0.1em] placeholder:opacity-50"
+              />
+          </div>
+      </div>
 
       {pinnedList.length > 0 && (
          <div className="z-20 bg-background/90 border-b px-4 py-2 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-all border-l-4 border-l-primary animate-in slide-in-from-top-1 shadow-sm" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}>
