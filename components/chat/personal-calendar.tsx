@@ -35,8 +35,18 @@ export function PersonalCalendar({ token }: PersonalCalendarProps) {
     load()
   }, [token])
 
-  const filtered = schedules.filter(s => isSameDay(parseISO(s.startTime), selectedDate))
-                   .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+  const filtered = schedules.filter(s => {
+    const start = parseISO(s.startTime);
+    const end = parseISO(s.endTime);
+    const d = new Date(selectedDate);
+    d.setHours(0, 0, 0, 0);
+    const sD = new Date(start);
+    sD.setHours(0, 0, 0, 0);
+    const eD = new Date(end);
+    eD.setHours(0, 0, 0, 0);
+
+    return d >= sD && d <= eD;
+  }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
 
   return (
     <div className="flex h-full gap-6 p-6">
@@ -50,15 +60,40 @@ export function PersonalCalendar({ token }: PersonalCalendarProps) {
             className="w-full"
             locale={vi}
             modifiers={{
-                hasEvent: (date) => schedules.some(s => isSameDay(parseISO(s.startTime), date)),
-                unfinished: (date) => schedules.some(s => isSameDay(parseISO(s.startTime), date) && !isPast(new Date(s.endTime))),
+                hasEvent: (date) => schedules.some(s => {
+                   const start = parseISO(s.startTime);
+                   const end = parseISO(s.endTime);
+                   const d = new Date(date); d.setHours(0,0,0,0);
+                   const sD = new Date(start); sD.setHours(0,0,0,0);
+                   const eD = new Date(end); eD.setHours(0,0,0,0);
+                   return d >= sD && d <= eD;
+                }),
+                unfinished: (date) => schedules.some(s => {
+                   const start = parseISO(s.startTime);
+                   const end = parseISO(s.endTime);
+                   const d = new Date(date); d.setHours(0,0,0,0);
+                   const sD = new Date(start); sD.setHours(0,0,0,0);
+                   const eD = new Date(end); eD.setHours(0,0,0,0);
+                   return d >= sD && d <= eD && !isPast(new Date(s.endTime));
+                }),
                 ongoing: (date) => schedules.some(s => {
                    const start = new Date(s.startTime);
                    const end = new Date(s.endTime);
                    const now = new Date();
-                   return isSameDay(start, date) && now >= start && now <= end;
+                   const d = new Date(date); d.setHours(0,0,0,0);
+                   const sD = new Date(start); sD.setHours(0,0,0,0);
+                   const eD = new Date(end); eD.setHours(0,0,0,0);
+                   return d >= sD && d <= eD && now >= start && now <= end;
                 }),
-                completed: (date) => schedules.every(s => isSameDay(parseISO(s.startTime), date) ? isPast(new Date(s.endTime)) : true) && schedules.some(s => isSameDay(parseISO(s.startTime), date))
+                completed: (date) => {
+                   const d = new Date(date); d.setHours(0,0,0,0);
+                   const dayEvents = schedules.filter(s => {
+                      const sD = new Date(parseISO(s.startTime)); sD.setHours(0,0,0,0);
+                      const eD = new Date(parseISO(s.endTime)); eD.setHours(0,0,0,0);
+                      return d >= sD && d <= eD;
+                   });
+                   return dayEvents.length > 0 && dayEvents.every(s => isPast(new Date(s.endTime)));
+                }
               }}
               modifiersStyles={{
                 hasEvent: { fontWeight: 'black', color: 'hsl(var(--primary))' },
@@ -69,20 +104,20 @@ export function PersonalCalendar({ token }: PersonalCalendarProps) {
           />
         </div>
 
-        <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10">
-           <p className="text-[10px] font-black uppercase text-primary tracking-widest mb-3">Chú thích màu sắc</p>
-           <div className="space-y-2">
+        <div className="p-3 bg-primary/5 rounded-2xl border border-primary/10">
+           <p className="text-[9px] font-black uppercase text-primary tracking-widest mb-2">Chú thích màu sắc</p>
+           <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                 <div className="h-2 w-2 rounded-full bg-red-500" />
-                 <span className="text-[10px] font-bold uppercase opacity-60">Sắp diễn ra / Chưa xong</span>
+                 <div className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                 <span className="text-[9px] font-bold uppercase opacity-60 leading-none">Chưa hoàn thành</span>
               </div>
               <div className="flex items-center gap-2">
-                 <div className="h-2 w-2 rounded-full bg-yellow-500" />
-                 <span className="text-[10px] font-bold uppercase opacity-60">Đang diễn ra</span>
+                 <div className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
+                 <span className="text-[9px] font-bold uppercase opacity-60 leading-none">Đang diễn ra</span>
               </div>
               <div className="flex items-center gap-2">
-                 <div className="h-2 w-2 rounded-full bg-green-500" />
-                 <span className="text-[10px] font-bold uppercase opacity-60">Đã hoàn thành</span>
+                 <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                 <span className="text-[9px] font-bold uppercase opacity-60 leading-none">Đã hoàn thành</span>
               </div>
            </div>
         </div>
