@@ -33,7 +33,16 @@ export function GroupBoard({ conversationId, token, onClose, onGoToMessage, onUn
     setIsLoading(true)
     try {
       const msgs = await conversationsApi.getMessages(token, conversationId)
-      const pins = msgs.filter((m: any) => m.isPinned || m.IsPinned)
+      const mapped = msgs.map((m: any) => ({
+        ...m,
+        id: m.id || m.Id,
+        senderName: m.senderName || m.SenderName || m.sender,
+        encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message,
+        createdAt: m.createdAt || m.CreatedAt || m.time,
+        isPinned: m.isPinned || m.IsPinned,
+        attachments: m.attachments || m.Attachments || []
+      }))
+      const pins = mapped.filter((m: any) => m.isPinned)
       setPinnedMessages(pins)
     } catch (error) {
       console.error("Failed to fetch pins for board:", error)

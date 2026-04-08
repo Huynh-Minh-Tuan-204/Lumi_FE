@@ -202,6 +202,7 @@ export function ChatArea({
           senderId: m.senderId || m.SenderId,
           encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
           createdAt: m.createdAt || m.CreatedAt,
+          isPinned: m.isPinned || m.IsPinned,
           attachments: m.attachments || m.Attachments || [],
           parentMessageId: m.parentMessageId || m.ParentMessageId
         }))

@@ -47,13 +47,13 @@ export function formatToVNDate(dateInput: string | Date | null) {
   const todayStr = today.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
   const dateStr = date.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
 
-  if (dateStr === todayStr) return 'Hôm nay';
+  if (dateStr === todayStr) return `Hôm nay (${date.getDate()}/${date.getMonth() + 1})`;
   
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
   const yesterdayStr = yesterday.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
   
-  if (dateStr === yesterdayStr) return 'Hôm qua';
+  if (dateStr === yesterdayStr) return `Hôm qua (${date.getDate()}/${date.getMonth() + 1})`;
 
   return date.toLocaleDateString('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
