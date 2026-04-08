@@ -184,7 +184,7 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
 
 export default function ChatPage() {
   const { token, user, logout } = useAuth()
-  const { isConnected, onlineUsers, notifications, lastUserLeft } = useSignalR()
+  const { isConnected, onlineUsers, notifications, lastUserLeft, togglePinMessage } = useSignalR()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<string | null>('chat')
@@ -298,6 +298,7 @@ export default function ChatPage() {
                 conversationId={selectedId || 0}
                 token={token || ""}
                 onGoToMessage={(id) => (window as any).scrollToMsg?.(id)}
+                onUnpin={(id) => togglePinMessage(id)}
                 onClose={() => setRightSidebar(null)}
               />
             )}

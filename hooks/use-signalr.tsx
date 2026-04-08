@@ -23,6 +23,7 @@ export interface ChatMessage {
   isPinned?: boolean
   isSystem?: boolean
   isRead?: boolean
+  parentMessageId?: number
 }
 
 export interface SignalRHookReturn {
@@ -135,7 +136,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       .build()
 
     connection.on('ReceiveMessage', (data: any) => {
-      const { id, conversationId, senderId, senderName, content, iv, messageType, stickerUrl, isPinned, createdAt, attachments, avatarPath } = data;
+      const { id, conversationId, senderId, senderName, content, iv, messageType, stickerUrl, isPinned, createdAt, attachments, avatarPath, parentMessageId } = data;
       setLastMessage({
           id,
           conversationId,
@@ -149,7 +150,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           time: new Date(createdAt),
           attachments: attachments || [],
           isSystem: false,
-          avatarPath: avatarPath
+          avatarPath: avatarPath,
+          parentMessageId: parentMessageId
         }
       )
     })

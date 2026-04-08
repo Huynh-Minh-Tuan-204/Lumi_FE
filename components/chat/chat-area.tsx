@@ -74,6 +74,7 @@ interface Message {
   stickerUrl?: string
   isPinned?: boolean
   attachments?: any[]
+  parentMessageId?: number
 }
 
 interface ChatAreaProps {
@@ -86,6 +87,27 @@ interface ChatAreaProps {
   onRefreshConversations?: () => void
   isMobile?: boolean
   className?: string
+}
+
+function SystemMessage({ msg, onScrollTo }: { msg: Message, onScrollTo: (id: number) => void }) {
+  const isPinAction = msg.encryptedContent.toLowerCase().includes('ghim');
+  
+  return (
+    <div className="flex justify-center my-2">
+      <div className="bg-muted/50 px-4 py-1.5 rounded-full text-[10px] text-muted-foreground flex items-center gap-2 border border-primary/5 shadow-sm opacity-80 italic font-medium">
+        <Hash className="h-3 w-3 opacity-30" />
+        <span>{msg.encryptedContent}</span>
+        {isPinAction && msg.parentMessageId && (
+          <button 
+            onClick={() => onScrollTo(msg.parentMessageId!)}
+            className="ml-1 text-primary font-black not-italic hover:underline cursor-pointer uppercase text-[9px]"
+          >
+            Xem
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function ChatArea({ 
@@ -123,6 +145,12 @@ export function ChatArea({
       setTimeout(() => el.classList.remove('bg-primary/20'), 2000)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).scrollToMsg = scrollToMessage
+    }
+  }, [scrollToMessage])
 
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token || !user) return
@@ -174,7 +202,8 @@ export function ChatArea({
           senderId: m.senderId || m.SenderId,
           encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
           createdAt: m.createdAt || m.CreatedAt,
-          attachments: m.attachments || m.Attachments || []
+          attachments: m.attachments || m.Attachments || [],
+          parentMessageId: m.parentMessageId || m.ParentMessageId
         }))
         
         // Sort by createdAt ascending
@@ -207,7 +236,8 @@ export function ChatArea({
             createdAt: lastMessage.time.toISOString(),
             stickerUrl: lastMessage.stickerUrl,
             isPinned: lastMessage.isPinned,
-            attachments: lastMessage.attachments || []
+            attachments: lastMessage.attachments || [],
+            parentMessageId: lastMessage.parentMessageId
           }];
        });
        markAsRead(conversation.id);
@@ -343,48 +373,52 @@ export function ChatArea({
       </header>
 
 
-      {/* 2. PINNED MESSAGE BAR (Restored with EXTREMELY CLEAN layout) */}
+      {/* 2. PINNED MESSAGE BAR (Zalo Style - Optimized) */}
       {pinnedList.length > 0 && (
-         <div className="z-20 bg-background/95 backdrop-blur-md border-b flex flex-col transition-all duration-300 border-l-4 border-l-primary animate-in slide-in-from-top-1 shadow-md overflow-hidden">
-             <div 
-               className="px-4 py-2 flex items-center gap-3 cursor-pointer hover:bg-muted/50 transition-colors h-12" 
-               onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}
-             >
-                <Pin className="h-3 w-3 text-primary fill-primary animate-pulse" />
-                <div className="flex-1 min-w-0">
-                   <p className="text-[9px] font-black uppercase text-primary tracking-tighter opacity-70">Tin nhắn đã ghim ({pinnedList.length})</p>
-                   <p className="text-xs truncate opacity-90 font-bold">
-                       {latestPin.senderName}: {
-                         (latestPin.encryptedContent && latestPin.encryptedContent !== "." && latestPin.encryptedContent !== "[Attachment]") 
-                         ? latestPin.encryptedContent 
-                         : (latestPin.attachments?.length > 0 ? `[Tệp đính kèm: ${latestPin.attachments[0].fileName}]` : "Tin nhắn không có nội dung")
-                       }
-                   </p>
+         <div className="z-20 bg-background/95 backdrop-blur-md border-b flex items-center transition-all duration-300 border-l-4 border-l-primary h-12 shadow-sm relative animate-in slide-in-from-top-1 px-4 gap-3 shrink-0">
+             <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-primary/10 shrink-0">
+                <Pin className="h-3.5 w-3.5 text-primary fill-primary" />
+             </div>
+             
+             <div className="flex-1 min-w-0 cursor-pointer" onClick={() => latestPin && scrollToMessage(latestPin.id)}>
+                <div className="flex items-center gap-1.5">
+                   <p className="text-[9px] font-black uppercase text-primary tracking-tight">Tin ghim</p>
+                   {pinnedList.length > 1 && (
+                      <span className="text-[9px] font-black opacity-40">({pinnedList.length})</span>
+                   )}
                 </div>
-                <ChevronDown className={cn("h-4 w-4 transition-transform opacity-30", isPinnedListExpanded && "rotate-180")} />
+                {latestPin && (
+                  <p className="text-xs truncate opacity-80 font-bold">
+                      {latestPin.senderName}: {
+                        (latestPin.encryptedContent && latestPin.encryptedContent !== "." && latestPin.encryptedContent !== "[Attachment]") 
+                        ? latestPin.encryptedContent 
+                        : (latestPin.attachments && latestPin.attachments.length > 0 ? `[Tệp đính kèm: ${latestPin.attachments[0].fileName}]` : "Tin nhắn không có nội dung")
+                      }
+                  </p>
+                )}
              </div>
 
-             {/* Expanded Pinned List (Showing all pins horizontally/vertically as cards) */}
-             {isPinnedListExpanded && (
-               <div className="bg-muted/30 border-t p-3 animate-in slide-in-from-top-2 duration-300 max-h-48 overflow-y-auto">
-                  <div className="grid grid-cols-1 gap-2">
-                     {pinnedList.map((pin) => (
-                        <div key={pin.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-background/50 border border-primary/5 hover:border-primary/20 transition-all group">
-                           <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                              <Pin className="h-3 w-3 text-primary" />
-                           </div>
-                           <div className="min-w-0 flex-1">
-                              <p className="text-[10px] font-black uppercase opacity-40">{pin.senderName}</p>
-                              <p className="text-xs truncate font-bold opacity-80">{pin.encryptedContent}</p>
-                           </div>
-                           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full opacity-0 group-hover:opacity-100" onClick={() => scrollToMessage(pin.id)}>
-                              <ChevronRight className="h-4 w-4" />
-                           </Button>
-                        </div>
-                     ))}
-                  </div>
-               </div>
-             )}
+             <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full" onClick={onToggleBoard}>
+                   <ChevronDown className="h-4 w-4" />
+                </Button>
+
+                <DropdownMenu>
+                   <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/5 rounded-full">
+                         <MoreVertical className="h-4 w-4" />
+                      </Button>
+                   </DropdownMenuTrigger>
+                   <DropdownMenuContent align="end" className="w-48 p-1 rounded-xl shadow-xl">
+                      <DropdownMenuItem onClick={onToggleBoard} className="text-xs font-bold gap-2 p-2 rounded-lg">
+                         <ActivityIcon className="h-3.5 w-3.5" /> Mở Bảng tin nhóm
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => latestPin && togglePinMessage(latestPin.id)} className="text-xs font-bold gap-2 p-2 rounded-lg text-destructive">
+                         <PinOff className="h-3.5 w-3.5" /> Bỏ ghim tin nhắn này
+                      </DropdownMenuItem>
+                   </DropdownMenuContent>
+                </DropdownMenu>
+             </div>
          </div>
       )}
 
@@ -406,17 +440,50 @@ export function ChatArea({
                     </div>
 
                     <div className="space-y-4">
-                       {msgs.map((m) => {
+                       {msgs.map((m, idx) => {
                           const isSystem = m.messageType === 'System' || m.messageType === 'Announcement';
+                          const isPinAction = isSystem && (m.encryptedContent.toLowerCase().includes('ghim') || m.encryptedContent.toLowerCase().includes('pin'));
+                          
                           if (isSystem) {
-                             return (
-                                <div key={m.id} className="flex justify-center">
-                                   <div className="bg-muted px-4 py-1.5 rounded-full text-[10px] text-muted-foreground flex items-center gap-2 border border-primary/5 shadow-sm opacity-60 italic font-medium">
-                                      <Hash className="h-3 w-3 opacity-30" />
-                                      <span>{m.encryptedContent}</span>
-                                   </div>
-                                </div>
-                             )
+                            if (isPinAction) {
+                              const nextMsgs = msgs.slice(idx + 1);
+                              const hasNextPinAction = nextMsgs.length > 0 && 
+                                                      (nextMsgs[0].messageType === 'System' || nextMsgs[0].messageType === 'Announcement') && 
+                                                      (nextMsgs[0].encryptedContent.toLowerCase().includes('ghim') || nextMsgs[0].encryptedContent.toLowerCase().includes('pin'));
+                              
+                              if (hasNextPinAction) {
+                                const isFirstInBlock = idx === 0 || 
+                                                       !(msgs[idx-1].messageType === 'System' || msgs[idx-1].messageType === 'Announcement') || 
+                                                       !(msgs[idx-1].encryptedContent.toLowerCase().includes('ghim') || msgs[idx-1].encryptedContent.toLowerCase().includes('pin'));
+                                
+                                if (isFirstInBlock) {
+                                  return (
+                                    <div key={m.id} className="flex flex-col items-center">
+                                      <button 
+                                        onClick={(e) => {
+                                          const parent = e.currentTarget.parentElement;
+                                          const hiddenItems = parent?.querySelectorAll('.hidden-pin-action');
+                                          hiddenItems?.forEach(item => item.classList.remove('hidden'));
+                                          e.currentTarget.style.display = 'none';
+                                        }}
+                                        className="mb-2 bg-muted/30 hover:bg-muted/50 px-4 py-1 rounded-full text-[9px] text-primary font-black uppercase tracking-widest border border-primary/10 transition-all cursor-pointer"
+                                      >
+                                        Xem cập nhật trước
+                                      </button>
+                                      <div className="hidden hidden-pin-action w-full">
+                                         <SystemMessage msg={m} onScrollTo={scrollToMessage} />
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <div key={m.id} className="hidden hidden-pin-action w-full">
+                                     <SystemMessage msg={m} onScrollTo={scrollToMessage} />
+                                  </div>
+                                );
+                              }
+                            }
+                            return <SystemMessage key={m.id} msg={m} onScrollTo={scrollToMessage} />;
                           }
 
                           const isOwn = m.senderId === user?.id;
@@ -570,4 +637,3 @@ export function ChatArea({
     </div>
   )
 }
-

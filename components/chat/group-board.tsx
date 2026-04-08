@@ -19,10 +19,11 @@ interface GroupBoardProps {
   token: string
   onClose: () => void
   onGoToMessage: (id: number) => void
+  onUnpin?: (id: number) => void
   lastPinSignal?: any
 }
 
-export function GroupBoard({ conversationId, token, onClose, onGoToMessage, lastPinSignal }: GroupBoardProps) {
+export function GroupBoard({ conversationId, token, onClose, onGoToMessage, onUnpin, lastPinSignal }: GroupBoardProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'pins' | 'notes' | 'polls'>('pins')
   const [pinnedMessages, setPinnedMessages] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -134,12 +135,20 @@ export function GroupBoard({ conversationId, token, onClose, onGoToMessage, last
                             <span className="text-[9px] font-black text-muted-foreground/40 tabular-nums uppercase tracking-tighter">
                               {formatToVNTime(createdAt)} {formatToVNDate(createdAt)}
                             </span>
-                            <button 
-                              className="text-[10px] font-black text-primary hover:text-primary/70 transition-colors uppercase tracking-widest"
-                              onClick={() => onGoToMessage(msg.id)}
-                            >
-                              Xem tin nhắn gốc
-                            </button>
+                            <div className="flex items-center gap-3">
+                              <button 
+                                className="text-[10px] font-black text-primary hover:text-primary/70 transition-colors uppercase tracking-widest"
+                                onClick={() => onGoToMessage(msg.id)}
+                              >
+                                Xem tin nhắn gốc
+                              </button>
+                              <button 
+                                className="text-[10px] font-black text-destructive hover:text-destructive/70 transition-colors uppercase tracking-widest pl-3 border-l"
+                                onClick={() => onUnpin?.(msg.id)}
+                              >
+                                Bỏ ghim
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
