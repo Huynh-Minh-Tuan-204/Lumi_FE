@@ -90,7 +90,7 @@ interface ChatAreaProps {
 }
 
 function SystemMessage({ msg, onScrollTo }: { msg: Message, onScrollTo: (id: number) => void }) {
-  const isPinAction = msg.encryptedContent.toLowerCase().includes('ghim');
+  const isPinAction = msg.encryptedContent?.toLowerCase().includes('ghim');
   
   return (
     <div className="flex justify-center my-2">
@@ -231,7 +231,7 @@ export function ChatArea({
             conversationId: lastMessage.conversationId,
             senderId: lastMessage.senderId,
             senderName: lastMessage.sender,
-            encryptedContent: lastMessage.message,
+            encryptedContent: lastMessage.message || "",
             messageType: lastMessage.messageType || 'Text',
             createdAt: lastMessage.time.toISOString(),
             stickerUrl: lastMessage.stickerUrl,
@@ -442,19 +442,19 @@ export function ChatArea({
                     <div className="space-y-4">
                        {msgs.map((m, idx) => {
                           const isSystem = m.messageType === 'System' || m.messageType === 'Announcement';
-                          const isPinAction = isSystem && (m.encryptedContent.toLowerCase().includes('ghim') || m.encryptedContent.toLowerCase().includes('pin'));
+                          const isPinAction = isSystem && (m.encryptedContent?.toLowerCase().includes('ghim') || m.encryptedContent?.toLowerCase().includes('pin'));
                           
                           if (isSystem) {
                             if (isPinAction) {
                               const nextMsgs = msgs.slice(idx + 1);
                               const hasNextPinAction = nextMsgs.length > 0 && 
                                                       (nextMsgs[0].messageType === 'System' || nextMsgs[0].messageType === 'Announcement') && 
-                                                      (nextMsgs[0].encryptedContent.toLowerCase().includes('ghim') || nextMsgs[0].encryptedContent.toLowerCase().includes('pin'));
+                                                      (nextMsgs[0].encryptedContent?.toLowerCase().includes('ghim') || nextMsgs[0].encryptedContent?.toLowerCase().includes('pin'));
                               
                               if (hasNextPinAction) {
                                 const isFirstInBlock = idx === 0 || 
                                                        !(msgs[idx-1].messageType === 'System' || msgs[idx-1].messageType === 'Announcement') || 
-                                                       !(msgs[idx-1].encryptedContent.toLowerCase().includes('ghim') || msgs[idx-1].encryptedContent.toLowerCase().includes('pin'));
+                                                       !(msgs[idx-1].encryptedContent?.toLowerCase().includes('ghim') || msgs[idx-1].encryptedContent?.toLowerCase().includes('pin'));
                                 
                                 if (isFirstInBlock) {
                                   return (
