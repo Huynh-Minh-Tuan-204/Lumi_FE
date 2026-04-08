@@ -43,24 +43,31 @@ export function formatToVNDate(dateInput: string | Date | null) {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
   if (isNaN(date.getTime())) return '';
   
-  const today = new Date()
-  const todayStr = today.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
+  const now = new Date()
+  const todayStr = now.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
   const dateStr = date.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
 
-  if (dateStr === todayStr) return `Hôm nay (${date.getDate()}/${date.getMonth() + 1})`;
+  if (dateStr === todayStr) return 'Hôm nay';
   
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
   const yesterdayStr = yesterday.toLocaleDateString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })
   
-  if (dateStr === yesterdayStr) return `Hôm qua (${date.getDate()}/${date.getMonth() + 1})`;
+  if (dateStr === yesterdayStr) return 'Hôm qua';
 
-  return date.toLocaleDateString('vi-VN', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric'
-  });
+  const dayNameMapping: Record<number, string> = {
+    0: 'Chủ Nhật', 1: 'Thứ 2', 2: 'Thứ 3', 3: 'Thứ 4', 4: 'Thứ 5', 5: 'Thứ 6', 6: 'Thứ 7'
+  };
+  const dayName = dayNameMapping[date.getDay()];
+  const datePart = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+  
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 7 && date.getFullYear() === now.getFullYear()) {
+    return `${dayName}, ${datePart}`;
+  }
+
+  return `${dayName}, ${datePart}/${date.getFullYear()}`;
 }
 
 export function getInitials(name: string) {

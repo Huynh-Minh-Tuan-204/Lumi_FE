@@ -158,7 +158,7 @@ export function GroupBoard({ conversationId, token, onClose, onGoToMessage, onUn
                           </div>
                           <div className="flex items-center justify-between px-1">
                             <span className="text-[9px] font-black text-muted-foreground/40 tabular-nums uppercase tracking-tighter">
-                              {formatToVNTime(createdAt)} {formatToVNDate(createdAt)}
+                              {formatToVNTime(createdAt)}, {formatToVNDate(createdAt)}
                             </span>
                             <div className="flex items-center gap-3">
                               <button 

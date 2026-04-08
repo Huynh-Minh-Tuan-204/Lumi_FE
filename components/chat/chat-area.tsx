@@ -161,27 +161,8 @@ export function ChatArea({
     
     const now = new Date();
     const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
-    
-    // Check Today & Yesterday
-    const isToday = date.toDateString() === now.toDateString();
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const isYesterday = date.toDateString() === yesterday.toDateString();
-
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    const dayNameMapping: Record<number, string> = {
-      0: 'Chủ Nhật', 1: 'Thứ 2', 2: 'Thứ 3', 3: 'Thứ 4', 4: 'Thứ 5', 5: 'Thứ 6', 6: 'Thứ 7'
-    };
-    const dayName = dayNameMapping[date.getDay()];
-    const datePart = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
-    const yearPart = date.getFullYear();
-
-    if (isToday) return `${timeStr}, Hôm nay`;
-    if (isYesterday) return `${timeStr}, Hôm qua`;
-    if (diffDays < 7) return `${dayName}, ${datePart}`;
-    return `${dayName}, ${datePart}/${yearPart}`;
+    const dateStr = formatToVNDate(date);
+    return `${timeStr}, ${dateStr}`;
   };
 
   const handleStartCall = async (type: 'voice' | 'video') => {
@@ -495,31 +476,21 @@ export function ChatArea({
                           
                           if (isSystem) {
                             if (isPinAction) {
-                              const nextMsgs = msgs.slice(idx + 1);
+                              const isPinMsg = (mx: Message) => (mx.messageType === 'System' || mx.messageType === 'Announcement') && (mx.encryptedContent?.toLowerCase().includes('ghim') || mx.encryptedContent?.toLowerCase().includes('pin'));
                               
-                              // Check how many pins are coming next
-                              let hiddenCount = 0;
-                              let tempIdx = idx;
-                              while (tempIdx < msgs.length - 1) {
-                                const mNext = msgs[tempIdx + 1];
-                                const nextIsPin = (mNext.messageType === 'System' || mNext.messageType === 'Announcement') && 
-                                                  (mNext.encryptedContent?.toLowerCase().includes('ghim') || mNext.encryptedContent?.toLowerCase().includes('pin'));
-                                if (nextIsPin) {
-                                  hiddenCount++;
-                                  tempIdx++;
-                                } else break;
-                              }
+                              let startIdx = idx;
+                              while (startIdx > 0 && isPinMsg(msgs[startIdx - 1])) startIdx--;
+                              let endIdx = idx;
+                              while (endIdx < msgs.length - 1 && isPinMsg(msgs[endIdx + 1])) endIdx++;
+                              
+                              const blockSize = endIdx - startIdx + 1;
+                              const posInBlock = idx - startIdx;
 
-                              const hasNextPinAction = hiddenCount > 0;
-                              
-                              if (hasNextPinAction) {
-                                const isFirstInBlock = idx === 0 || 
-                                                       !(msgs[idx-1].messageType === 'System' || msgs[idx-1].messageType === 'Announcement') || 
-                                                       !(msgs[idx-1].encryptedContent?.toLowerCase().includes('ghim') || msgs[idx-1].encryptedContent?.toLowerCase().includes('pin'));
-                                
-                                if (isFirstInBlock) {
+                              if (blockSize > 3) {
+                                if (posInBlock === 0) {
+                                  const hideCount = blockSize - 2;
                                   return (
-                                    <div key={m.id} className="flex flex-col items-center">
+                                    <div key={m.id} className="flex flex-col items-center animate-in slide-in-from-top-1">
                                       <button 
                                         onClick={(e) => {
                                           const parent = e.currentTarget.parentElement;
@@ -529,7 +500,7 @@ export function ChatArea({
                                         }}
                                         className="mb-2 bg-primary/10 hover:bg-primary/20 px-4 py-1.5 rounded-full text-[9px] text-primary font-black uppercase tracking-widest border border-primary/20 transition-all cursor-pointer shadow-sm"
                                       >
-                                        Xem {hiddenCount} cập nhật trước
+                                        Xem {hideCount} cập nhật trước
                                       </button>
                                       <div className="hidden hidden-pin-action w-full">
                                          <SystemMessage msg={m} onScrollTo={scrollToMessage} />
@@ -537,11 +508,13 @@ export function ChatArea({
                                     </div>
                                   );
                                 }
-                                return (
-                                  <div key={m.id} className="hidden hidden-pin-action w-full">
-                                     <SystemMessage msg={m} onScrollTo={scrollToMessage} />
-                                  </div>
-                                );
+                                if (posInBlock < blockSize - 2) {
+                                  return (
+                                    <div key={m.id} className="hidden hidden-pin-action w-full">
+                                       <SystemMessage msg={m} onScrollTo={scrollToMessage} />
+                                    </div>
+                                  );
+                                }
                               }
                             }
                             return <SystemMessage key={m.id} msg={m} onScrollTo={scrollToMessage} />;
