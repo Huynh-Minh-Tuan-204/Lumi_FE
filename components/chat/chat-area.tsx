@@ -91,16 +91,19 @@ interface ChatAreaProps {
 
 function SystemMessage({ msg, onScrollTo }: { msg: Message, onScrollTo: (id: number) => void }) {
   const isPinAction = msg.encryptedContent?.toLowerCase().includes('ghim');
+  const d = new Date(msg.createdAt);
+  const timeStr = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
   
   return (
-    <div className="flex justify-center my-2">
-      <div className="bg-muted/50 px-4 py-1.5 rounded-full text-[10px] text-muted-foreground flex items-center gap-2 border border-primary/5 shadow-sm opacity-80 italic font-medium">
-        <Hash className="h-3 w-3 opacity-30" />
-        <span>{msg.encryptedContent}</span>
+    <div className="flex justify-center my-1.5 animate-in fade-in zoom-in-95 duration-300">
+      <div className="bg-muted/40 px-4 py-1.5 rounded-full text-[10px] text-muted-foreground flex items-center gap-2 border border-primary/5 shadow-sm opacity-90 font-medium">
+        <span className="opacity-40 tabular-nums">{timeStr}</span>
+        <span className="h-0.5 w-0.5 rounded-full bg-muted-foreground/20" />
+        <span className="italic">{msg.encryptedContent}</span>
         {isPinAction && msg.parentMessageId && (
           <button 
             onClick={() => onScrollTo(msg.parentMessageId!)}
-            className="ml-1 text-primary font-black not-italic hover:underline cursor-pointer uppercase text-[9px]"
+            className="ml-1 text-primary font-black not-italic hover:underline cursor-pointer uppercase text-[9px] bg-primary/5 px-2 py-0.5 rounded"
           >
             Xem
           </button>
@@ -120,7 +123,7 @@ export function ChatArea({
   onRefreshConversations, 
   isMobile = false, 
   className 
-}: ChatAreaProps) {
+ }: ChatAreaProps) {
   const { token, user } = useAuth()
   const { isConnected, sendMessage, lastMessage, markAsRead, sendTyping, typingUsers, togglePinMessage, lastDeletedMessage, pinnedMessages } = useSignalR()
   const [messages, setMessages] = useState<Message[]>([])
@@ -152,6 +155,35 @@ export function ChatArea({
     }
   }, [scrollToMessage])
 
+  const formatZaloDivider = (dateInput: string) => {
+    const date = new Date(dateInput);
+    if (isNaN(date.getTime())) return 'Ngày không xác định';
+    
+    const now = new Date();
+    const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+    
+    // Check Today & Yesterday
+    const isToday = date.toDateString() === now.toDateString();
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    const dayNameMapping: Record<number, string> = {
+      0: 'Chủ Nhật', 1: 'Thứ 2', 2: 'Thứ 3', 3: 'Thứ 4', 4: 'Thứ 5', 5: 'Thứ 6', 6: 'Thứ 7'
+    };
+    const dayName = dayNameMapping[date.getDay()];
+    const datePart = `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
+    const yearPart = date.getFullYear();
+
+    if (isToday) return `${timeStr}, Hôm nay`;
+    if (isYesterday) return `${timeStr}, Hôm qua`;
+    if (diffDays < 7) return `${dayName}, ${datePart}`;
+    return `${dayName}, ${datePart}/${yearPart}`;
+  };
+
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token || !user) return
     try {
@@ -174,15 +206,17 @@ export function ChatArea({
       toast.success('Thành công!')
       // Immediate update
       const updatedMessages = await conversationsApi.getMessages(token, conversation.id)
-      setMessages(updatedMessages.map((m: any) => ({ ...m, conversationId: m.conversationId || conversation.id })))
+      const mapped = updatedMessages.map((m: any) => ({
+        ...m,
+        id: m.id || m.Id,
+        conversationId: m.conversationId || conversation.id,
+        isPinned: m.isPinned || m.IsPinned,
+        encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
+      }))
+      setMessages(mapped)
     } catch (error) {
       toast.error('Thất bại.')
     }
-  }
-
-  const getVNFullDate = (date: Date) => {
-    const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-    return `${days[date.getDay()]}, ${date.getDate()} tháng ${date.getMonth() + 1} năm ${date.getFullYear()}`;
   }
 
   useEffect(() => {
@@ -190,9 +224,6 @@ export function ChatArea({
       if (!conversation || !token) return
       try {
         const response: any = await conversationsApi.getMessages(token, conversation.id)
-        console.log("Messages loaded for conversation:", conversation.id, response)
-        
-        // Handle both direct array or paginated response with .items
         const data = Array.isArray(response) ? response : (response.items || [])
         
         const mappedMessages = data.map((m: any) => ({
@@ -207,7 +238,6 @@ export function ChatArea({
           parentMessageId: m.parentMessageId || m.ParentMessageId
         }))
         
-        // Sort by createdAt ascending
         const sortedMessages = mappedMessages.sort((a: any, b: any) => 
           new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         )
@@ -450,12 +480,12 @@ export function ChatArea({
            <div className="p-4 flex flex-col justify-end min-h-full space-y-8 pb-10">
               {Object.entries(groupedMessages).map(([dateKey, msgs]) => (
                  <div key={dateKey} className="space-y-6">
-                    <div className="flex items-center gap-4 opacity-30">
-                        <div className="flex-1 h-px bg-border" />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] bg-background px-3 py-1 rounded-full border">
-                          {dateKey === 'Ngày không xác định' ? dateKey : (dateKey === new Date().toDateString() ? 'Hôm nay' : getVNFullDate(new Date(dateKey)))}
+                    <div className="flex items-center justify-center gap-4 opacity-100 py-4 my-2">
+                        <div className="flex-1 h-[1px] bg-gradient-to-r from-transparent via-border to-transparent" />
+                        <span className="text-[10px] font-black uppercase tracking-widest bg-muted/20 px-4 py-1.5 rounded-full border border-primary/10 text-muted-foreground shadow-sm">
+                          {formatZaloDivider(msgs[0].createdAt)}
                         </span>
-                        <div className="flex-1 h-px bg-border" />
+                        <div className="flex-1 h-[1px] bg-gradient-to-l from-transparent via-border to-transparent" />
                     </div>
 
                     <div className="space-y-4">
@@ -466,9 +496,21 @@ export function ChatArea({
                           if (isSystem) {
                             if (isPinAction) {
                               const nextMsgs = msgs.slice(idx + 1);
-                              const hasNextPinAction = nextMsgs.length > 0 && 
-                                                      (nextMsgs[0].messageType === 'System' || nextMsgs[0].messageType === 'Announcement') && 
-                                                      (nextMsgs[0].encryptedContent?.toLowerCase().includes('ghim') || nextMsgs[0].encryptedContent?.toLowerCase().includes('pin'));
+                              
+                              // Check how many pins are coming next
+                              let hiddenCount = 0;
+                              let tempIdx = idx;
+                              while (tempIdx < msgs.length - 1) {
+                                const mNext = msgs[tempIdx + 1];
+                                const nextIsPin = (mNext.messageType === 'System' || mNext.messageType === 'Announcement') && 
+                                                  (mNext.encryptedContent?.toLowerCase().includes('ghim') || mNext.encryptedContent?.toLowerCase().includes('pin'));
+                                if (nextIsPin) {
+                                  hiddenCount++;
+                                  tempIdx++;
+                                } else break;
+                              }
+
+                              const hasNextPinAction = hiddenCount > 0;
                               
                               if (hasNextPinAction) {
                                 const isFirstInBlock = idx === 0 || 
@@ -485,9 +527,9 @@ export function ChatArea({
                                           hiddenItems?.forEach(item => item.classList.remove('hidden'));
                                           e.currentTarget.style.display = 'none';
                                         }}
-                                        className="mb-2 bg-muted/30 hover:bg-muted/50 px-4 py-1 rounded-full text-[9px] text-primary font-black uppercase tracking-widest border border-primary/10 transition-all cursor-pointer"
+                                        className="mb-2 bg-primary/10 hover:bg-primary/20 px-4 py-1.5 rounded-full text-[9px] text-primary font-black uppercase tracking-widest border border-primary/20 transition-all cursor-pointer shadow-sm"
                                       >
-                                        Xem cập nhật trước
+                                        Xem {hiddenCount} cập nhật trước
                                       </button>
                                       <div className="hidden hidden-pin-action w-full">
                                          <SystemMessage msg={m} onScrollTo={scrollToMessage} />
@@ -520,7 +562,6 @@ export function ChatArea({
                                            isOwn ? "bg-primary text-primary-foreground rounded-tr-none shadow-primary/20" : "bg-card border rounded-tl-none shadow-black/5"
                                        )}>
                                            <div className="flex flex-col gap-2">
-                                             {/* Hiển thị Text Content: Chỉ hiện nếu nội dung không phải là placeholder */}
                                              {(() => {
                                                const text = m.encryptedContent;
                                                const isPlaceholder = text === "." || text === "[Attachment]";
@@ -530,7 +571,6 @@ export function ChatArea({
                                                return null;
                                              })()}
 
-                                             {/* Hiển thị Attachments: Luôn hiển thị nếu có file, không được đè lên text */}
                                              {m.attachments && m.attachments.length > 0 && (
                                                <div className="flex flex-col gap-2 mt-1">
                                                  {m.attachments.map((att: any, idx: number) => {
@@ -577,10 +617,12 @@ export function ChatArea({
                                      </DropdownMenuContent>
                                    </DropdownMenu>
 
-                                   <div className="flex items-center gap-2 px-1 opacity-20">
-                                      <span className="text-[9px] font-black uppercase tracking-widest">{formatMessageTime(m.createdAt || new Date().toISOString())}</span>
-                                      {isOwn && (m.readBy?.length ? <CheckCheck className="h-3 w-3 text-primary" /> : <Check className="h-3 w-3" />)}
-                                   </div>
+                                   {!isSystem && (
+                                     <div className="flex items-center gap-2 px-1 opacity-20">
+                                        <span className="text-[9px] font-black uppercase tracking-widest">{formatMessageTime(m.createdAt || new Date().toISOString())}</span>
+                                        {isOwn && (m.readBy?.length ? <CheckCheck className="h-3 w-3 text-primary" /> : <Check className="h-3 w-3" />)}
+                                     </div>
+                                   )}
                                 </div>
                             </div>
                           )
