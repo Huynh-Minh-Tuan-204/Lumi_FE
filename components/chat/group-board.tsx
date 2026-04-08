@@ -99,7 +99,6 @@ export function GroupBoard({ conversationId, token, onClose, onGoToMessage, onUn
                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest pl-1">{pinnedMessages.length} tin nhắn được ghim</p>
                   {[...pinnedMessages].reverse().map((msg) => {
                     const senderName = msg.senderName ?? msg.SenderName ?? msg.sender ?? 'Người dùng';
-                    const content = msg.encryptedContent ?? msg.EncryptedContent ?? msg.content ?? msg.message ?? '';
                     const createdAt = msg.createdAt ?? msg.CreatedAt ?? msg.time ?? new Date().toISOString();
                     const avatarPath = msg.avatarPath ?? msg.AvatarPath;
 
@@ -128,7 +127,24 @@ export function GroupBoard({ conversationId, token, onClose, onGoToMessage, onUn
                         <div className="space-y-3">
                           <div className="bg-muted/30 p-3.5 rounded-2xl border border-primary/5 relative group-hover:bg-muted/50 transition-all min-h-[40px]">
                              <p className="text-xs text-foreground leading-relaxed font-bold opacity-80 whitespace-pre-wrap">
-                              {msg.stickerUrl ? '[Nhãn dán]' : content}
+                                {(() => {
+                                  if (msg.stickerUrl) return '[Nhãn dán]';
+                                  
+                                  const text = msg.encryptedContent ?? msg.EncryptedContent ?? msg.content ?? msg.message ?? '';
+                                  const isPlaceholder = text === "." || text === "[Attachment]";
+                                  if (text && !isPlaceholder) return text;
+                                  
+                                  const atts = msg.attachments ?? msg.Attachments;
+                                  if (atts && atts.length > 0) {
+                                    const att = atts[0];
+                                    const mime = att.mimeType || att.MimeType || att.contentType || "";
+                                    const name = att.fileName || att.FileName || "Tệp đính kèm";
+                                    if (mime.startsWith('image/')) return "[Hình ảnh]";
+                                    if (mime.startsWith('video/')) return "[Video]";
+                                    return `[File: ${name}]`;
+                                  }
+                                  return "Tin nhắn không có nội dung";
+                                })()}
                              </p>
                           </div>
                           <div className="flex items-center justify-between px-1">

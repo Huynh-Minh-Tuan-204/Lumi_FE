@@ -122,7 +122,7 @@ export function ChatArea({
   className 
 }: ChatAreaProps) {
   const { token, user } = useAuth()
-  const { isConnected, sendMessage, lastMessage, markAsRead, sendTyping, typingUsers, togglePinMessage, lastDeletedMessage } = useSignalR()
+  const { isConnected, sendMessage, lastMessage, markAsRead, sendTyping, typingUsers, togglePinMessage, lastDeletedMessage, pinnedMessages } = useSignalR()
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isPinnedListExpanded, setIsPinnedListExpanded] = useState(false)
@@ -249,6 +249,14 @@ export function ChatArea({
        setMessages(prev => prev.filter(m => m.id !== lastDeletedMessage.messageId));
     }
   }, [lastDeletedMessage, conversation?.id]);
+
+  useEffect(() => {
+    if (pinnedMessages && conversation && pinnedMessages.conversationId === conversation.id) {
+       setMessages(prev => prev.map(m => 
+          m.id === pinnedMessages.messageId ? { ...m, isPinned: pinnedMessages.isPinned } : m
+       ));
+    }
+  }, [pinnedMessages, conversation?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -389,11 +397,21 @@ export function ChatArea({
                 </div>
                 {latestPin && (
                   <p className="text-xs truncate opacity-80 font-bold">
-                      {latestPin.senderName}: {
-                        (latestPin.encryptedContent && latestPin.encryptedContent !== "." && latestPin.encryptedContent !== "[Attachment]") 
-                        ? latestPin.encryptedContent 
-                        : (latestPin.attachments && latestPin.attachments.length > 0 ? `[Tệp đính kèm: ${latestPin.attachments[0].fileName}]` : "Tin nhắn không có nội dung")
-                      }
+                      {latestPin.senderName}: {(() => {
+                        const content = latestPin.encryptedContent;
+                        const isPlaceholder = content === "." || content === "[Attachment]";
+                        if (content && !isPlaceholder) return content;
+                        
+                        if (latestPin.attachments && latestPin.attachments.length > 0) {
+                          const att = latestPin.attachments[0];
+                          const mime = att.mimeType || att.contentType || "";
+                          const name = att.fileName || "Tệp đính kèm";
+                          if (mime.startsWith('image/')) return "[Hình ảnh]";
+                          if (mime.startsWith('video/')) return "[Video]";
+                          return `[File: ${name}]`;
+                        }
+                        return "Tin nhắn không có nội dung";
+                      })()}
                   </p>
                 )}
              </div>
