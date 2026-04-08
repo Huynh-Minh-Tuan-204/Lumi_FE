@@ -25,7 +25,7 @@ import {
   Image as ImageIcon, 
   Users, 
   LogOut, 
-  ChevronRight,
+  ChevronRight, 
   ChevronDown, 
   Hash, 
   Reply, 
@@ -90,9 +90,14 @@ interface ChatAreaProps {
 }
 
 function SystemMessage({ msg, onScrollTo }: { msg: Message, onScrollTo: (id: number) => void }) {
-  const isPinAction = msg.encryptedContent?.toLowerCase().includes('ghim');
   const d = new Date(msg.createdAt);
-  const timeStr = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const datePart = formatToVNDate(d);
+  const timeStr = `${timePart}, ${datePart}`;
+  
+  const content = msg.encryptedContent?.toLowerCase() || "";
+  const isPinAction = content.includes('ghim');
+  const isUnpinAction = content.includes('bỏ ghim');
   
   return (
     <div className="flex justify-center my-1.5 animate-in fade-in zoom-in-95 duration-300">
@@ -100,7 +105,7 @@ function SystemMessage({ msg, onScrollTo }: { msg: Message, onScrollTo: (id: num
         <span className="opacity-40 tabular-nums">{timeStr}</span>
         <span className="h-0.5 w-0.5 rounded-full bg-muted-foreground/20" />
         <span className="italic">{msg.encryptedContent}</span>
-        {isPinAction && msg.parentMessageId && (
+        {isPinAction && !isUnpinAction && msg.parentMessageId && (
           <button 
             onClick={() => onScrollTo(msg.parentMessageId!)}
             className="ml-1 text-primary font-black not-italic hover:underline cursor-pointer uppercase text-[9px] bg-primary/5 px-2 py-0.5 rounded"
@@ -158,8 +163,6 @@ export function ChatArea({
   const formatZaloDivider = (dateInput: string) => {
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) return 'Ngày không xác định';
-    
-    const now = new Date();
     const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
     const dateStr = formatToVNDate(date);
     return `${timeStr}, ${dateStr}`;
@@ -393,7 +396,7 @@ export function ChatArea({
       </header>
 
 
-      {/* 2. PINNED MESSAGE BAR (Zalo Style - Optimized) */}
+      {/* 2. PINNED MESSAGE BAR (Unchanged) */}
       {pinnedList.length > 0 && (
          <div className="z-20 bg-background/95 backdrop-blur-md border-b flex items-center transition-all duration-300 border-l-4 border-l-primary h-12 shadow-sm relative animate-in slide-in-from-top-1 px-4 gap-3 shrink-0">
              <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-primary/10 shrink-0">
@@ -453,7 +456,6 @@ export function ChatArea({
       )}
 
       <div className="flex-1 relative overflow-hidden bg-[#0a101f]">
-        {/* Chat Background Layer (Deep visual depth) */}
         <div className="absolute inset-0 opacity-[0.06] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] z-0 bg-repeat" />
         <div className="absolute inset-0 bg-gradient-to-b from-[#0a101f] via-[#0d1425]/50 to-[#0a101f] pointer-events-none z-0" />
         
@@ -486,9 +488,8 @@ export function ChatArea({
                               const blockSize = endIdx - startIdx + 1;
                               const posInBlock = idx - startIdx;
 
-                              if (blockSize > 3) {
+                              if (blockSize > 1) {
                                 if (posInBlock === 0) {
-                                  const hideCount = blockSize - 2;
                                   return (
                                     <div key={m.id} className="flex flex-col items-center animate-in slide-in-from-top-1">
                                       <button 
@@ -500,7 +501,7 @@ export function ChatArea({
                                         }}
                                         className="mb-2 bg-primary/10 hover:bg-primary/20 px-4 py-1.5 rounded-full text-[9px] text-primary font-black uppercase tracking-widest border border-primary/20 transition-all cursor-pointer shadow-sm"
                                       >
-                                        Xem {hideCount} cập nhật trước
+                                        Xem cập nhật trước
                                       </button>
                                       <div className="hidden hidden-pin-action w-full">
                                          <SystemMessage msg={m} onScrollTo={scrollToMessage} />
@@ -508,7 +509,7 @@ export function ChatArea({
                                     </div>
                                   );
                                 }
-                                if (posInBlock < blockSize - 2) {
+                                if (posInBlock < blockSize - 1) {
                                   return (
                                     <div key={m.id} className="hidden hidden-pin-action w-full">
                                        <SystemMessage msg={m} onScrollTo={scrollToMessage} />
@@ -621,7 +622,6 @@ export function ChatArea({
         </div>
       )}
 
-      {/* Zalo Inspired Input Section */}
       <div className="bg-card border-t pt-3 pb-5 px-5 space-y-4 shadow-[0_-8px_30px_rgba(0,0,0,0.1)] shrink-0 z-40">
         <div className="flex items-center gap-2 opacity-60">
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-5 w-5" /></Button>
