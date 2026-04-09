@@ -75,7 +75,7 @@ export default function NotificationsPage() {
   }
 
   const handleSendAnnouncement = async () => {
-    if (!newAnnouncement.trim() || isSending || !token) return
+    if (!title.trim() || !newAnnouncement.trim() || isSending || !token) return
 
     setIsSending(true)
     try {
