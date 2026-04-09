@@ -228,14 +228,16 @@ export default function SchedulePage() {
                 }),
                 completed: (date) => schedules.every(s => isSameDay(parseISO(s.startTime), date) ? isPast(new Date(s.endTime)) : true) && schedules.some(s => isSameDay(parseISO(s.startTime), date)),
                 holiday: (date) => showVNHolidays && vn2026Holidays.some(h => isSameDay(h.date, date)),
-                viewHighlight: (date) => {
-                   if (view === 'week') return isSameWeek(date, selectedDate, { weekStartsOn: 1 });
-                   if (view === 'month') return isSameMonth(date, selectedDate);
-                   return false;
-                }
+                weekHighlightStart: (date) => view === 'week' && isSameWeek(date, selectedDate, { weekStartsOn: 1 }) && date.getDay() === 1,
+                weekHighlightEnd: (date) => view === 'week' && isSameWeek(date, selectedDate, { weekStartsOn: 1 }) && date.getDay() === 0,
+                weekHighlightMiddle: (date) => view === 'week' && isSameWeek(date, selectedDate, { weekStartsOn: 1 }) && date.getDay() !== 1 && date.getDay() !== 0,
+                monthHighlight: (date) => view === 'month' && isSameMonth(date, selectedDate)
               }}
               modifiersClassNames={{
-                viewHighlight: "bg-primary/10 text-primary rounded-none first:rounded-l-md last:rounded-r-md",
+                weekHighlightStart: "bg-primary/20 text-primary rounded-l-md rounded-r-none",
+                weekHighlightEnd: "bg-primary/20 text-primary rounded-r-md rounded-l-none",
+                weekHighlightMiddle: "bg-primary/20 text-primary rounded-none",
+                monthHighlight: "bg-primary/10 text-primary rounded-md",
                 holiday: "bg-blue-100 text-blue-600 rounded-full"
               }}
             />
