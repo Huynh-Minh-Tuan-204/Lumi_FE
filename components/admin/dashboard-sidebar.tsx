@@ -23,7 +23,6 @@ const adminNavItems = [
   { href: '/dashboard/users', icon: Users, label: 'Quản lý người dùng' },
   { href: '/dashboard/groups', icon: MessageSquare, label: 'Quản lý nhóm' },
   { href: '/dashboard/schedule', icon: Calendar, label: 'Lịch làm việc' },
-  { href: '/dashboard/notifications', icon: Bell, label: 'Thông báo' },
   { href: '/dashboard/online', icon: Activity, label: 'Theo dõi trực tuyến' },
 ]
 
@@ -31,7 +30,6 @@ const managerNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan', exact: true },
   { href: '/dashboard/groups', icon: MessageSquare, label: 'Nhóm của tôi' },
   { href: '/dashboard/schedule', icon: Calendar, label: 'Lịch làm việc' },
-  { href: '/dashboard/notifications', icon: Bell, label: 'Thông báo' },
 ]
 
 export function DashboardSidebar() {
@@ -90,18 +88,6 @@ export function DashboardSidebar() {
           >
             <ChevronLeft className="h-5 w-5" />
             <span className="font-medium">Quay lại Chat</span>
-          </Link>
-          <Link
-            href="/dashboard/settings"
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
-              pathname === '/dashboard/settings'
-                ? 'bg-sidebar-primary text-sidebar-primary-foreground'
-                : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-            )}
-          >
-            <Settings className="h-5 w-5" />
-            <span className="font-medium">Cài đặt</span>
           </Link>
         </nav>
       </ScrollArea>
