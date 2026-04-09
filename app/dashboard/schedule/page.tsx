@@ -47,6 +47,7 @@ export default function SchedulePage() {
   const { token, user } = useAuth()
   const [schedules, setSchedules] = useState<WorkScheduleResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date())
@@ -120,15 +121,23 @@ export default function SchedulePage() {
       return
     }
 
-    try {
-      const startIso = new Date(`${startDate}T${startTime}`).toISOString()
-      const endIso = new Date(`${endDate}T${endTime}`).toISOString()
+    const startIso = new Date(`${startDate}T${startTime}`)
+    const endIso = new Date(`${endDate}T${endTime}`)
 
+    if (endIso <= startIso) {
+      toast.error('Thời gian kết thúc phải lớn hơn thời gian bắt đầu')
+      return
+    }
+
+    if (isSubmitting) return
+    setIsSubmitting(true)
+
+    try {
       await schedulesApi.create(token!, {
         title,
         description,
-        startTime: startIso,
-        endTime: endIso,
+        startTime: startIso.toISOString(),
+        endTime: endIso.toISOString(),
         location,
         participantIds: selectedParticipants
       })
@@ -143,7 +152,18 @@ export default function SchedulePage() {
       setSelectedParticipants([])
     } catch (e) {
       toast.error('Lỗi khi tạo lịch trình')
+    } finally {
+      setIsSubmitting(false)
     }
+  }
+
+  const handleStartTimeChange = (newTime: string) => {
+    setStartTime(newTime);
+    // Auto set end time to start + 30 mins
+    const [h, m] = newTime.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m + 30);
+    setEndTime(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
   }
 
   const handleResponse = async (id: number, status: 'Accepted' | 'Declined') => {
@@ -379,7 +399,7 @@ export default function SchedulePage() {
                           <div className="flex items-center bg-background border rounded-xl h-11 px-3 gap-1 sm:w-32 group focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                             <select 
                               value={startTime.split(':')[0]} 
-                              onChange={e => setStartTime(`${e.target.value}:${startTime.split(':')[1]}`)}
+                              onChange={e => handleStartTimeChange(`${e.target.value}:${startTime.split(':')[1]}`)}
                               className="bg-transparent outline-none cursor-pointer appearance-none text-sm w-6"
                             >
                               {Array.from({length: 24}).map((_, i) => (
@@ -389,7 +409,7 @@ export default function SchedulePage() {
                             <span className="text-muted-foreground font-bold">:</span>
                             <select 
                               value={startTime.split(':')[1]} 
-                              onChange={e => setStartTime(`${startTime.split(':')[0]}:${e.target.value}`)}
+                              onChange={e => handleStartTimeChange(`${startTime.split(':')[0]}:${e.target.value}`)}
                               className="bg-transparent outline-none cursor-pointer appearance-none text-sm w-6"
                             >
                               {Array.from({length: 60}).map((_, i) => (
@@ -482,7 +502,9 @@ export default function SchedulePage() {
 
                 <div className="p-6 bg-muted/10 border-t flex justify-end gap-3 shrink-0">
                   <Button variant="ghost" onClick={() => setIsAddOpen(false)} className="rounded-xl">Hủy</Button>
-                  <Button onClick={handleCreate} className="rounded-xl px-8 shadow-md">Tạo lịch</Button>
+                  <Button onClick={handleCreate} disabled={isSubmitting} className="rounded-xl px-8 shadow-md">
+                    {isSubmitting ? 'Đang tạo...' : 'Tạo lịch'}
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -490,7 +512,8 @@ export default function SchedulePage() {
         </div>
 
         {/* Content Area */}
-        <ScrollArea className="flex-1 p-6 custom-scrollbar">
+        <div className="flex-1 overflow-hidden relative">
+          <ScrollArea className="absolute inset-0 p-6 custom-scrollbar">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center p-20 animate-pulse">
               <CalendarIcon className="h-12 w-12 text-muted-foreground/30 mb-4" />
@@ -686,6 +709,7 @@ export default function SchedulePage() {
             </div>
           )}
         </ScrollArea>
+        </div>
       </div>
     </div>
   )
