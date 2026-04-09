@@ -365,14 +365,14 @@ export default function SchedulePage() {
                         <Label className="text-sm font-semibold">Bắt đầu <span className="text-destructive">*</span></Label>
                         <div className="flex flex-col sm:flex-row gap-2">
                           <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-11 rounded-xl" />
-                          <Input type="time" lang="en-GB" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-11 rounded-xl sm:w-32" />
+                          <Input type="time" lang="en-GB-u-hc-h23" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-11 rounded-xl sm:w-32" />
                         </div>
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Kết thúc <span className="text-destructive">*</span></Label>
                         <div className="flex flex-col sm:flex-row gap-2">
                           <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-11 rounded-xl" />
-                          <Input type="time" lang="en-GB" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-11 rounded-xl sm:w-32" />
+                          <Input type="time" lang="en-GB-u-hc-h23" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-11 rounded-xl sm:w-32" />
                         </div>
                       </div>
                     </div>

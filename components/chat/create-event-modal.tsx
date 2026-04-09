@@ -122,14 +122,14 @@ export function CreateEventModal({ token, isOpen, onClose, initialParticipants =
               <Label className="text-[10px] font-black uppercase tracking-widest opacity-40">Bắt đầu <span className="text-destructive">*</span></Label>
               <div className="flex gap-2">
                 <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-11 rounded-xl bg-muted/20 border-white/5" />
-                <Input type="time" lang="en-GB" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-11 rounded-xl w-32 bg-muted/20 border-white/5" />
+                <Input type="time" lang="en-GB-u-hc-h23" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-11 rounded-xl w-32 bg-muted/20 border-white/5" />
               </div>
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest opacity-40">Kết thúc <span className="text-destructive">*</span></Label>
               <div className="flex gap-2">
                 <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-11 rounded-xl bg-muted/20 border-white/5" />
-                <Input type="time" lang="en-GB" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-11 rounded-xl w-32 bg-muted/20 border-white/5" />
+                <Input type="time" lang="en-GB-u-hc-h23" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-11 rounded-xl w-32 bg-muted/20 border-white/5" />
               </div>
             </div>
           </div>
