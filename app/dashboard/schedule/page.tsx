@@ -96,7 +96,12 @@ export default function SchedulePage() {
     setIsLoading(true)
     try {
       const sch = await schedulesApi.getMySchedules(token!)
-      setSchedules(sch.filter(s => !isNaN(new Date(s.startTime).getTime())))
+      // Filter unique by ID to prevent duplicates if any, and filter out invalid dates
+      const uniqueMap = new Map();
+      sch.forEach(s => uniqueMap.set(s.id, s));
+      const uniqueSchedules = Array.from(uniqueMap.values());
+      
+      setSchedules(uniqueSchedules.filter(s => !isNaN(new Date(s.startTime).getTime())))
       
       const usersData = await adminApi.getAllUsers(token!)
       // Show all users but allow excluding current user if needed, or keeping it for verification
@@ -160,6 +165,12 @@ export default function SchedulePage() {
     } catch {
       toast.error('Lỗi khi xóa')
     }
+  }
+
+  const parseTime = (dateStr: string) => {
+    if (!dateStr) return new Date();
+    const cleaned = (dateStr.includes('Z') || dateStr.includes('+')) ? dateStr : dateStr + 'Z';
+    return new Date(cleaned);
   }
 
   const handleNavigate = (direction: 'next' | 'prev') => {
@@ -546,9 +557,9 @@ export default function SchedulePage() {
                         {/* Time Column */}
                         <div className="w-40 p-6 flex flex-col justify-center items-center bg-muted/5 border-r shrink-0">
                           <span className="text-xl font-bold tracking-tight">
-                            {format(new Date(sch.startTime), 'HH:mm')}
+                            {format(parseTime(sch.startTime), 'HH:mm')}
                           </span>
-                          <span className="text-[10px] text-muted-foreground mt-1 uppercase font-semibold">Kết thúc {format(new Date(sch.endTime), 'HH:mm')}</span>
+                          <span className="text-[10px] text-muted-foreground mt-1 uppercase font-semibold">Kết thúc {format(parseTime(sch.endTime), 'HH:mm')}</span>
                         </div>
 
                         {/* Info Column */}
