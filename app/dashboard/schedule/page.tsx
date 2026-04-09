@@ -105,8 +105,8 @@ export default function SchedulePage() {
       setSchedules(uniqueSchedules.filter(s => !isNaN(new Date(s.startTime).getTime())))
       
       const usersData = await adminApi.getAllUsers(token!)
-      // Show all users but allow excluding current user if needed, or keeping it for verification
-      setAllUsers(usersData)
+      // Show only active users for selection
+      setAllUsers(usersData.filter(u => u.isActive))
     } catch (e) {
       console.error(e)
       toast.error('Không thể tải dữ liệu lịch trình')

@@ -39,6 +39,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard/users': 'Quản lý người dùng',
   '/dashboard/groups': 'Quản lý nhóm',
   '/dashboard/online': 'Theo dõi trực tuyến',
+  '/dashboard/notifications': 'Thông báo',
   '/dashboard/settings': 'Cài đặt',
 }
 
@@ -46,6 +47,7 @@ const adminNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan', exact: true },
   { href: '/dashboard/users', icon: Users, label: 'Quản lý người dùng' },
   { href: '/dashboard/schedule', icon: Calendar, label: 'Lịch làm việc' },
+  { href: '/dashboard/notifications', icon: Bell, label: 'Thông báo' },
   { href: '/dashboard/online', icon: Activity, label: 'Theo dõi trực tuyến' },
 ]
 

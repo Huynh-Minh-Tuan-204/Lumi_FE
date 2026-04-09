@@ -56,7 +56,7 @@ export function CreateEventModal({ token, isOpen, onClose, initialParticipants =
   const loadUsers = async () => {
     try {
       const users = await adminApi.getAllUsers(token)
-      setAllUsers(users)
+      setAllUsers(users.filter(u => u.isActive))
     } catch (e) {
       console.error(e)
     }

@@ -23,6 +23,7 @@ const adminNavItems = [
   { href: '/dashboard/users', icon: Users, label: 'Quản lý người dùng' },
   { href: '/dashboard/groups', icon: MessageSquare, label: 'Quản lý nhóm' },
   { href: '/dashboard/schedule', icon: Calendar, label: 'Lịch làm việc' },
+  { href: '/dashboard/notifications', icon: Bell, label: 'Thông báo' },
   { href: '/dashboard/online', icon: Activity, label: 'Theo dõi trực tuyến' },
 ]
 
@@ -30,6 +31,7 @@ const managerNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan', exact: true },
   { href: '/dashboard/groups', icon: MessageSquare, label: 'Nhóm của tôi' },
   { href: '/dashboard/schedule', icon: Calendar, label: 'Lịch làm việc' },
+  { href: '/dashboard/notifications', icon: Bell, label: 'Thông báo' },
 ]
 
 export function DashboardSidebar() {

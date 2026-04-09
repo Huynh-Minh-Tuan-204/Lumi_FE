@@ -49,7 +49,7 @@ export default function NotificationsPage() {
     if (!token) return
     try {
       const data = await adminApi.getAllUsers(token)
-      setAllUsers(data)
+      setAllUsers(data.filter((u: any) => u.isActive))
     } catch (e) {}
   }
 
