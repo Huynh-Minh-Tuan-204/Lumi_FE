@@ -365,14 +365,56 @@ export default function SchedulePage() {
                         <Label className="text-sm font-semibold">Bắt đầu <span className="text-destructive">*</span></Label>
                         <div className="flex flex-col sm:flex-row gap-2">
                           <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-11 rounded-xl" />
-                          <Input type="time" lang="en-GB-u-hc-h23" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-11 rounded-xl sm:w-32" />
+                          <div className="flex items-center bg-background border rounded-xl h-11 px-3 gap-1 sm:w-32 group focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                            <select 
+                              value={startTime.split(':')[0]} 
+                              onChange={e => setStartTime(`${e.target.value}:${startTime.split(':')[1]}`)}
+                              className="bg-transparent outline-none cursor-pointer appearance-none text-sm w-6"
+                            >
+                              {Array.from({length: 24}).map((_, i) => (
+                                <option key={i} value={i.toString().padStart(2, '0')} className="bg-card text-foreground">{i.toString().padStart(2, '0')}</option>
+                              ))}
+                            </select>
+                            <span className="text-muted-foreground font-bold">:</span>
+                            <select 
+                              value={startTime.split(':')[1]} 
+                              onChange={e => setStartTime(`${startTime.split(':')[0]}:${e.target.value}`)}
+                              className="bg-transparent outline-none cursor-pointer appearance-none text-sm w-6"
+                            >
+                              {Array.from({length: 60}).map((_, i) => (
+                                <option key={i} value={i.toString().padStart(2, '0')} className="bg-card text-foreground">{i.toString().padStart(2, '0')}</option>
+                              ))}
+                            </select>
+                            <Clock className="h-3.5 w-3.5 ml-auto text-muted-foreground/40" />
+                          </div>
                         </div>
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Kết thúc <span className="text-destructive">*</span></Label>
                         <div className="flex flex-col sm:flex-row gap-2">
                           <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-11 rounded-xl" />
-                          <Input type="time" lang="en-GB-u-hc-h23" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-11 rounded-xl sm:w-32" />
+                          <div className="flex items-center bg-background border rounded-xl h-11 px-3 gap-1 sm:w-32 group focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                            <select 
+                              value={endTime.split(':')[0]} 
+                              onChange={e => setEndTime(`${e.target.value}:${endTime.split(':')[1]}`)}
+                              className="bg-transparent outline-none cursor-pointer appearance-none text-sm w-6"
+                            >
+                              {Array.from({length: 24}).map((_, i) => (
+                                <option key={i} value={i.toString().padStart(2, '0')} className="bg-card text-foreground">{i.toString().padStart(2, '0')}</option>
+                              ))}
+                            </select>
+                            <span className="text-muted-foreground font-bold">:</span>
+                            <select 
+                              value={endTime.split(':')[1]} 
+                              onChange={e => setEndTime(`${endTime.split(':')[0]}:${e.target.value}`)}
+                              className="bg-transparent outline-none cursor-pointer appearance-none text-sm w-6"
+                            >
+                              {Array.from({length: 60}).map((_, i) => (
+                                <option key={i} value={i.toString().padStart(2, '0')} className="bg-card text-foreground">{i.toString().padStart(2, '0')}</option>
+                              ))}
+                            </select>
+                            <Clock className="h-3.5 w-3.5 ml-auto text-muted-foreground/40" />
+                          </div>
                         </div>
                       </div>
                     </div>
