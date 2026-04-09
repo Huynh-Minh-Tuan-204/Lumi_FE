@@ -36,7 +36,7 @@ import {
   MoreVertical
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { format, isSameDay, addMonths, subMonths, parseISO, isPast } from 'date-fns'
+import { format, isSameDay, isSameWeek, isSameMonth, addMonths, subMonths, parseISO, isPast } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { Calendar } from '@/components/ui/calendar'
 import { Badge } from '@/components/ui/badge'
@@ -148,9 +148,17 @@ export default function SchedulePage() {
     }
   }
 
-  const filteredByDate = schedules.filter(sch => 
-    isSameDay(parseISO(sch.startTime), selectedDate)
-  ).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+  const filteredByDate = schedules.filter(sch => {
+    const schDate = parseISO(sch.startTime)
+    if (view === 'day') {
+      return isSameDay(schDate, selectedDate)
+    } else if (view === 'week') {
+      return isSameWeek(schDate, selectedDate, { weekStartsOn: 1, locale: vi })
+    } else if (view === 'month') {
+      return isSameMonth(schDate, selectedDate)
+    }
+    return isSameDay(schDate, selectedDate)
+  }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
 
   return (
     <div className="flex h-[calc(100vh-140px)] gap-6 overflow-hidden">
