@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { schedulesApi, WorkScheduleResponse } from '@/lib/api'
 import { getAvatarUrl, cn } from '@/lib/utils'
-import { format, isSameDay, parseISO, isPast } from 'date-fns'
+import { format, isSameDay, parseISO, isPast, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameWeek, isSameMonth } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { Calendar } from '@/components/ui/calendar'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useSignalR } from '@/hooks/use-signalr'
-import { parseISO, addDays, addWeeks, addMonths, subDays, subWeeks, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameWeek, isSameMonth } from 'date-fns'
+
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, MapPin, Video, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
