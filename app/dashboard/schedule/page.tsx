@@ -240,6 +240,12 @@ export default function SchedulePage() {
                 monthHighlight: "bg-primary/10 text-primary rounded-md",
                 holiday: "bg-blue-100 text-blue-600 rounded-full"
               }}
+              modifiersStyles={{
+                hasEvent: { fontWeight: 'bold' },
+                unfinished: { borderBottom: '2px solid #ef4444' }, // Red underline
+                ongoing: { borderBottom: '2px solid #eab308' },    // Yellow underline
+                completed: { borderBottom: '2px solid #22c55e' }   // Green underline
+              }}
             />
           </div>
         </div>
