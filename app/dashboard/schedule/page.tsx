@@ -206,14 +206,20 @@ export default function SchedulePage() {
                    return isSameDay(start, date) && now >= start && now <= end;
                 }),
                 completed: (date) => schedules.every(s => isSameDay(parseISO(s.startTime), date) ? isPast(new Date(s.endTime)) : true) && schedules.some(s => isSameDay(parseISO(s.startTime), date)),
-                holiday: (date) => showVNHolidays && vn2026Holidays.some(h => isSameDay(h.date, date))
+                holiday: (date) => showVNHolidays && vn2026Holidays.some(h => isSameDay(h.date, date)),
+                viewHighlight: (date) => {
+                   if (view === 'week') return isSameWeek(date, selectedDate, { weekStartsOn: 1 });
+                   if (view === 'month') return isSameMonth(date, selectedDate);
+                   return false;
+                }
               }}
               modifiersStyles={{
                 hasEvent: { fontWeight: 'bold', color: 'hsl(var(--primary))' },
                 unfinished: { borderBottom: '2px solid #ef4444' }, // Red dot/line
                 ongoing: { borderBottom: '2px solid #eab308' },    // Yellow dot/line
                 completed: { borderBottom: '2px solid #22c55e' },  // Green dot/line
-                holiday: { color: '#3b82f6', backgroundColor: '#eff6ff', borderRadius: '50%' }
+                holiday: { color: '#3b82f6', backgroundColor: '#eff6ff', borderRadius: '50%' },
+                viewHighlight: { backgroundColor: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', borderRadius: '4px' }
               }}
             />
           </div>
