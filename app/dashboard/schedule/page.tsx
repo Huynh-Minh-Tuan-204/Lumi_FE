@@ -63,6 +63,19 @@ export default function SchedulePage() {
   // Participant picking
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [selectedParticipants, setSelectedParticipants] = useState<number[]>([])
+  const [showVNHolidays, setShowVNHolidays] = useState(true)
+
+  const vn2026Holidays = [
+    { date: new Date(2026, 0, 1), label: 'Tết Dương Lịch' },
+    { date: new Date(2026, 1, 16), label: 'Giao thừa' },
+    { date: new Date(2026, 1, 17), label: 'Mùng 1 Tết Bính Ngọ' },
+    { date: new Date(2026, 1, 18), label: 'Mùng 2 Tết Bính Ngọ' },
+    { date: new Date(2026, 1, 19), label: 'Mùng 3 Tết Bính Ngọ' },
+    { date: new Date(2026, 3, 26), label: 'Giỗ tổ Hùng Vương' },
+    { date: new Date(2026, 3, 30), label: 'Giải phóng miền Nam' },
+    { date: new Date(2026, 4, 1), label: 'Quốc tế Lao động' },
+    { date: new Date(2026, 8, 2), label: 'Quốc khánh' },
+  ]
 
   const { lastScheduleUpdate } = useSignalR()
 
@@ -160,6 +173,8 @@ export default function SchedulePage() {
     return isSameDay(schDate, selectedDate)
   }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
 
+  const currentHoliday = vn2026Holidays.find(h => isSameDay(h.date, selectedDate))
+
   return (
     <div className="flex h-[calc(100vh-140px)] gap-6 overflow-hidden">
       {/* Sidebar - Mini Calendar */}
@@ -185,13 +200,15 @@ export default function SchedulePage() {
                    const now = new Date();
                    return isSameDay(start, date) && now >= start && now <= end;
                 }),
-                completed: (date) => schedules.every(s => isSameDay(parseISO(s.startTime), date) ? isPast(new Date(s.endTime)) : true) && schedules.some(s => isSameDay(parseISO(s.startTime), date))
+                completed: (date) => schedules.every(s => isSameDay(parseISO(s.startTime), date) ? isPast(new Date(s.endTime)) : true) && schedules.some(s => isSameDay(parseISO(s.startTime), date)),
+                holiday: (date) => showVNHolidays && vn2026Holidays.some(h => isSameDay(h.date, date))
               }}
               modifiersStyles={{
                 hasEvent: { fontWeight: 'bold', color: 'hsl(var(--primary))' },
                 unfinished: { borderBottom: '2px solid #ef4444' }, // Red dot/line
                 ongoing: { borderBottom: '2px solid #eab308' },    // Yellow dot/line
-                completed: { borderBottom: '2px solid #22c55e' }   // Green dot/line
+                completed: { borderBottom: '2px solid #22c55e' },  // Green dot/line
+                holiday: { color: '#3b82f6', backgroundColor: '#eff6ff', borderRadius: '50%' }
               }}
             />
           </div>
@@ -204,9 +221,15 @@ export default function SchedulePage() {
               <div className="h-3 w-3 rounded-full bg-primary" />
               <span className="text-sm font-medium">Sự kiện chính</span>
             </div>
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted text-muted-foreground cursor-pointer transition-all">
-              <div className="h-3 w-3 rounded-full bg-blue-500" />
-              <span className="text-sm">Ngày lễ VN</span>
+            <div 
+              onClick={() => setShowVNHolidays(!showVNHolidays)}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all",
+                showVNHolidays ? "bg-blue-500/10 text-blue-600" : "hover:bg-muted text-muted-foreground"
+              )}
+            >
+              <div className={cn("h-3 w-3 rounded-full", showVNHolidays ? "bg-blue-600" : "bg-blue-500")} />
+              <span className="text-sm font-medium">Ngày lễ VN</span>
             </div>
           </div>
         </div>
@@ -380,7 +403,7 @@ export default function SchedulePage() {
               <CalendarIcon className="h-12 w-12 text-muted-foreground/30 mb-4" />
               <p className="text-muted-foreground">Đang tải lịch trình...</p>
             </div>
-          ) : filteredByDate.length === 0 ? (
+          ) : (filteredByDate.length === 0 && !currentHoliday) ? (
             <div className="h-[400px] flex flex-col items-center justify-center text-center space-y-4">
               <div className="h-20 w-20 bg-muted/30 rounded-full flex items-center justify-center mb-2">
                 <CalendarIcon className="h-10 w-10 text-muted-foreground/20" />
@@ -397,6 +420,18 @@ export default function SchedulePage() {
             </div>
           ) : (
             <div className="space-y-4 max-w-4xl mx-auto">
+              {showVNHolidays && currentHoliday && (
+                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 flex flex-col md:flex-row items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div className="h-12 w-12 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-200">
+                    <CalendarIcon className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1 text-center md:text-left">
+                    <h4 className="text-blue-700 font-bold text-lg">{currentHoliday.label}</h4>
+                    <p className="text-blue-600/80 text-sm font-medium">Hệ thống gợi nhắc: Đây là ngày lễ quốc gia.</p>
+                  </div>
+                  <Badge className="bg-blue-600 text-white border-none px-4 py-1.5 rounded-xl uppercase text-[10px] font-bold">Ngày lễ</Badge>
+                </div>
+              )}
               {filteredByDate.map(sch => {
                 const isCreator = sch.userRole === 'Creator';
                 const meParticipant = sch.participants.find(p => p.userId === user?.id);

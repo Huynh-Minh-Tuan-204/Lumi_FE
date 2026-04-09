@@ -581,7 +581,7 @@ export const schedulesApi = {
     }),
 
   delete: (token: string, id: number) =>
-    request<void>(`/WorkSchedules/${id}/delete`, {
+    request<void>(`/WorkSchedules/remove-schedule/${id}`, {
       method: 'POST',
       token,
     }),
