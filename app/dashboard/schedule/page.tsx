@@ -234,13 +234,9 @@ export default function SchedulePage() {
                    return false;
                 }
               }}
-              modifiersStyles={{
-                hasEvent: { fontWeight: 'bold', color: 'hsl(var(--primary))' },
-                unfinished: { borderBottom: '2px solid #ef4444' }, // Red dot/line
-                ongoing: { borderBottom: '2px solid #eab308' },    // Yellow dot/line
-                completed: { borderBottom: '2px solid #22c55e' },  // Green dot/line
-                holiday: { color: '#3b82f6', backgroundColor: '#eff6ff', borderRadius: '50%' },
-                viewHighlight: { backgroundColor: 'hsl(var(--primary) / 0.1)', color: 'hsl(var(--primary))', borderRadius: '4px' }
+              modifiersClassNames={{
+                viewHighlight: "bg-primary/10 text-primary rounded-none first:rounded-l-md last:rounded-r-md",
+                holiday: "bg-blue-100 text-blue-600 rounded-full"
               }}
             />
           </div>
@@ -277,7 +273,7 @@ export default function SchedulePage() {
         {/* Toolbar */}
         <div className="p-4 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-muted/10">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold tracking-tight shrink-0">
+            <h1 className="text-2xl font-bold tracking-tight w-[280px] shrink-0">
               {format(selectedDate, 'eeee, dd MMMM', { locale: vi })}
             </h1>
             <div className="flex items-center gap-1 bg-background border rounded-lg p-1">
