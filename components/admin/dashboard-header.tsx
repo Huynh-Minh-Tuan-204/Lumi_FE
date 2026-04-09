@@ -31,6 +31,7 @@ import {
   Activity,
   ChevronLeft,
   Calendar,
+  Bell,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/theme-toggle'
 
