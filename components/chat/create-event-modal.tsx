@@ -39,6 +39,7 @@ export function CreateEventModal({ token, isOpen, onClose, initialParticipants =
   
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [selectedParticipants, setSelectedParticipants] = useState<number[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (isOpen) {
@@ -67,15 +68,23 @@ export function CreateEventModal({ token, isOpen, onClose, initialParticipants =
       return
     }
 
-    try {
-      const startIso = new Date(`${startDate}T${startTime}`).toISOString()
-      const endIso = new Date(`${endDate}T${endTime}`).toISOString()
+    const startIso = new Date(`${startDate}T${startTime}`)
+    const endIso = new Date(`${endDate}T${endTime}`)
 
+    if (endIso <= startIso) {
+      toast.error('Thời gian kết thúc phải lớn hơn thời gian bắt đầu')
+      return
+    }
+
+    if (isSubmitting) return
+    setIsSubmitting(true)
+
+    try {
       await schedulesApi.create(token, {
         title,
         description,
-        startTime: startIso,
-        endTime: endIso,
+        startTime: startIso.toISOString(),
+        endTime: endIso.toISOString(),
         location,
         participantIds: selectedParticipants
       })
@@ -89,7 +98,18 @@ export function CreateEventModal({ token, isOpen, onClose, initialParticipants =
       setSelectedParticipants([])
     } catch (e) {
       toast.error('Lỗi khi tạo sự kiện')
+    } finally {
+      setIsSubmitting(false)
     }
+  }
+
+  const handleStartTimeChange = (newTime: string) => {
+    setStartTime(newTime);
+    // Auto set end time to start + 30 mins
+    const [h, m] = newTime.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m + 30);
+    setEndTime(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`);
   }
 
   return (
@@ -121,11 +141,11 @@ export function CreateEventModal({ token, isOpen, onClose, initialParticipants =
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest opacity-40">Bắt đầu <span className="text-destructive">*</span></Label>
               <div className="flex gap-2">
-                <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-11 rounded-xl bg-muted/20 border-white/5" />
+                <Input type="date" lang="vi-VN" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-11 rounded-xl bg-muted/20 border-white/5" />
                 <div className="flex items-center bg-muted/20 border-white/5 border rounded-xl h-11 px-3 gap-1 w-32 group focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                   <select 
                     value={startTime.split(':')[0]} 
-                    onChange={e => setStartTime(`${e.target.value}:${startTime.split(':')[1]}`)}
+                    onChange={e => handleStartTimeChange(`${e.target.value}:${startTime.split(':')[1]}`)}
                     className="bg-transparent outline-none cursor-pointer appearance-none text-sm w-6 text-foreground"
                   >
                     {Array.from({length: 24}).map((_, i) => (
@@ -135,7 +155,7 @@ export function CreateEventModal({ token, isOpen, onClose, initialParticipants =
                   <span className="text-muted-foreground/50 font-bold">:</span>
                   <select 
                     value={startTime.split(':')[1]} 
-                    onChange={e => setStartTime(`${startTime.split(':')[0]}:${e.target.value}`)}
+                    onChange={e => handleStartTimeChange(`${startTime.split(':')[0]}:${e.target.value}`)}
                     className="bg-transparent outline-none cursor-pointer appearance-none text-sm w-6 text-foreground"
                   >
                     {Array.from({length: 60}).map((_, i) => (
@@ -149,7 +169,7 @@ export function CreateEventModal({ token, isOpen, onClose, initialParticipants =
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest opacity-40">Kết thúc <span className="text-destructive">*</span></Label>
               <div className="flex gap-2">
-                <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-11 rounded-xl bg-muted/20 border-white/5" />
+                <Input type="date" lang="vi-VN" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-11 rounded-xl bg-muted/20 border-white/5" />
                 <div className="flex items-center bg-muted/20 border-white/5 border rounded-xl h-11 px-3 gap-1 w-32 group focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                   <select 
                     value={endTime.split(':')[0]} 
@@ -230,7 +250,9 @@ export function CreateEventModal({ token, isOpen, onClose, initialParticipants =
         </div>
         <div className="p-6 bg-white/5 border-t border-white/5 flex justify-end gap-3">
           <Button variant="ghost" onClick={onClose} className="rounded-xl px-6 font-bold uppercase text-[10px] tracking-widest">Hủy bỏ</Button>
-          <Button onClick={handleCreate} className="rounded-xl px-10 shadow-lg shadow-primary/20 font-black uppercase text-[10px] tracking-widest">Lưu sự kiện</Button>
+          <Button onClick={handleCreate} disabled={isSubmitting} className="rounded-xl px-10 shadow-lg shadow-primary/20 font-black uppercase text-[10px] tracking-widest">
+            {isSubmitting ? 'Đang tạo...' : 'Lưu sự kiện'}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

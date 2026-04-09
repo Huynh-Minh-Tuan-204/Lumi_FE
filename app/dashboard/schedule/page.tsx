@@ -395,7 +395,7 @@ export default function SchedulePage() {
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Bắt đầu <span className="text-destructive">*</span></Label>
                         <div className="flex flex-col sm:flex-row gap-2">
-                          <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-11 rounded-xl" />
+                          <Input type="date" lang="vi-VN" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-11 rounded-xl" />
                           <div className="flex items-center bg-background border rounded-xl h-11 px-3 gap-1 sm:w-32 group focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                             <select 
                               value={startTime.split(':')[0]} 
@@ -423,7 +423,7 @@ export default function SchedulePage() {
                       <div className="space-y-2">
                         <Label className="text-sm font-semibold">Kết thúc <span className="text-destructive">*</span></Label>
                         <div className="flex flex-col sm:flex-row gap-2">
-                          <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-11 rounded-xl" />
+                          <Input type="date" lang="vi-VN" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-11 rounded-xl" />
                           <div className="flex items-center bg-background border rounded-xl h-11 px-3 gap-1 sm:w-32 group focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                             <select 
                               value={endTime.split(':')[0]} 
@@ -512,8 +512,7 @@ export default function SchedulePage() {
         </div>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-hidden relative">
-          <ScrollArea className="absolute inset-0 p-6 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar relative">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center p-20 animate-pulse">
               <CalendarIcon className="h-12 w-12 text-muted-foreground/30 mb-4" />
@@ -708,7 +707,6 @@ export default function SchedulePage() {
               })}
             </div>
           )}
-        </ScrollArea>
         </div>
       </div>
     </div>
