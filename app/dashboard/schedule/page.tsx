@@ -266,93 +266,97 @@ export default function SchedulePage() {
                   Sự kiện mới
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[550px] rounded-3xl p-0 overflow-hidden">
+              <DialogContent className="sm:max-w-[550px] rounded-3xl p-0 overflow-hidden max-h-[95vh] flex flex-col">
                 <DialogDescription className="sr-only">
                     Tạo một lịch hẹn hoặc sự kiện mới và mời các thành viên tham gia thảo luận.
                 </DialogDescription>
-                <div className="bg-primary p-6 text-primary-foreground">
+                <div className="bg-primary p-6 text-primary-foreground shrink-0">
                    <DialogTitle className="text-2xl font-bold flex items-center gap-2">
                     <CalendarIcon className="h-6 w-6" />
                     Tạo sự kiện mới
-                  </DialogTitle>
+                   </DialogTitle>
                 </div>
-                <div className="p-8 space-y-6">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Tên sự kiện <span className="text-destructive">*</span></Label>
-                    <Input 
-                      value={title} 
-                      onChange={e => setTitle(e.target.value)} 
-                      placeholder="Ví dụ: Họp Stand-up hàng ngày" 
-                      className="h-11 rounded-xl"
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-6">
+                
+                <ScrollArea className="flex-1 overflow-y-auto">
+                  <div className="p-8 space-y-6">
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold">Bắt đầu <span className="text-destructive">*</span></Label>
-                      <div className="flex gap-2">
-                        <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-11 rounded-xl" />
-                        <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-11 rounded-xl w-32" />
+                      <Label className="text-sm font-semibold">Tên sự kiện <span className="text-destructive">*</span></Label>
+                      <Input 
+                        value={title} 
+                        onChange={e => setTitle(e.target.value)} 
+                        placeholder="Ví dụ: Họp Stand-up hàng ngày" 
+                        className="h-11 rounded-xl"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold">Bắt đầu <span className="text-destructive">*</span></Label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-11 rounded-xl" />
+                          <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-11 rounded-xl sm:w-32" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-semibold">Kết thúc <span className="text-destructive">*</span></Label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-11 rounded-xl" />
+                          <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-11 rounded-xl sm:w-32" />
+                        </div>
                       </div>
                     </div>
+
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold">Kết thúc <span className="text-destructive">*</span></Label>
-                      <div className="flex gap-2">
-                        <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-11 rounded-xl" />
-                        <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-11 rounded-xl w-32" />
+                      <Label className="text-sm font-semibold">Địa điểm / Link phòng họp</Label>
+                      <Input 
+                        value={location} 
+                        onChange={e => setLocation(e.target.value)} 
+                        placeholder="Phòng họp A hoặc Link E2EE" 
+                        className="h-11 rounded-xl"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm font-semibold">Mô tả sự kiện</Label>
+                      <Input 
+                        value={description} 
+                        onChange={e => setDescription(e.target.value)} 
+                        placeholder="Nội dung chính của cuộc họp..." 
+                        className="h-11 rounded-xl"
+                      />
+                    </div>
+
+                    <div className="space-y-3">
+                      <Label className="text-sm font-semibold">Thành phần tham dự</Label>
+                      <div className="border rounded-2xl p-4 bg-muted/20">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {allUsers.map(u => (
+                            <label key={u.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted cursor-pointer transition-all">
+                              <input 
+                                type="checkbox" 
+                                className="w-4 h-4 rounded border-gray-300 text-primary"
+                                checked={selectedParticipants.includes(u.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) setSelectedParticipants([...selectedParticipants, u.id])
+                                  else setSelectedParticipants(selectedParticipants.filter(id => id !== u.id))
+                                }}
+                              />
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarImage src={getAvatarUrl(u.avatarPath)} />
+                                  <AvatarFallback className="text-[10px]">{u.fullName.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-xs font-medium">{u.fullName}</span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
+                </ScrollArea>
 
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Địa điểm / Link phòng họp</Label>
-                    <Input 
-                      value={location} 
-                      onChange={e => setLocation(e.target.value)} 
-                      placeholder="Phòng họp A hoặc Link E2EE" 
-                      className="h-11 rounded-xl"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold">Mô tả sự kiện</Label>
-                    <Input 
-                      value={description} 
-                      onChange={e => setDescription(e.target.value)} 
-                      placeholder="Nội dung chính của cuộc họp..." 
-                      className="h-11 rounded-xl"
-                    />
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-sm font-semibold">Thành phần tham dự</Label>
-                    <ScrollArea className="h-32 border rounded-2xl p-4 bg-muted/20">
-                      <div className="grid grid-cols-2 gap-2">
-                        {allUsers.map(u => (
-                          <label key={u.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-muted cursor-pointer transition-all">
-                            <input 
-                              type="checkbox" 
-                              className="w-4 h-4 rounded border-gray-300 text-primary"
-                              checked={selectedParticipants.includes(u.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) setSelectedParticipants([...selectedParticipants, u.id])
-                                else setSelectedParticipants(selectedParticipants.filter(id => id !== u.id))
-                              }}
-                            />
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage src={getAvatarUrl(u.avatarPath)} />
-                                <AvatarFallback className="text-[10px]">{u.fullName.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                              <span className="text-xs font-medium">{u.fullName}</span>
-                            </div>
-                          </label>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </div>
-                <div className="p-6 bg-muted/10 border-t flex justify-end gap-3">
+                <div className="p-6 bg-muted/10 border-t flex justify-end gap-3 shrink-0">
                   <Button variant="ghost" onClick={() => setIsAddOpen(false)} className="rounded-xl">Hủy</Button>
                   <Button onClick={handleCreate} className="rounded-xl px-8 shadow-md">Tạo lịch</Button>
                 </div>
