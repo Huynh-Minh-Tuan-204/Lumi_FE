@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { adminApi } from '@/lib/api'
+import { adminApi, announcementsApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import { cn, getAvatarUrl } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -17,21 +17,82 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Bell, Send, Megaphone, Clock, CheckCircle } from 'lucide-react'
+import { 
+  Bell, 
+  Send, 
+  Megaphone, 
+  Clock, 
+  CheckCircle, 
+  Users,
+  Globe,
+  User as UserIcon,
+  Search
+} from 'lucide-react'
 
 interface Announcement {
   id: number
+  title: string
   sender: string
   message: string
   isSystem: boolean
   time: string
+  targetIds?: string[] | null
 }
+
+function AvatarStack({ userIds, allUsers }: { userIds: string[] | null | undefined, allUsers: any[] }) {
+  if (!userIds || userIds.length === 0) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center justify-center h-7 w-7 rounded-full bg-blue-500/10 border-2 border-background shadow-sm">
+                <Globe className="h-3 w-3 text-blue-500" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent>Gửi cho tất cả</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }
+
+  const maxDisplay = 3;
+  const displayIds = userIds.slice(0, maxDisplay);
+  const remaining = userIds.length - maxDisplay;
+
+  return (
+    <div className="flex -space-x-2 overflow-hidden items-center group">
+       {displayIds.map((id, i) => {
+          const u = allUsers.find(user => user.id.toString() === id.toString());
+          return (
+            <Avatar key={i} className="inline-block h-7 w-7 rounded-full ring-2 ring-background border-2 border-background transition-transform hover:scale-110">
+               <AvatarImage src={getAvatarUrl(u?.avatarPath)} className="object-cover" />
+               <AvatarFallback className="bg-muted text-[8px] font-bold">
+                  {u?.fullName?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
+               </AvatarFallback>
+            </Avatar>
+          )
+       })}
+       {remaining > 0 && (
+          <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary ring-2 ring-background border-2 border-background text-[9px] font-black text-white shrink-0">
+             +{remaining}
+          </div>
+       )}
+    </div>
+  )
+}
+
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 export default function NotificationsPage() {
   const { token, user } = useAuth()
-  const { sendNotification, isConnected, notifications: realtimeNotifications } = useSignalR()
+  const { isConnected, notifications: realtimeNotifications } = useSignalR()
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [title, setTitle] = useState('')
   const [newAnnouncement, setNewAnnouncement] = useState('')
@@ -40,6 +101,7 @@ export default function NotificationsPage() {
   const [targetType, setTargetType] = useState<'all' | 'specific'>('all')
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([])
   const [allUsers, setAllUsers] = useState<any[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     loadAnnouncements()
@@ -57,13 +119,15 @@ export default function NotificationsPage() {
   const loadAnnouncements = async () => {
     if (!token) return
     try {
-      const data = await adminApi.getAnnouncements(token)
-      const mapped = data.map(a => ({
+      const data: any = await announcementsApi.getAnnouncements(token)
+      const mapped = data.map((a: any) => ({
         id: a.id,
-        sender: a.senderName || '📢 HỆ THỐNG',
+        title: a.title || 'Thông báo',
+        sender: a.senderName || 'Hệ thống',
         message: a.message,
         isSystem: true,
-        time: a.timestamp
+        time: a.timestamp,
+        targetIds: a.targetIds
       }))
       setAnnouncements(mapped)
     } catch (error) {
@@ -88,7 +152,6 @@ export default function NotificationsPage() {
       setNewAnnouncement('')
       setTitle('')
       setSelectedUserIds([])
-      // Reload announcements to show the new one
       await loadAnnouncements()
     } catch (error) {
       console.error('Failed to send announcement:', error)
@@ -102,75 +165,113 @@ export default function NotificationsPage() {
     const date = new Date(dateString)
     const now = new Date()
     const diff = now.getTime() - date.getTime()
+    const minutes = Math.floor(diff / (1000 * 60))
     const hours = Math.floor(diff / (1000 * 60 * 60))
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
 
-    if (hours < 1) {
-      const minutes = Math.floor(diff / (1000 * 60))
-      return `${minutes} phút trước`
-    } else if (hours < 24) {
-      return `${hours} giờ trước`
-    } else if (days < 7) {
-      return `${days} ngày trước`
-    }
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+    if (minutes < 1) return `Vừa xong`
+    if (minutes < 60) return `${minutes} phút trước`
+    if (hours < 24) return `${hours} giờ trước`
+    if (days < 7) return `${days} ngày trước`
+    return date.toLocaleDateString('vi-VN', { month: '2-digit', day: '2-digit' })
   }
 
-  const isAdmin = user?.role === 'Admin'
-  const isManager = user?.role === 'Manager'
-  const canSendAnnouncements = isAdmin || isManager
+  const filteredHistory = useMemo(() => {
+    const realtimeItems = realtimeNotifications.map(n => ({
+        id: n.id,
+        title: n.title || 'Thông báo mới',
+        sender: n.sender || 'Hệ thống',
+        message: n.message,
+        isSystem: true,
+        time: n.time.toISOString(),
+        targetIds: null // Realtime notifications usually for user
+    }));
+
+    const all = [...realtimeItems, ...announcements];
+    
+    // Deduplicate
+    const unique = Array.from(new Map(all.map(item => [`${item.id}_${item.message}`, item])).values());
+    
+    // Sort newest first
+    const sorted = unique.sort((a,b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+
+    if (!searchQuery.trim()) return sorted;
+    return sorted.filter(a => 
+       a.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+       a.message.toLowerCase().includes(searchQuery.toLowerCase()) ||
+       a.sender.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [realtimeNotifications, announcements, searchQuery]);
+
+  const isAdmin = user?.role === 'Admin' || user?.role === 'Manager'
+  const canSendAnnouncements = isAdmin
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Thông báo</h2>
-        <p className="text-muted-foreground">
-          Gửi thông báo toàn công ty và xem lịch sử thông báo
-        </p>
+    <div className="space-y-8 animate-in fade-in duration-500 p-2 lg:p-4">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-black tracking-tight uppercase">Thông báo</h2>
+          <p className="text-muted-foreground font-medium text-sm mt-1">
+            Gửi thông báo toàn công ty và quản lý lịch sử phát tin
+          </p>
+        </div>
+        
+        <div className="relative w-full md:w-72">
+           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+           <input 
+              type="text" 
+              placeholder="Tìm kiếm thông báo..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-muted/20 border-2 border-primary/5 rounded-xl pl-10 pr-4 py-2 text-xs font-bold focus:border-primary outline-none transition-all placeholder:font-medium"
+           />
+        </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Send announcement */}
+      <div className="grid gap-8 lg:grid-cols-2">
         {canSendAnnouncements && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Megaphone className="h-5 w-5 text-primary" />
-                Gửi thông báo
+          <Card className="border-2 shadow-xl shadow-black/5 rounded-3xl overflow-hidden border-primary/5">
+            <CardHeader className="bg-muted/5 pb-6">
+              <CardTitle className="flex items-center gap-3 text-xl font-black uppercase">
+                <div className="h-10 w-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+                   <Megaphone className="h-5 w-5 text-white" />
+                </div>
+                Phát thông báo
               </CardTitle>
-              <CardDescription>
-                Phát tin nhắn đến tất cả người dùng trong hệ thống
+              <CardDescription className="font-medium">
+                Tạo tin nhắn hệ thống đến nhân viên được chọn hoặc toàn bộ tổ chức
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4 pt-1">
-                <div className="flex bg-muted p-1 rounded-lg">
+            <CardContent className="space-y-6 pt-6">
+              <div className="space-y-5">
+                <div className="flex bg-muted p-1 rounded-2xl">
                   <button 
                     onClick={() => setTargetType('all')}
                     className={cn(
-                      "flex-1 px-3 py-1.5 text-xs font-bold uppercase tracking-widest rounded-md transition-all",
-                      targetType === 'all' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                      "flex-1 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all",
+                      targetType === 'all' ? "bg-background shadow-lg text-primary" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    Gửi tất cả
+                    Tất cả
                   </button>
                   <button 
                     onClick={() => setTargetType('specific')}
                     className={cn(
-                      "flex-1 px-3 py-1.5 text-xs font-bold uppercase tracking-widest rounded-md transition-all",
-                      targetType === 'specific' ? "bg-background shadow-sm text-primary" : "text-muted-foreground hover:text-foreground"
+                      "flex-1 px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all",
+                      targetType === 'specific' ? "bg-background shadow-lg text-primary" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    Người dùng cụ thể
+                    Đối tượng cụ thể
                   </button>
                 </div>
 
                 {targetType === 'specific' && (
-                  <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Chọn người nhận ({selectedUserIds.length})</Label>
-                    <ScrollArea className="h-40 border rounded-lg p-2 bg-muted/20">
-                      <div className="grid grid-cols-2 gap-1">
+                  <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex justify-between">
+                       Người nhận <span>({selectedUserIds.length})</span>
+                    </Label>
+                    <ScrollArea className="h-44 border-2 border-primary/5 rounded-2xl p-2 bg-muted/10">
+                      <div className="grid grid-cols-2 gap-2">
                         {allUsers.map((u) => (
                           <div 
                             key={u.id}
@@ -180,18 +281,19 @@ export default function NotificationsPage() {
                               )
                             }}
                             className={cn(
-                              "flex items-center gap-2 p-2 rounded-md cursor-pointer transition-all border",
+                              "flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-all border-2",
                               selectedUserIds.includes(u.id) 
-                                ? "bg-primary/10 border-primary text-primary" 
-                                : "bg-card border-transparent hover:bg-muted"
+                                ? "bg-primary/5 border-primary shadow-sm" 
+                                : "bg-card border-transparent hover:border-primary/20"
                             )}
                           >
-                            <Avatar className="h-6 w-6">
-                              <AvatarFallback className="text-[10px] font-bold">
+                            <Avatar className="h-8 w-8 shadow-sm">
+                               <AvatarImage src={getAvatarUrl(u.avatarPath)} className="object-cover" />
+                               <AvatarFallback className="text-[10px] font-black bg-muted">
                                 {u.fullName?.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
+                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-xs font-medium truncate">{u.fullName}</span>
+                            <span className="text-[11px] font-black uppercase truncate">{u.fullName}</span>
                           </div>
                         ))}
                       </div>
@@ -199,41 +301,41 @@ export default function NotificationsPage() {
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Tiêu đề thông báo</Label>
+                <div className="space-y-3">
+                  <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Tiêu đề</Label>
                   <input
                     id="title"
                     type="text"
-                    placeholder="Nhập tiêu đề (VD: Lịch nghỉ lễ...)"
+                    placeholder="VD: Cập nhật lịch làm việc"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full bg-background border-2 rounded-lg px-3 py-2 text-sm font-bold focus:border-primary outline-none transition-all"
+                    className="w-full bg-background border-2 border-primary/10 rounded-2xl px-4 py-3 text-sm font-bold focus:border-primary outline-none transition-all placeholder:font-medium shadow-inner"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="announcement" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Tin nhắn</Label>
+                <div className="space-y-3">
+                  <Label htmlFor="announcement" className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Nội dung thông báo</Label>
                   <Textarea
                     id="announcement"
-                    placeholder="Loa loa loa! Nhập nội dung thông báo..."
+                    placeholder="Nhập nội dung chi tiết..."
                     value={newAnnouncement}
                     onChange={(e) => setNewAnnouncement(e.target.value)}
                     rows={4}
-                    className="resize-none font-medium text-sm border-2 focus-visible:ring-primary h-[80px]"
+                    className="resize-none font-bold text-sm border-2 border-primary/10 rounded-2xl focus-visible:ring-0 focus:border-primary px-4 py-3 bg-background shadow-inner h-[100px]"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2">
-                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              <div className="flex items-center justify-between pt-4">
+                <div className="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">
                   {isConnected ? (
                     <>
-                      <CheckCircle className="h-3 w-3 text-online" />
+                      <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
                       <span>Kết nối trực tiếp</span>
                     </>
                   ) : (
                     <>
-                      <Clock className="h-3 w-3 text-destructive" />
+                      <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
                       <span>Mất kết nối</span>
                     </>
                   )}
@@ -241,16 +343,16 @@ export default function NotificationsPage() {
                 <Button
                   onClick={handleSendAnnouncement}
                   disabled={!title.trim() || !newAnnouncement.trim() || isSending || !isConnected || (targetType === 'specific' && selectedUserIds.length === 0)}
-                  className="bg-primary hover:bg-primary/90 text-white font-bold h-11 px-6 shadow-lg shadow-primary/20"
+                  className="bg-primary hover:bg-primary/90 text-white font-black h-12 px-8 rounded-2xl shadow-xl shadow-primary/30 transition-all hover:scale-105 active:scale-95 text-xs uppercase tracking-[0.1em]"
                 >
                   {isSending ? (
                     <span className="flex items-center gap-2">
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Đang gửi...
+                      Đang xử lý...
                     </span>
                   ) : (
                     <>
-                      <Send className="h-4 w-4 mr-2" />
+                      <Send className="h-4 w-4 mr-3" />
                       BẮT ĐẦU GỬI
                     </>
                   )}
@@ -261,68 +363,69 @@ export default function NotificationsPage() {
         )}
 
         {/* Announcement history */}
-        <Card className={!canSendAnnouncements ? 'lg:col-span-2' : ''}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-primary" />
-              Announcement History
+        <Card className={cn(
+            "border-2 shadow-xl shadow-black/5 rounded-3xl overflow-hidden border-primary/5",
+            !canSendAnnouncements ? 'lg:col-span-2' : ''
+        )}>
+          <CardHeader className="bg-muted/5 pb-6">
+            <CardTitle className="flex items-center gap-3 text-xl font-black uppercase">
+               <div className="h-10 w-10 rounded-2xl bg-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
+                  <Bell className="h-5 w-5" />
+               </div>
+               Lịch sử thông báo
             </CardTitle>
-            <CardDescription>
-              Recent announcements sent to the organization
+            <CardDescription className="font-medium">
+               Các tin nhắn đã được gửi đi trong hệ thống
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <div className="flex items-center justify-center py-16">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
               </div>
-            ) : [...realtimeNotifications.map(n => ({ sender: n.sender || '📢 HỆ THỐNG', message: n.message, isSystem: n.isSystem || true, time: n.time.toISOString() })).reverse(), ...announcements].length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <Bell className="h-12 w-12 mb-4 opacity-20" />
-                <p className="text-center">Chưa có thông báo nào</p>
+            ) : filteredHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                <div className="h-24 w-24 bg-muted/40 rounded-full flex items-center justify-center mb-6">
+                  <Bell className="h-12 w-12 opacity-20" />
+                </div>
+                <p className="text-sm font-black uppercase tracking-widest opacity-40">Chưa có thông báo nào</p>
               </div>
             ) : (
-              <ScrollArea className="h-100 pr-4">
+              <ScrollArea className="h-[500px] pr-4">
                 <div className="space-y-4">
-                  {(() => {
-                    const all = [...realtimeNotifications.map(n => ({ 
-                      id: n.id,
-                      sender: n.sender || '📢 HỆ THỐNG', 
-                      message: n.message, 
-                      isSystem: n.isSystem || true, 
-                      time: n.time.toISOString() 
-                    })).reverse(), ...announcements];
-                    
-                    // Deduplicate by ID and Message to be sure
-                    const unique = Array.from(new Map(all.map(item => [`${item.id}_${item.message}`, item])).values());
-                    return unique;
-                  })().map((announcement, idx) => (
+                  {filteredHistory.map((announcement, idx) => (
                     <div
                       key={idx}
-                      className="flex gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                      className="group flex flex-col gap-4 p-5 rounded-3xl bg-muted/10 border-2 border-transparent hover:border-primary/10 hover:bg-muted/20 transition-all shadow-sm"
                     >
-                      <Avatar className="h-10 w-10 shrink-0">
-                        <AvatarFallback className="bg-primary/10 text-primary">
-                          <Megaphone className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-sm">
-                            {announcement.sender}
-                          </span>
-                          {announcement.isSystem && (
-                            <Badge variant="secondary" className="text-xs">
-                              Hệ thống
-                            </Badge>
-                          )}
-                          <span className="text-xs text-muted-foreground ml-auto">
-                            {formatTime(announcement.time)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-foreground/80">
-                          {announcement.message}
-                        </p>
+                      <div className="flex items-start justify-between">
+                         <div className="flex items-center gap-4 min-w-0">
+                            <div className="h-11 w-11 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                               <Megaphone className="h-5 w-5 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                               <p className="text-[12px] font-black uppercase text-primary tracking-tight truncate pr-2">{announcement.title}</p>
+                               <div className="flex items-center gap-2 mt-0.5">
+                                 <span className="text-[11px] font-bold opacity-60">bởi {announcement.sender}</span>
+                                 {announcement.isSystem && (
+                                   <Badge variant="outline" className="text-[8px] h-4 font-black uppercase bg-primary/5 text-primary border-primary/20">Hệ thống</Badge>
+                                 )}
+                               </div>
+                            </div>
+                         </div>
+                         <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center gap-1.5 opacity-40 text-[10px] font-black uppercase">
+                               <Clock className="h-3 w-3" />
+                               {formatTime(announcement.time)}
+                            </div>
+                            <AvatarStack userIds={announcement.targetIds} allUsers={allUsers} />
+                         </div>
+                      </div>
+                      
+                      <div className="bg-background/40 p-4 rounded-2xl border border-primary/5 shadow-inner">
+                         <p className="text-sm text-foreground/80 font-medium leading-relaxed">
+                           {announcement.message}
+                         </p>
                       </div>
                     </div>
                   ))}
