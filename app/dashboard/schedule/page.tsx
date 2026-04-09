@@ -36,7 +36,7 @@ import {
   MoreVertical
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { format, isSameDay, isSameWeek, isSameMonth, addMonths, subMonths, parseISO, isPast } from 'date-fns'
+import { format, isSameDay, isSameWeek, isSameMonth, addMonths, subMonths, addDays, subDays, addWeeks, subWeeks, parseISO, isPast } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { Calendar } from '@/components/ui/calendar'
 import { Badge } from '@/components/ui/badge'
@@ -49,6 +49,7 @@ export default function SchedulePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date())
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
 
   // New Schedule states
@@ -161,6 +162,19 @@ export default function SchedulePage() {
     }
   }
 
+  const handleNavigate = (direction: 'next' | 'prev') => {
+    let newDate = new Date(selectedDate);
+    if (view === 'day') {
+      newDate = direction === 'next' ? addDays(newDate, 1) : subDays(newDate, 1);
+    } else if (view === 'week') {
+      newDate = direction === 'next' ? addWeeks(newDate, 1) : subWeeks(newDate, 1);
+    } else if (view === 'month') {
+      newDate = direction === 'next' ? addMonths(newDate, 1) : subMonths(newDate, 1);
+    }
+    setSelectedDate(newDate);
+    setCurrentMonth(newDate);
+  }
+
   const filteredByDate = schedules.filter(sch => {
     const schDate = parseISO(sch.startTime)
     if (view === 'day') {
@@ -193,7 +207,14 @@ export default function SchedulePage() {
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
+              onSelect={(date) => {
+                if (date) {
+                  setSelectedDate(date);
+                  setCurrentMonth(date);
+                }
+              }}
+              month={currentMonth}
+              onMonthChange={setCurrentMonth}
               className="w-full"
               locale={vi}
               modifiers={{
@@ -260,13 +281,17 @@ export default function SchedulePage() {
               {format(selectedDate, 'eeee, dd MMMM', { locale: vi })}
             </h1>
             <div className="flex items-center gap-1 bg-background border rounded-lg p-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedDate(subMonths(selectedDate, 1))}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleNavigate('prev')}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="sm" className="h-8 px-3 font-medium" onClick={() => setSelectedDate(new Date())}>
+              <Button variant="ghost" size="sm" className="h-8 px-3 font-medium" onClick={() => {
+                const now = new Date();
+                setSelectedDate(now);
+                setCurrentMonth(now);
+              }}>
                 Hôm nay
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSelectedDate(addMonths(selectedDate, 1))}>
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleNavigate('next')}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
