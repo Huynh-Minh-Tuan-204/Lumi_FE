@@ -21,6 +21,9 @@ interface PersonalCalendarProps {
 
 export function PersonalCalendar({ token }: PersonalCalendarProps) {
   const [view, setView] = useState<'day' | 'week' | 'month'>('day')
+  const [schedules, setSchedules] = useState<WorkScheduleResponse[]>([])
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [isLoading, setIsLoading] = useState(true)
   const { lastScheduleUpdate } = useSignalR()
 
   useEffect(() => {
