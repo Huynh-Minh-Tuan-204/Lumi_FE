@@ -173,7 +173,12 @@ export default function SchedulePage() {
     return isSameDay(schDate, selectedDate)
   }).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
 
-  const currentHoliday = vn2026Holidays.find(h => isSameDay(h.date, selectedDate))
+  const currentHolidays = vn2026Holidays.filter(h => {
+    if (view === 'day') return isSameDay(h.date, selectedDate);
+    if (view === 'week') return isSameWeek(h.date, selectedDate, { weekStartsOn: 1, locale: vi });
+    if (view === 'month') return isSameMonth(h.date, selectedDate);
+    return false;
+  })
 
   return (
     <div className="flex h-[calc(100vh-140px)] gap-6 overflow-hidden">
@@ -403,7 +408,7 @@ export default function SchedulePage() {
               <CalendarIcon className="h-12 w-12 text-muted-foreground/30 mb-4" />
               <p className="text-muted-foreground">Đang tải lịch trình...</p>
             </div>
-          ) : (filteredByDate.length === 0 && !currentHoliday) ? (
+          ) : (filteredByDate.length === 0 && (!showVNHolidays || currentHolidays.length === 0)) ? (
             <div className="h-[400px] flex flex-col items-center justify-center text-center space-y-4">
               <div className="h-20 w-20 bg-muted/30 rounded-full flex items-center justify-center mb-2">
                 <CalendarIcon className="h-10 w-10 text-muted-foreground/20" />
@@ -411,7 +416,7 @@ export default function SchedulePage() {
               <div>
                 <h3 className="text-lg font-bold">Không có sự kiện nào</h3>
                 <p className="text-sm text-muted-foreground max-w-[250px] mx-auto">
-                  Bạn không có lịch trình nào vào ngày {format(selectedDate, 'dd/MM/yyyy')}.
+                  Bạn không có sự kiện nào trong {view === 'day' ? 'ngày này' : view === 'week' ? 'tuần này' : 'tháng này'}.
                 </p>
               </div>
               <Button variant="outline" className="rounded-xl" onClick={() => setIsAddOpen(true)}>
@@ -420,18 +425,18 @@ export default function SchedulePage() {
             </div>
           ) : (
             <div className="space-y-4 max-w-4xl mx-auto">
-              {showVNHolidays && currentHoliday && (
-                <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 flex flex-col md:flex-row items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+              {showVNHolidays && currentHolidays.map((holiday, i) => (
+                <div key={i} className="bg-blue-50 border border-blue-100 rounded-2xl p-6 flex flex-col md:flex-row items-center gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
                   <div className="h-12 w-12 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 shadow-lg shadow-blue-200">
                     <CalendarIcon className="h-6 w-6" />
                   </div>
                   <div className="flex-1 text-center md:text-left">
-                    <h4 className="text-blue-700 font-bold text-lg">{currentHoliday.label}</h4>
-                    <p className="text-blue-600/80 text-sm font-medium">Hệ thống gợi nhắc: Đây là ngày lễ quốc gia.</p>
+                    <h4 className="text-blue-700 font-bold text-lg">{holiday.label}</h4>
+                    <p className="text-blue-600/80 text-sm font-medium">Hệ thống gợi nhắc: Ngày {format(holiday.date, 'dd/MM/yyyy')} là ngày lễ quốc gia.</p>
                   </div>
                   <Badge className="bg-blue-600 text-white border-none px-4 py-1.5 rounded-xl uppercase text-[10px] font-bold">Ngày lễ</Badge>
                 </div>
-              )}
+              ))}
               {filteredByDate.map(sch => {
                 const isCreator = sch.userRole === 'Creator';
                 const meParticipant = sch.participants.find(p => p.userId === user?.id);
