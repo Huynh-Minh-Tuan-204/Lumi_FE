@@ -33,6 +33,7 @@ export default function NotificationsPage() {
   const { token, user } = useAuth()
   const { sendNotification, isConnected, notifications: realtimeNotifications } = useSignalR()
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
+  const [title, setTitle] = useState('')
   const [newAnnouncement, setNewAnnouncement] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isSending, setIsSending] = useState(false)
@@ -78,13 +79,14 @@ export default function NotificationsPage() {
 
     setIsSending(true)
     try {
-      await adminApi.sendAnnouncement(
-        token, 
-        newAnnouncement, 
-        targetType === 'all' ? undefined : selectedUserIds
-      );
+      await adminApi.sendAnnouncement(token, {
+        title,
+        message: newAnnouncement, 
+        userIds: targetType === 'all' ? undefined : selectedUserIds
+      });
       toast.success('Gửi thông báo thành công')
       setNewAnnouncement('')
+      setTitle('')
       setSelectedUserIds([])
       // Reload announcements to show the new one
       await loadAnnouncements()
@@ -198,6 +200,18 @@ export default function NotificationsPage() {
                 )}
 
                 <div className="space-y-2">
+                  <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Tiêu đề thông báo</Label>
+                  <input
+                    id="title"
+                    type="text"
+                    placeholder="Nhập tiêu đề (VD: Lịch nghỉ lễ...)"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full bg-background border-2 rounded-lg px-3 py-2 text-sm font-bold focus:border-primary outline-none transition-all"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="announcement" className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">Tin nhắn</Label>
                   <Textarea
                     id="announcement"
@@ -226,7 +240,7 @@ export default function NotificationsPage() {
                 </div>
                 <Button
                   onClick={handleSendAnnouncement}
-                  disabled={!newAnnouncement.trim() || isSending || !isConnected || (targetType === 'specific' && selectedUserIds.length === 0)}
+                  disabled={!title.trim() || !newAnnouncement.trim() || isSending || !isConnected || (targetType === 'specific' && selectedUserIds.length === 0)}
                   className="bg-primary hover:bg-primary/90 text-white font-bold h-11 px-6 shadow-lg shadow-primary/20"
                 >
                   {isSending ? (

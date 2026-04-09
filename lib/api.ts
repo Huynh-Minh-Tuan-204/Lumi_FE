@@ -290,7 +290,7 @@ export const adminApi = {
       '/Announcements',
       { token }
     ),
-  sendAnnouncement: async (token: string, message: string, userIds?: number[]) => {
+  sendAnnouncement: async (token: string, data: { title: string, message: string, userIds?: number[], category?: string, forceConfirmed?: boolean }) => {
     const res = await fetch(`${API_BASE_URL}/Announcements`, {
       method: "POST",
       headers: {
@@ -299,8 +299,11 @@ export const adminApi = {
         "ngrok-skip-browser-warning": "true",
       },
       body: JSON.stringify({
-        Message: message,
-        UserIds: userIds || [] // Empty array or null usually means broadcast all on backend
+        Title: data.title,
+        Message: data.message,
+        UserIds: data.userIds || [],
+        Category: data.category || "General",
+        ForceConfirmed: data.forceConfirmed || false
       }),
     });
 
