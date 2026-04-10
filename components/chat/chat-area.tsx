@@ -90,10 +90,10 @@ interface ChatAreaProps {
 }
 
 function SystemMessage({ msg, onScrollTo }: { msg: Message, onScrollTo: (id: number) => void }) {
-  const d = new Date(msg.createdAt);
+  const d = new Date(msg.createdAt || Date.now());
   const isValid = !isNaN(d.getTime());
   const timePart = isValid ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : "--:--";
-  const datePart = isValid ? formatToVNDate(d) : "Ngày không xác định";
+  const datePart = isValid ? formatToVNDate(d) : "Thời gian mới";
   const timeStr = isValid ? `${timePart}, ${datePart}` : datePart;
   
   const content = msg.encryptedContent?.toLowerCase() || "";
@@ -163,7 +163,7 @@ export function ChatArea({
 
   const formatZaloDivider = (dateInput: string) => {
     const date = new Date(dateInput);
-    if (isNaN(date.getTime())) return 'Thời gian không xác định';
+    if (isNaN(date.getTime())) return 'Gần đây';
     return formatToVNDate(date);
   };
 
@@ -215,7 +215,7 @@ export function ChatArea({
           conversationId: m.conversationId || m.ConversationId || conversation.id,
           senderId: m.senderId || m.SenderId,
           encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
-          createdAt: m.createdAt || m.CreatedAt,
+          createdAt: m.createdAt || m.CreatedAt || m.timestamp || m.Timestamp || new Date().toISOString(),
           isPinned: m.isPinned || m.IsPinned,
           attachments: m.attachments || m.Attachments || [],
           parentMessageId: m.parentMessageId || m.ParentMessageId
@@ -288,8 +288,8 @@ export function ChatArea({
   }
 
   const groupedMessages = messages.reduce<Record<string, Message[]>>((acc, msg) => {
-    const d = new Date(msg.createdAt)
-    const dateKey = isNaN(d.getTime()) ? 'Ngày không xác định' : d.toDateString()
+    const d = new Date(msg.createdAt || Date.now())
+    const dateKey = isNaN(d.getTime()) ? 'Gần đây' : d.toDateString()
     if (!acc[dateKey]) acc[dateKey] = []
     acc[dateKey].push(msg)
     return acc

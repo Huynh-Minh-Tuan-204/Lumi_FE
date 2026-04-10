@@ -106,15 +106,17 @@ export function formatZaloRelativeTime(dateInput: string | Date | null) {
     return `${min} phút`;
   }
 
-  const isToday = now.toLocaleDateString() === date.toLocaleDateString();
+  const isToday = now.toDateString() === date.toDateString();
   if (isToday) {
     const hour = Math.floor(diffInSeconds / 3600);
-    return `${hour} giờ`;
+    // Nếu quá 12h thì hiện giờ cụ thể thay vì "X giờ" để rõ ràng hơn, hoặc giữ nguyên kiểu X giờ nếu user thích
+    if (hour < 12) return `${hour} giờ`;
+    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   }
 
   const yesterday = new Date(now);
   yesterday.setDate(now.getDate() - 1);
-  const isYesterday = yesterday.toLocaleDateString() === date.toLocaleDateString();
+  const isYesterday = yesterday.toDateString() === date.toDateString();
   if (isYesterday) return 'Hôm qua';
 
   const dd = String(date.getDate()).padStart(2, '0');
