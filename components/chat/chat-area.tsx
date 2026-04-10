@@ -570,6 +570,7 @@ export function ChatArea({
                                                    );
                                                  })}
                                                </div>
+                                             )}
                                              {/* Message Time Inside Bubble */}
                                              {!isSystem && (
                                                <div className="flex items-center gap-1 mt-0.5 opacity-60 justify-end w-full">
