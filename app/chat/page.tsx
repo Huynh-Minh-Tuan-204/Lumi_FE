@@ -184,7 +184,7 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
 
 export default function ChatPage() {
   const { token, user, logout } = useAuth()
-  const { isConnected, onlineUsers, notifications, lastUserLeft, togglePinMessage, pinnedMessages } = useSignalR()
+  const { isConnected, onlineUsers, notifications, lastUserLeft, togglePinMessage, pinnedMessages, lastMessage } = useSignalR()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<string | null>('chat')
@@ -220,10 +220,39 @@ export default function ChatPage() {
   // Handle participant removal on UserLeft
   useEffect(() => {
     if (lastUserLeft) {
-      // Logic for participants check in call would go here if meetingState is global
       console.log(`User ${lastUserLeft} left signal received. Syncing UI...`)
     }
   }, [lastUserLeft])
+
+  // Real-time update for conversation list when new message arrives
+  useEffect(() => {
+    if (lastMessage) {
+      setConversations(prev => {
+        const index = prev.findIndex(c => c.id === lastMessage.conversationId);
+        if (index === -1) return prev; // Optionally refetch if new conversation
+
+        const updated = [...prev];
+        const currentConv = updated[index];
+        
+        // Update the conversation with new message info
+        const updatedConv = {
+          ...currentConv,
+          lastMessage: {
+            ...currentConv.lastMessage,
+            id: lastMessage.id,
+            content: lastMessage.message,
+            encryptedContent: lastMessage.message, // for consistency
+            createdAt: lastMessage.time.toISOString(),
+            senderId: lastMessage.senderId
+          }
+        };
+
+        // Move to top
+        updated.splice(index, 1);
+        return [updatedConv, ...updated];
+      });
+    }
+  }, [lastMessage])
 
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
