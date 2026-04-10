@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { cn, getAvatarUrl, getInitials } from '@/lib/utils'
+import { cn, getAvatarUrl, getInitials, formatZaloRelativeTime } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { useSignalR } from '@/hooks/use-signalr'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -66,7 +66,7 @@ export function ChatSidebar({
   isMobile = false,
 }: ChatSidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [searchMode, setSearchMode] = useState<'chat' | 'global'>('chat')
+  const [filterMode, setFilterMode] = useState<'all' | 'unread'>('all')
 
   const uniqueConversations = useMemo(() => {
     const seen = new Set();
@@ -74,9 +74,19 @@ export function ChatSidebar({
       const key = c.type === 'Private' ? `user-${c.name}` : `group-${c.id}`;
       if (seen.has(key)) return false;
       seen.add(key);
-      return c.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+      // Filter by name
+      const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase());
+      if (!matchesSearch) return false;
+
+      // Filter by mode
+      if (filterMode === 'unread') {
+        return (unreadCounts[c.id] || 0) > 0;
+      }
+
+      return true;
     });
-  }, [conversations, searchQuery]);
+  }, [conversations, searchQuery, filterMode, unreadCounts]);
 
   const groupChats = useMemo(() => uniqueConversations.filter(c => c.type === 'Group'), [uniqueConversations]);
   const privateChats = useMemo(() => uniqueConversations.filter(c => c.type === 'Private'), [uniqueConversations]);
@@ -104,22 +114,25 @@ export function ChatSidebar({
 
         <div className="flex p-0.5 bg-sidebar-accent/50 rounded-xl border border-sidebar-border">
           <button 
-            onClick={() => setSearchMode('chat')}
+            onClick={() => setFilterMode('all')}
             className={cn(
               "flex-1 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
-              searchMode === 'chat' ? "bg-sidebar shadow-sm text-primary" : "text-sidebar-foreground/40 hover:text-sidebar-foreground"
+              filterMode === 'all' ? "bg-sidebar shadow-sm text-primary" : "text-sidebar-foreground/40 hover:text-sidebar-foreground"
             )}
           >
-            Trò chuyện
+            Tất cả
           </button>
           <button 
-            onClick={() => setSearchMode('global')}
+            onClick={() => setFilterMode('unread')}
             className={cn(
-              "flex-1 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all",
-              searchMode === 'global' ? "bg-sidebar shadow-sm text-primary" : "text-sidebar-foreground/40 hover:text-sidebar-foreground"
+              "flex-1 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all relative",
+              filterMode === 'unread' ? "bg-sidebar shadow-sm text-primary" : "text-sidebar-foreground/40 hover:text-sidebar-foreground"
             )}
           >
-            Mọi người
+            Chưa đọc
+            {Object.values(unreadCounts).some(count => count > 0) && (
+              <span className="absolute top-1 right-2 h-1.5 w-1.5 rounded-full bg-red-500 shadow-[0_0_5px_rgba(239,68,68,0.5)]" />
+            )}
           </button>
         </div>
 
@@ -219,8 +232,8 @@ function ConversationItem({ conversation, isSelected, onSelect, unreadCount, isO
       <div className="flex-1 min-w-0 text-left space-y-0.5">
         <div className="flex items-center justify-between gap-2">
           <p className="font-bold text-sm truncate uppercase tracking-tight">{conversation.name}</p>
-          <span className={cn("text-[10px] font-medium opacity-40", isSelected ? "text-primary-foreground" : "")}>
-            {lastMsg?.createdAt ? new Date(lastMsg.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
+          <span className={cn("text-[10px] font-medium opacity-40 shrink-0", isSelected ? "text-primary-foreground" : "")}>
+            {lastMsg?.createdAt ? formatZaloRelativeTime(lastMsg.createdAt) : ''}
           </span>
         </div>
         <p className={cn("text-xs truncate opacity-60 font-medium", isSelected ? "text-primary-foreground/80" : "text-sidebar-foreground/60")}>
