@@ -91,9 +91,10 @@ interface ChatAreaProps {
 
 function SystemMessage({ msg, onScrollTo }: { msg: Message, onScrollTo: (id: number) => void }) {
   const d = new Date(msg.createdAt);
-  const timePart = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
-  const datePart = formatToVNDate(d);
-  const timeStr = `${timePart}, ${datePart}`;
+  const isValid = !isNaN(d.getTime());
+  const timePart = isValid ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : "--:--";
+  const datePart = isValid ? formatToVNDate(d) : "Ngày không xác định";
+  const timeStr = isValid ? `${timePart}, ${datePart}` : datePart;
   
   const content = msg.encryptedContent?.toLowerCase() || "";
   const isPinAction = content.includes('ghim');
@@ -162,7 +163,7 @@ export function ChatArea({
 
   const formatZaloDivider = (dateInput: string) => {
     const date = new Date(dateInput);
-    if (isNaN(date.getTime())) return 'Ngày không xác định';
+    if (isNaN(date.getTime())) return 'Thời gian không xác định';
     const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
     const dateStr = formatToVNDate(date);
     return `${timeStr}, ${dateStr}`;

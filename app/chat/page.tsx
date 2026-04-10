@@ -228,8 +228,14 @@ export default function ChatPage() {
   useEffect(() => {
     if (lastMessage) {
       setConversations(prev => {
-        const index = prev.findIndex(c => c.id === lastMessage.conversationId);
-        if (index === -1) return prev; // Optionally refetch if new conversation
+        // Use String comparison for ID to avoid number vs string issues
+        const index = prev.findIndex(c => String(c.id) === String(lastMessage.conversationId));
+        
+        if (index === -1) {
+          // If conversation not found in current list, refetch to be safe
+          loadConversations();
+          return prev;
+        }
 
         const updated = [...prev];
         const currentConv = updated[index];
@@ -241,13 +247,13 @@ export default function ChatPage() {
             ...currentConv.lastMessage,
             id: lastMessage.id,
             content: lastMessage.message,
-            encryptedContent: lastMessage.message, // for consistency
+            encryptedContent: lastMessage.message,
             createdAt: lastMessage.time.toISOString(),
             senderId: lastMessage.senderId
           }
         };
 
-        // Move to top
+        // Remove from current position and push to the very top
         updated.splice(index, 1);
         return [updatedConv, ...updated];
       });
