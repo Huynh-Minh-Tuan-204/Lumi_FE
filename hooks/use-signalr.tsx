@@ -53,6 +53,7 @@ export interface SignalRHookReturn {
   markAllNotificationsRead: () => Promise<void>
   lastScheduleUpdate: { type: 'created' | 'status' | 'deleted', data: any } | null
   lastUserLeft: number | null
+  activeMeeting: { meetingId: number; conversationId: number; title: string; callType: string; hostName: string } | null
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -78,6 +79,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [lastDeletedMessage, setLastDeletedMessage] = useState<{ conversationId: number, messageId: number } | null>(null)
   const [lastScheduleUpdate, setLastScheduleUpdate] = useState<{ type: 'created' | 'status' | 'deleted', data: any } | null>(null)
   const [lastUserLeft, setLastUserLeft] = useState<number | null>(null)
+  const [activeMeeting, setActiveMeeting] = useState<{ meetingId: number; conversationId: number; title: string; callType: string; hostName: string } | null>(null)
 
   useEffect(() => {
     if (!token) {
@@ -93,6 +95,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         setPinnedMessages(null);
         setLastDeletedMessage(null);
         setLastScheduleUpdate(null);
+        setActiveMeeting(null);
         setIsConnected(false);
         setIsReconnecting(false);
         return
@@ -227,9 +230,15 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       setCallDeclined({ meetingId, declinerName })
     })
 
+    connection.on('MeetingStarted', (data: any) => {
+      const { meetingId, conversationId, title, callType, hostName } = data
+      setActiveMeeting({ meetingId, conversationId, title, callType, hostName })
+    })
+
     connection.on('MeetingEnded', (data: any) => {
       const endedMeetingId = typeof data === 'object' ? data.meetingId : data
       setIncomingCall(prev => (prev?.meetingId === endedMeetingId ? null : prev))
+      setActiveMeeting(prev => (prev?.meetingId === endedMeetingId ? null : prev))
     })
 
     connection.on('ReceiveGroupUpdate', (conversationId: number, avatarPath: string, backgroundPath: string) => {
@@ -404,6 +413,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         lastDeletedMessage,
         lastScheduleUpdate,
         lastUserLeft,
+        activeMeeting,
         onTriggeredReminder: (cb: any) => {}, 
       }}
     >

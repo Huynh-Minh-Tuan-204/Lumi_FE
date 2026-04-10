@@ -10,11 +10,14 @@ import { useAuth } from '@/lib/auth-context'
 import { meetingsApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
+import { CallLobby } from '@/components/chat/call-lobby'
+
 export function IncomingCallOverlay() {
   const router = useRouter()
   const { token } = useAuth()
   const { incomingCall, clearIncomingCall, callDeclined, clearCallDeclined } = useSignalR()
   const [isAnimating, setIsAnimating] = useState(false)
+  const [showLobby, setShowLobby] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -46,8 +49,7 @@ export function IncomingCallOverlay() {
 
   const handleAccept = () => {
     if (!incomingCall) return
-    clearIncomingCall()
-    router.push(`/call/${incomingCall.meetingId}?type=${incomingCall.callType}`)
+    setShowLobby(true)
   }
 
   const handleDecline = async () => {
@@ -122,6 +124,25 @@ export function IncomingCallOverlay() {
             </p>
           </div>
         </div>
+      )}
+ 
+      {/* Call Lobby for Recipient */}
+      {showLobby && incomingCall && (
+        <CallLobby 
+          meetingId={incomingCall.meetingId}
+          type={incomingCall.callType as any}
+          title={incomingCall.convName || `Cuộc gọi từ ${incomingCall.callerName}`}
+          conversationId={0} // Not needed for redirection
+          onJoin={() => {
+            router.push(`/call/${incomingCall.meetingId}?type=${incomingCall.callType}`)
+            setShowLobby(false)
+            clearIncomingCall()
+          }}
+          onCancel={() => {
+            setShowLobby(false)
+            clearIncomingCall()
+          }}
+        />
       )}
     </>
   )
