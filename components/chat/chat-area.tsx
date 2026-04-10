@@ -164,9 +164,7 @@ export function ChatArea({
   const formatZaloDivider = (dateInput: string) => {
     const date = new Date(dateInput);
     if (isNaN(date.getTime())) return 'Thời gian không xác định';
-    const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
-    const dateStr = formatToVNDate(date);
-    return `${timeStr}, ${dateStr}`;
+    return formatToVNDate(date);
   };
 
   const handleStartCall = async (type: 'voice' | 'video') => {
@@ -572,6 +570,14 @@ export function ChatArea({
                                                    );
                                                  })}
                                                </div>
+                                             {/* Message Time Inside Bubble */}
+                                             {!isSystem && (
+                                               <div className="flex items-center gap-1 mt-0.5 opacity-60 justify-end w-full">
+                                                  <span className="text-[10px] tracking-tight">
+                                                    {formatMessageTime(m.createdAt || new Date().toISOString())}
+                                                  </span>
+                                                  {isOwn && (m.readBy?.length ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />)}
+                                               </div>
                                              )}
                                            </div>
 
@@ -591,16 +597,8 @@ export function ChatArea({
                                         </DropdownMenuItem>
                                      </DropdownMenuContent>
                                    </DropdownMenu>
-
-                                   {!isSystem && (
-                                     <div className="flex items-center gap-2 px-1 opacity-20">
-                                        <span className="text-[9px] font-black uppercase tracking-widest">{formatMessageTime(m.createdAt || new Date().toISOString())}</span>
-                                        {isOwn && (m.readBy?.length ? <CheckCheck className="h-3 w-3 text-primary" /> : <Check className="h-3 w-3" />)}
-                                     </div>
-                                   )}
                                 </div>
-                            </div>
-                          )
+                            </div>                          )
                        })}
                     </div>
                  </div>

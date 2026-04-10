@@ -88,8 +88,13 @@ export function ChatSidebar({
     });
   }, [conversations, searchQuery, filterMode, unreadCounts]);
 
-  const groupChats = useMemo(() => uniqueConversations.filter(c => c.type === 'Group'), [uniqueConversations]);
-  const privateChats = useMemo(() => uniqueConversations.filter(c => c.type === 'Private'), [uniqueConversations]);
+  const sortedConversations = useMemo(() => {
+    return [...uniqueConversations].sort((a, b) => {
+      const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
+      const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+      return timeB - timeA;
+    });
+  }, [uniqueConversations]);
 
   return (
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border overflow-hidden">
@@ -156,46 +161,17 @@ export function ChatSidebar({
                  <p className="text-[10px] font-black uppercase tracking-[0.3em]">Đang tải...</p>
               </div>
             ) : (
-              <div className="space-y-6">
-                {groupChats.length > 0 && (
-                  <div>
-                    <p className="px-3 text-[10px] font-black text-primary/40 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-                       <Users className="h-3 w-3" /> Nhóm
-                    </p>
-                    <div className="space-y-1">
-                      {groupChats.map(c => (
-                        <ConversationItem 
-                          key={c.id} 
-                          conversation={c} 
-                          isSelected={selectedConversation?.id === c.id}
-                          onSelect={() => onSelectConversation(c)}
-                          unreadCount={unreadCounts[c.id] || 0}
-                          isOnline={false}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {privateChats.length > 0 && (
-                  <div>
-                    <p className="px-3 text-[10px] font-black text-primary/40 uppercase tracking-[0.2em] mb-2 flex items-center gap-2">
-                       <Hash className="h-3 w-3" /> Cá nhân
-                    </p>
-                    <div className="space-y-1">
-                      {privateChats.map(c => (
-                        <ConversationItem 
-                          key={c.id} 
-                          conversation={c} 
-                          isSelected={selectedConversation?.id === c.id}
-                          onSelect={() => onSelectConversation(c)}
-                          unreadCount={unreadCounts[c.id] || 0}
-                          isOnline={onlineUsers.has(c.id)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <div className="space-y-1">
+                {sortedConversations.map(c => (
+                  <ConversationItem 
+                    key={c.id} 
+                    conversation={c} 
+                    isSelected={selectedConversation?.id === c.id}
+                    onSelect={() => onSelectConversation(c)}
+                    unreadCount={unreadCounts[c.id] || 0}
+                    isOnline={c.type === 'Private' ? onlineUsers.has(c.id) : false}
+                  />
+                ))}
               </div>
             )}
           </div>

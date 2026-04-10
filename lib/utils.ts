@@ -80,3 +80,50 @@ export function getInitials(name: string) {
     .toUpperCase()
     .slice(0, 2);
 }
+
+/**
+ * Zalo-style relative time formatting:
+ * - < 1 minute: "Vài giây"
+ * - < 1 hour: "X phút"
+ * - < 24 hours (today): "X giờ"
+ * - Yesterday: "Hôm qua"
+ * - Same year: "DD/MM"
+ * - Different year: "DD/MM/YY"
+ */
+export function formatZaloRelativeTime(dateInput: string | Date | null) {
+  if (!dateInput) return '';
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  if (isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffInSeconds < 0) return 'Vừa xong';
+  if (diffInSeconds < 60) return 'Vài giây';
+
+  if (diffInSeconds < 3600) {
+    const min = Math.floor(diffInSeconds / 60);
+    return `${min} phút`;
+  }
+
+  const isToday = now.toLocaleDateString() === date.toLocaleDateString();
+  if (isToday) {
+    const hour = Math.floor(diffInSeconds / 3600);
+    return `${hour} giờ`;
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = yesterday.toLocaleDateString() === date.toLocaleDateString();
+  if (isYesterday) return 'Hôm qua';
+
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  
+  if (now.getFullYear() !== date.getFullYear()) {
+    const yy = String(date.getFullYear()).slice(-2);
+    return `${dd}/${mm}/${yy}`;
+  }
+
+  return `${dd}/${mm}`;
+}
