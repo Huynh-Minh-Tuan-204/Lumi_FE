@@ -340,7 +340,7 @@ export default function ChatPage() {
                         <div key={n.id} className="p-5 rounded-2xl bg-muted/30 border border-primary/5 hover:border-primary/20 transition-all group">
                            <div className="flex justify-between items-start gap-4">
                               <p className="font-black text-sm uppercase tracking-tight text-primary">{n.sender || 'Hệ thống'}</p>
-                              <span className="text-[10px] font-black opacity-30 uppercase">{new Date(n.time).toLocaleString()}</span>
+                              <span className="text-[10px] font-black opacity-30 uppercase">{new Date(n.time).toLocaleString('vi-VN', { hour12: false })}</span>
                            </div>
                            <p className="text-sm mt-2 leading-relaxed opacity-80">{n.message}</p>
                         </div>

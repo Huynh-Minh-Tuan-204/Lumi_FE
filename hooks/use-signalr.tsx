@@ -275,7 +275,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
     connection.on('ScheduleCreated', (data: any) => {
       toast.info(`📅 Lịch mời mới: ${data.title}`, {
-        description: `Bởi: ${data.createdBy} | Bắt đầu: ${new Date(data.startTime).toLocaleString('vi-VN')}`,
+        description: `Bởi: ${data.createdBy} | Bắt đầu: ${new Date(data.startTime).toLocaleString('vi-VN', { hour12: false })}`,
         duration: 8000,
       });
       setLastScheduleUpdate({ type: 'created', data })

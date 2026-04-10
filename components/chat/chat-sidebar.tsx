@@ -220,7 +220,7 @@ function ConversationItem({ conversation, isSelected, onSelect, unreadCount, isO
         <div className="flex items-center justify-between gap-2">
           <p className="font-bold text-sm truncate uppercase tracking-tight">{conversation.name}</p>
           <span className={cn("text-[10px] font-medium opacity-40", isSelected ? "text-primary-foreground" : "")}>
-            {lastMsg?.createdAt ? new Date(lastMsg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+            {lastMsg?.createdAt ? new Date(lastMsg.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''}
           </span>
         </div>
         <p className={cn("text-xs truncate opacity-60 font-medium", isSelected ? "text-primary-foreground/80" : "text-sidebar-foreground/60")}>
