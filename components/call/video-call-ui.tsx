@@ -387,7 +387,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                <span className="text-sm font-black tracking-tight">{participantName} Meeting</span>
                <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
                  <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                 Lumi Live | {formatDuration(callDuration)}
+                 Mã phòng: #{callId} | {formatDuration(callDuration)}
                </div>
             </div>
         </div>

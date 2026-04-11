@@ -79,6 +79,14 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
       }
 
       try {
+        if (!isCamOn && !isMicOn) {
+            if (stream) {
+              stream.getTracks().forEach(t => t.stop())
+              setStream(null)
+            }
+            return
+        }
+
         const localStream = await navigator.mediaDevices.getUserMedia({
           video: isCamOn ? { width: 1280, height: 720 } : false,
           audio: isMicOn

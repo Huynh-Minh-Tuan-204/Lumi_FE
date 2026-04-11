@@ -150,6 +150,32 @@ export function ChatSidebar({
             className="pl-9 h-10 bg-sidebar-accent/50 border-sidebar-border focus-visible:ring-primary/20 rounded-xl font-medium"
           />
         </div>
+
+        <div className="pt-2">
+            <div className="flex items-center gap-2 p-1.5 bg-primary/5 rounded-xl border border-primary/10">
+                <Hash className="h-4 w-4 text-primary opacity-40 ml-2" />
+                <input 
+                    placeholder="Mã phòng..." 
+                    className="flex-1 bg-transparent border-none outline-none text-[11px] font-bold placeholder:text-sidebar-foreground/30"
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            const val = e.currentTarget.value.replace('#', '').trim();
+                            if (val) {
+                                window.location.href = `/call/${val}?type=video`;
+                            }
+                        }
+                    }}
+                />
+                <Button size="icon" className="h-7 w-7 rounded-lg group" onClick={(e) => {
+                    const input = e.currentTarget.parentElement?.querySelector('input');
+                    const val = input?.value.replace('#', '').trim();
+                    if (val) window.location.href = `/call/${val}?type=video`;
+                }}>
+                    <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                </Button>
+            </div>
+            <p className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-tighter mt-1.5 ml-2">Tham gia nhanh bằng mã phòng</p>
+        </div>
       </div>
 
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
