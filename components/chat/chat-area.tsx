@@ -112,15 +112,19 @@ export function ChatArea({
 
   const scrollToMessage = useCallback((msgId: any) => {
     const id = typeof msgId === 'string' ? msgId : msgId.toString();
-    const el = document.getElementById(`message-${id}`)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      el.classList.add('bg-primary/20')
-      setTimeout(() => el.classList.remove('bg-primary/20'), 2000)
-    } else {
-      console.warn(`Target message-${id} not found in DOM`);
-      toast.error('Không tìm thấy tin nhắn hoặc tin nhắn ở quá xa lịch sử');
-    }
+    
+    // Thêm delay nhỏ để chắc chắn React đã render xong nếu mới vừa nhận tin nhắn
+    setTimeout(() => {
+      const el = document.getElementById(`message-${id}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('bg-primary/20')
+        setTimeout(() => el.classList.remove('bg-primary/20'), 2000)
+      } else {
+        console.warn(`Target message-${id} not found in DOM`);
+        toast.error('Không tìm thấy tin nhắn hoặc tin nhắn ở quá xa lịch sử');
+      }
+    }, 100);
   }, [])
 
   useEffect(() => {

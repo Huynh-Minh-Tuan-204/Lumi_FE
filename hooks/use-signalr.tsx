@@ -59,6 +59,11 @@ export interface SignalRHookReturn {
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
 
 export function SignalRProvider({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { token, user, updateUser } = useAuth()
 
@@ -113,10 +118,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         if (response.ok) {
           const data = await response.json();
           const mapped = data.map((n: any) => ({
-            id: n.Id || n.id || Math.random(),
+            id: n.Id || n.id || `temp-${n.Timestamp || Date.now()}`,
             sender: n.SenderName || n.senderName || 'System',
             message: n.Message || n.message || '',
-            time: new Date(n.Timestamp || n.timestamp || Date.now()),
+            time: n.Timestamp || n.timestamp ? new Date(n.Timestamp || n.timestamp) : new Date(),
             isSystem: true,
             isRead: n.IsRead || n.isRead || false
           }));
@@ -378,6 +383,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       await connectionRef.current.invoke('SendReminder', conversationId, content, remindAtIso)
     }
   }, [])
+
+  if (!mounted) return <div style={{ visibility: 'hidden' }}>{children}</div>;
 
   return (
     <SignalRContext.Provider
