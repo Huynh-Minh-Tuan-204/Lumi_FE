@@ -443,11 +443,12 @@ export function ChatArea({
                   return <SystemMessageGroup key={`sys-${idx}`} messages={group.messages} onScrollTo={scrollToMessage} />;
                 }
                 const m = group.data;
+                const isOwn = m.senderId === user?.id;
                 return (
-                  <div key={m.id} id={`message-${m.id}`} className={cn("flex gap-3 animate-in slide-in-from-bottom-2", m.senderId === user?.id ? "flex-row-reverse" : "flex-row")}>
-                      <div className={cn("max-w-[75%] space-y-1", m.senderId === user?.id ? "items-end" : "items-start")}>
-                         {! (m.senderId === user?.id) && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
-                         <div className={cn("px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border relative group/msg", m.senderId === user?.id ? "bg-primary text-primary-foreground border-transparent" : "bg-card")}>
+                  <div key={m.id} id={`message-${m.id}`} className={cn("flex gap-3 animate-in slide-in-from-bottom-2", isOwn ? "flex-row-reverse" : "flex-row")}>
+                      <div className={cn("max-w-[75%] space-y-1", isOwn ? "items-end" : "items-start")}>
+                         {! isOwn && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
+                         <div className={cn("px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border relative group/msg", isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card")}>
                             {m.attachments && m.attachments.length > 0 && (
                               <div className="mb-2 space-y-1">
                                  {m.attachments.map((a: any, i: number) => (
