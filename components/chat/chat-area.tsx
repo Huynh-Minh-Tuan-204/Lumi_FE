@@ -154,8 +154,8 @@ export function ChatArea({
     try {
       const title = `${type === 'voice' ? 'Cuộc gọi thoại' : 'Cuộc gọi video'} - ${conversation.name}`
       const resp = await meetingsApi.startMeeting(token, conversation.id, title, [], type)
-      if (resp && (resp.id || resp.meetingId)) {
-        setShowLobby({ meetingId: resp.id || resp.meetingId, type, title })
+      if (resp && (resp.meetingGuid || resp.id)) {
+        setShowLobby({ meetingId: resp.meetingGuid || resp.id, type, title })
       }
     } catch (error) {
       toast.error(`Không thể bắt đầu cuộc gọi.`)
@@ -406,7 +406,7 @@ export function ChatArea({
            <Button 
             size="sm" 
             className="rounded-full px-5 h-8 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20"
-            onClick={() => setShowLobby({ meetingId: activeMeeting.meetingId, type: (activeMeeting.callType as any) || 'video', title: activeMeeting.title })}
+            onClick={() => setShowLobby({ meetingId: activeMeeting.meetingGuid, type: (activeMeeting.callType as any) || 'video', title: activeMeeting.title })}
            >
               Tham gia ngay
            </Button>

@@ -62,7 +62,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
       try {
         const signalR = new CallSignalR({
             onJoinRequestAccepted: (mId) => {
-                if (Number(mId) === Number(meetingId)) {
+                if (String(mId) === String(meetingId)) {
                     setRequestStatus('accepted');
                     toast.success("Yêu cầu tham gia đã được chấp nhận!");
                     stopPreview();
@@ -70,7 +70,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
                 }
             },
             onJoinRequestDeclined: (mId, reason) => {
-                if (Number(mId) === Number(meetingId)) {
+                if (String(mId) === String(meetingId)) {
                     setRequestStatus('declined');
                     setIsWaiting(false);
                     toast.error(reason || "Yêu cầu bị từ chối.");
@@ -142,7 +142,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
      setIsWaiting(true);
      setRequestStatus('pending');
      try {
-        await signalRRef.current?.requestJoin(Number(meetingId));
+        await signalRRef.current?.requestJoin(String(meetingId));
         toast.info("Đã gửi yêu cầu tham gia.");
      } catch (e) {
         toast.error("Gửi yêu cầu thất bại.");

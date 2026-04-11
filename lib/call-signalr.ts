@@ -25,8 +25,9 @@ export interface CallSignalRHandlers {
   onUserLeft?: (connectionId: string, userId: number, displayName: string) => void
   onConnectionStateChange?: (state: signalR.HubConnectionState) => void
   onIncomingJoinRequest?: (req: any) => void
-  onJoinRequestAccepted?: (meetingId: number) => void
-  onJoinRequestDeclined?: (meetingId: number, reason: string) => void
+  onJoinRequestAccepted?: (meetingId: number | string) => void
+  onJoinRequestDeclined?: (meetingId: number | string, reason: string) => void
+  onMeetingMemberList?: (members: any[]) => void
 }
 
 export class CallSignalR {
@@ -84,8 +85,12 @@ export class CallSignalR {
       this.handlers.onJoinRequestAccepted?.(meetingId)
     })
 
-    connection.on('JoinRequestDeclined', (meetingId: number, reason: string) => {
+    connection.on('JoinRequestDeclined', (meetingId: any, reason: string) => {
       this.handlers.onJoinRequestDeclined?.(meetingId, reason)
+    })
+
+    connection.on('MeetingMemberList', (members: any[]) => {
+      this.handlers.onMeetingMemberList?.(members)
     })
 
     connection.onreconnected(() => {

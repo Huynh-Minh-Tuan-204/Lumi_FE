@@ -498,6 +498,9 @@ export const meetingsApi = {
   getConversationMeeting: (token: string, conversationId: number) =>
     request<any>(`/Meetings/conversation/${conversationId}`, { token }),
 
+  getMeetingByGuid: (token: string, guid: string) =>
+    request<any>(`/Meetings/guid/${guid}`, { token }),
+
   startMeeting: (token: string, conversationId: number, title: string, participantIds: number[], callType: string = 'video') =>
     request<any>(`/Meetings/start/${conversationId}`, {
       method: 'POST',

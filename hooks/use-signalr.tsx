@@ -36,9 +36,9 @@ export interface SignalRHookReturn {
   onTriggeredReminder: (callback: (data: { conversationId: number, content: string }) => void) => void
   notifications: ChatMessage[]
   onlineUsers: Set<number>
-  incomingCall: { meetingId: number; callerName: string; callType: string; convName: string } | null
+  incomingCall: { meetingId: string; callerName: string; callType: string; convName: string } | null
   clearIncomingCall: () => void
-  callDeclined: { meetingId: number; declinerName: string } | null
+  callDeclined: { meetingId: string; declinerName: string } | null
   clearCallDeclined: () => void
   markAsRead: (conversationId: number) => Promise<void>
   lastGroupUpdate: { conversationId: number, avatarPath?: string, backgroundPath?: string } | null
@@ -53,7 +53,7 @@ export interface SignalRHookReturn {
   markAllNotificationsRead: () => Promise<void>
   lastScheduleUpdate: { type: 'created' | 'status' | 'deleted', data: any } | null
   lastUserLeft: number | null
-  activeMeeting: { meetingId: number; conversationId: number; title: string; callType: string; hostName: string } | null
+  activeMeeting: { meetingId: string; conversationId: number; title: string; callType: string; hostName: string } | null
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -75,8 +75,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [notifications,setNotifications] = useState<ChatMessage[]>([])
   const [lastReadUpdate, setLastReadUpdate] = useState<{ conversationId: number, userId: number } | null>(null)
   const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set())
-  const [incomingCall, setIncomingCall] = useState<{ meetingId: number; callerName: string; callType: string; convName: string } | null>(null)
-  const [callDeclined, setCallDeclined] = useState<{ meetingId: number; declinerName: string } | null>(null)
+  const [incomingCall, setIncomingCall] = useState<{ meetingId: string; callerName: string; callType: string; convName: string } | null>(null)
+  const [callDeclined, setCallDeclined] = useState<{ meetingId: string; declinerName: string } | null>(null)
   const [lastGroupUpdate, setLastGroupUpdate] = useState<{ conversationId: number, avatarPath?: string, backgroundPath?: string } | null>(null)
   const [typingUsers, setTypingUsers] = useState<{ conversationId: number, userId: number, userName: string }[]>([])
   const [lastUserUpdate, setLastUserUpdate] = useState<{ userId: number, avatarPath: string } | null>(null)
@@ -84,7 +84,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [lastDeletedMessage, setLastDeletedMessage] = useState<{ conversationId: number, messageId: number } | null>(null)
   const [lastScheduleUpdate, setLastScheduleUpdate] = useState<{ type: 'created' | 'status' | 'deleted', data: any } | null>(null)
   const [lastUserLeft, setLastUserLeft] = useState<number | null>(null)
-  const [activeMeeting, setActiveMeeting] = useState<{ meetingId: number; conversationId: number; title: string; callType: string; hostName: string } | null>(null)
+  const [activeMeeting, setActiveMeeting] = useState<{ meetingId: string; conversationId: number; title: string; callType: string; hostName: string } | null>(null)
 
   useEffect(() => {
     if (!token) {
@@ -226,12 +226,12 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       })
     })
 
-    connection.on('IncomingCall', (meetingId: number, callerId: number, callerName: string, callType: string, convName: string) => {
+    connection.on('IncomingCall', (meetingId: string, callerId: number, callerName: string, callType: string, convName: string) => {
       if (user && callerId === user.id) return
       setIncomingCall({ meetingId, callerName, callType, convName })
     })
 
-    connection.on('CallDeclined', (meetingId: number, declinerName: string) => {
+    connection.on('CallDeclined', (meetingId: string, declinerName: string) => {
       setCallDeclined({ meetingId, declinerName })
     })
 

@@ -8,13 +8,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useAuth } from '@/lib/auth-context'
 import { meetingsApi, conversationsApi } from '@/lib/api'
 import { CallSignalR } from '@/lib/call-signalr'
-import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, MoreHorizontal, Users, MessageSquare, X, Send, Smile } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, MoreHorizontal, Users, MessageSquare, X, Send, Smile, ShieldCheck, Minimize2, Maximize2 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useSignalR, ChatMessage } from '@/hooks/use-signalr'
 import { toast } from 'sonner'
 
 interface VideoCallUIProps {
-  callId: string
+  callId: string // This is the MeetingGuid (string)
   callType: 'video' | 'voice'
   participantName: string
   onEndCall: () => void
@@ -47,7 +47,7 @@ const RTC_CONFIG: RTCConfiguration = {
 
 export function VideoCallUI({ callId, callType, participantName, onEndCall, initialMic = true, initialCam = true }: VideoCallUIProps) {
   const { user, token } = useAuth()
-  const { sendMessage, lastMessage, lastUserLeft } = useSignalR()
+  const { sendMessage, lastMessage } = useSignalR()
 
   const [isMuted, setIsMuted] = useState(!initialMic)
   const [isCameraOn, setIsCameraOn] = useState(callType === 'video' && initialCam)
@@ -59,22 +59,12 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   const [showPeople, setShowPeople] = useState(false)
   const [showChat, setShowChat] = useState(false)
   const [meetingParticipants, setMeetingParticipants] = useState<any[]>([])
+  const [hostId, setHostId] = useState<number | null>(null)
   const [convId, setConvId] = useState<number | null>(null)
   const [chatInput, setChatInput] = useState('')
   const [callMessages, setCallMessages] = useState<ChatMessage[]>([])
-  const [reaction, setReaction] = useState<string | null>(null)
-  const [processedUserLeft, setProcessedUserLeft] = useState<number | null>(null)
   const [waitingList, setWaitingList] = useState<any[]>([])
-
-  const handleAcceptWaiting = useCallback((userId: number) => {
-    signalRRef.current?.acceptJoinRequest(Number(callId), userId);
-    setWaitingList(prev => prev.filter(p => p.UserId !== userId));
-  }, [callId]);
-
-  const handleDeclineWaiting = useCallback((userId: number) => {
-    signalRRef.current?.declineJoinRequest(Number(callId), userId);
-    setWaitingList(prev => prev.filter(p => p.UserId !== userId));
-  }, [callId]);
+  const [isMinimized, setIsMinimized] = useState(false)
 
   const meetingStartTime = useRef<Date>(new Date())
   const localVideoRef = useRef<HTMLVideoElement>(null)
@@ -107,22 +97,14 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     }
   }, [updatePeerUI]);
 
-  // Sync participant UI when UserLeft event is received via SignalR
-  useEffect(() => {
-    if (lastUserLeft && lastUserLeft !== processedUserLeft) {
-      setProcessedUserLeft(lastUserLeft)
-      setMeetingParticipants(prev => prev.filter(p => (p.userId || p.Id) !== lastUserLeft))
-      removePeer(lastUserLeft)
-      toast.info(`Một thành viên đã rời khỏi phiên thảo luận.`)
-    }
-  }, [lastUserLeft, processedUserLeft, removePeer])
-
   const fetchMeetingData = useCallback(async (signal?: AbortSignal) => {
     if (!token || !callId) return
     try {
-      const meeting = await meetingsApi.getMeeting(token, Number(callId))
+      // Get meeting details by GUID
+      const meeting = await meetingsApi.getMeetingByGuid(token, callId)
       if (signal?.aborted) return
       setConvId(meeting.conversationId)
+      setHostId(meeting.createdBy)
       
       const history = await conversationsApi.getMessages(token, meeting.conversationId)
       if (!signal?.aborted) {
@@ -138,10 +120,6 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         }))
         setCallMessages(mappedHistory)
       }
-
-      const parts = await meetingsApi.getParticipants(token, Number(callId))
-      if (signal?.aborted) return
-      setMeetingParticipants(parts)
     } catch (e) {
       if (!signal?.aborted) console.error("Error fetching meeting data", e)
     }
@@ -228,7 +206,6 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         }
         
         if (callType === 'video' && !initialCam) {
-            // Stop the track completely to turn off the hardware LED
             stream.getVideoTracks().forEach(t => t.stop());
         }
 
@@ -237,22 +214,30 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         const signalR = new CallSignalR({
           onUserJoined: async (_connId, remoteUserId, displayName) => {
             if (remoteUserId === user.id) return;
-            toast.info(`${displayName} đã tham gia cuộc gọi`);
+            toast.info(`${displayName} đã tham gia cuộc họp`);
             const isPolite = user.id > remoteUserId;
             if (!peersRef.current.has(remoteUserId)) {
               createPeerConnection(remoteUserId, displayName, isPolite);
             }
           },
           onUserLeft: (_connId, remoteUserId, displayName) => {
-            toast.info(`${displayName} đã rời khỏi cuộc gọi`);
+            toast.info(`${displayName} đã rời cuộc họp`);
             removePeer(remoteUserId);
-            // Backup removal via specific call-hub event
-            setMeetingParticipants(prev => prev.filter(p => (p.userId || p.Id) !== remoteUserId))
+            // Dynamic update of participant list handled by onMeetingMemberList if needed
+          },
+          onMeetingMemberList: (members) => {
+            // Definitively solve 'Ghost Participants' issue
+            console.log("Receiving definitive meeting member list:", members);
+            setMeetingParticipants(members.map(m => ({
+                userId: m.userId,
+                fullName: m.displayName,
+                connectionId: m.connectionId
+            })));
           },
           onReceiveOffer: async (offer, fromUserId) => {
             let peer = peersRef.current.get(fromUserId);
             if (!peer) {
-              const name = meetingParticipants.find(p => (p.userId || p.Id) === fromUserId)?.fullName || "User";
+              const name = meetingParticipants.find(p => p.userId === fromUserId)?.fullName || "User";
               peer = createPeerConnection(fromUserId, name, user.id > fromUserId);
             }
             const pc = peer.connection;
@@ -296,9 +281,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         signalRRef.current = signalR;
         await signalR.connect(token);
         await signalR.joinCall(callId);
-        meetingsApi.joinMeeting(token, Number(callId)).catch(() => {});
       } catch (err) {
-        setError("Không thể truy cập Microphone/Camera.");
+        setError("Không thể khởi tạo cuộc họp.");
+        console.error(err);
       }
     };
     startCall();
@@ -310,75 +295,6 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       signalRRef.current?.disconnect();
     };
   }, [callId, token, user, callType, createPeerConnection, meetingParticipants, removePeer, initialMic, initialCam]);
-
-  const toggleMic = () => {
-    setIsMuted(prev => {
-      const next = !prev;
-      localStreamRef.current?.getAudioTracks().forEach(t => t.enabled = !next);
-      return next;
-    });
-  };
-
-  const toggleCamera = async () => {
-    if (isCameraOn) {
-      setIsCameraOn(false);
-      localStreamRef.current?.getVideoTracks().forEach(t => t.stop()); // Stop hardware
-    } else {
-      setIsCameraOn(true);
-      try {
-          const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
-          const newTrack = newStream.getVideoTracks()[0];
-          
-          if (localStreamRef.current) {
-              // Remove old stopped tracks
-              localStreamRef.current.getVideoTracks().forEach(t => localStreamRef.current?.removeTrack(t));
-              localStreamRef.current.addTrack(newTrack);
-              // Re-assign srcObject to trigger UI update
-              if (localVideoRef.current) localVideoRef.current.srcObject = localStreamRef.current;
-          }
-          
-          peersRef.current.forEach(peer => {
-              // Find sender that was previously handling the stopped video track
-              // WebRTC senders retain the track kind even if stopped
-              const sender = peer.connection.getSenders().find(s => s.track === null || s.track?.kind === 'video');
-              if (sender) {
-                  sender.replaceTrack(newTrack);
-              } else if (localStreamRef.current) {
-                  peer.connection.addTrack(newTrack, localStreamRef.current);
-              }
-          });
-      } catch (err) {
-          toast.error("Không thể bật camera");
-          setIsCameraOn(false);
-      }
-    }
-  };
-
-  const toggleScreenShare = async () => {
-    if (isScreenSharing) {
-        window.location.reload(); // Simple reset for demo, or re-acquire camera stream
-        return;
-    }
-    try {
-      const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      const screenTrack = screenStream.getVideoTracks()[0];
-      screenTrack.onended = () => setIsScreenSharing(false);
-      peersRef.current.forEach(peer => {
-        const sender = peer.connection.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) sender.replaceTrack(screenTrack);
-      });
-      setIsScreenSharing(true);
-      toast.info("Đang chia sẻ màn hình...");
-    } catch (err) {
-      toast.error("Không thể chia sẻ màn hình");
-    }
-  };
-
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
 
   useEffect(() => {
     if (lastMessage && lastMessage.conversationId === convId) {
@@ -397,20 +313,23 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   , [callMessages]);
 
   return (
-    <div className="flex h-screen flex-col bg-[#0a0a0a] text-white overflow-hidden relative font-sans">
-      <div className="absolute inset-0 bg-gradient-to-br from-red-900/20 via-black to-red-900/20 opacity-50 pointer-events-none" />
+    <div className={cn(
+        "flex h-screen flex-col bg-[#0a0a0a] text-white overflow-hidden relative font-sans transition-all duration-500",
+        isMinimized ? "fixed bottom-6 right-6 w-[360px] h-[240px] z-[99999] rounded-3xl border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] scale-in-center overflow-hidden" : "h-screen"
+    )}>
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-black to-blue-900/10 opacity-50 pointer-events-none" />
 
       <header className="relative flex h-14 items-center justify-between bg-[#1A1A1A]/80 backdrop-blur-2xl px-6 border-b border-white/5 z-30 shadow-2xl">
         <div className="flex items-center gap-4">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-xs shadow-lg shadow-primary/30">L</div>
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-500/20">L</div>
             <div className="flex flex-col -space-y-0.5">
                <span className="text-sm font-black tracking-tight">{participantName} Meeting</span>
                <div className="flex items-center gap-2">
                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    <span className="text-[10px] font-black text-primary uppercase">Phòng: #{callId}</span>
+                    <span className="text-[10px] font-black text-primary uppercase">Guid: {callId.substring(0, 8)}...</span>
                  </div>
-                 <span className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
+                 <span className="text-[10px] text-gray-500 font-bold tracking-tighter uppercase whitespace-nowrap">
                    {formatDuration(callDuration)}
                  </span>
                  <Button 
@@ -418,123 +337,119 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                     size="icon" 
                     className="h-5 w-5 text-gray-500 hover:text-primary transition-colors"
                     onClick={() => {
-                        navigator.clipboard.writeText(callId.replace('#', ''));
-                        toast.success("Đã sao chép mã phòng");
+                        navigator.clipboard.writeText(callId);
+                        toast.success("Đã sao chép mã phòng (Guid)");
                     }}
                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                    <Send className="w-3 h-3" />
                  </Button>
                </div>
             </div>
         </div>
-        <div className="flex -space-x-2">
+        <div className="flex items-center gap-2">
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 text-gray-400 hover:text-white"
+                onClick={() => setIsMinimized(!isMinimized)}
+            >
+                {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+            </Button>
+            <div className="flex -space-x-2">
             {meetingParticipants.slice(0, 3).map((p, i) => (
                 <Avatar key={i} className="w-8 h-8 border-2 border-[#1A1A1A] ring-1 ring-white/10">
-                    <AvatarImage src={getAvatarUrl(p.avatarPath)} />
-                    <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-black">{p.fullName?.substring(0, 1)}</AvatarFallback>
+                    <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
                 </Avatar>
             ))}
         </div>
       </header>
 
       <main className="flex-1 flex min-h-0 relative z-10">
-        <section className="flex-1 p-6 flex items-center justify-center relative overflow-hidden">
+        <section className="flex-1 p-6 flex flex-col relative overflow-hidden">
              <div className={cn(
-                "grid gap-4 w-full h-full max-w-[1400px]",
+                "grid gap-4 w-full h-full",
                 allStreams.length === 1 ? "grid-cols-1" : allStreams.length === 2 ? "grid-cols-2" : "grid-cols-2 md:grid-cols-3"
              )}>
                 {allStreams.map((p) => (
-                  <div key={p.id} className="relative rounded-3xl overflow-hidden bg-[#1A1A1A] aspect-video border border-white/5 shadow-2xl group transition-all duration-500 hover:border-primary/30">
+                  <div key={p.id} className="relative rounded-3xl overflow-hidden bg-[#121212] aspect-video border border-white/5 shadow-2xl group transition-all duration-500 hover:border-primary/30">
                     <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.isLocal ? isCameraOn : true} />
-                    <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-xl px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ring-1 ring-white/10">
+                    <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-xl px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ring-1 ring-white/10 flex items-center gap-2">
                         {p.name} {p.isLocal && "(Tôi)"}
+                        {p.id === hostId && (
+                           <div className="flex items-center gap-1 text-primary">
+                             <ShieldCheck className="w-3 h-3" />
+                             <span className="text-[8px] font-black tracking-[0.2em]">CHỦ PHÒNG</span>
+                           </div>
+                        )}
                     </div>
                   </div>
                 ))}
              </div>
 
-             <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#1A1A1A]/90 backdrop-blur-2xl p-2 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5">
-                <Button variant="ghost" size="icon" onClick={toggleCamera} className={cn("h-14 w-14 rounded-full", !isCameraOn && "bg-primary text-white hover:bg-primary/80 shadow-lg shadow-primary/30")}>
-                    {isCameraOn ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
-                </Button>
-                <Button variant="ghost" size="icon" onClick={toggleMic} className={cn("h-14 w-14 rounded-full", isMuted && "bg-primary text-white hover:bg-primary/80 shadow-lg shadow-primary/30")}>
-                    {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-                </Button>
-                <div className="w-[1px] h-8 bg-white/10 mx-1" />
-                <Button variant="ghost" size="icon" onClick={toggleScreenShare} className={cn("h-14 w-14 rounded-full", isScreenSharing && "bg-primary text-white shadow-lg shadow-primary/30")}>
-                    <Monitor className="h-6 w-6" />
-                </Button>
-                <div className="w-[1px] h-8 bg-white/10 mx-1" />
-                <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showPeople && "text-primary bg-primary/10")} onClick={() => { setShowPeople(!showPeople); setShowChat(false); }}>
-                    <Users className="h-6 w-6" />
-                </Button>
-                <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showChat && "text-primary bg-primary/10")} onClick={() => { setShowChat(!showChat); setShowPeople(false); }}>
-                    <MessageSquare className="h-6 w-6" />
-                </Button>
-                <div className="ml-2">
-                    <Button onClick={onEndCall} className="h-14 px-8 rounded-3xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-red-600/20 active:scale-95 transition-all">
-                        <PhoneOff className="h-5 w-5 mr-3 fill-current" /> Kết thúc
-                    </Button>
-                </div>
+             <div className={cn(
+                "absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#1A1A1A]/95 backdrop-blur-2xl p-2 rounded-[2rem] border border-white/10 shadow-2xl",
+                isMinimized && "bottom-2 p-1 gap-1 rounded-2xl scale-75 origin-bottom"
+             )}>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={() => setIsCameraOn(!isCameraOn)} className={cn("h-14 w-14 rounded-full", !isCameraOn && "bg-primary text-white")}>
+                          {isCameraOn ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Bật/Tắt Camera</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={() => setIsMuted(!isMuted)} className={cn("h-14 w-14 rounded-full", isMuted && "bg-primary text-white")}>
+                          {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Bật/Tắt Mic</TooltipContent>
+                  </Tooltip>
+                  <div className="w-[1px] h-8 bg-white/10 mx-1" />
+                  <Button variant="ghost" size="icon" onClick={toggleScreenShare} className={cn("h-14 w-14 rounded-full", isScreenSharing && "bg-primary text-white shadow-lg shadow-primary/30")}>
+                      <Monitor className="h-6 w-6" />
+                  </Button>
+                  <div className="w-[1px] h-8 bg-white/10 mx-1" />
+                  <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showPeople && "text-primary bg-primary/10")} onClick={() => { setShowPeople(!showPeople); setShowChat(false); }}>
+                      <Users className="h-6 w-6" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showChat && "text-primary bg-primary/10")} onClick={() => { setShowChat(!showChat); setShowPeople(false); }}>
+                      <MessageSquare className="h-6 w-6" />
+                  </Button>
+                  <div className="ml-2">
+                      <Button onClick={onEndCall} className="h-14 px-8 rounded-3xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-red-600/20">
+                          <PhoneOff className="h-5 w-5 mr-3" /> Kết thúc
+                      </Button>
+                  </div>
+                </TooltipProvider>
              </div>
         </section>
 
         {(showPeople || showChat) && (
-            <aside className="w-96 bg-[#121212]/95 border-l border-white/5 backdrop-blur-3xl flex flex-col z-20 animate-in slide-in-from-right duration-500 shadow-2xl">
+            <aside className="w-96 bg-[#121212]/95 border-l border-white/5 backdrop-blur-3xl flex flex-col z-20 animate-in slide-in-from-right duration-500">
                 <header className="p-6 border-b border-white/5 flex items-center justify-between">
                     <h3 className="font-black text-sm uppercase tracking-widest text-primary">{showPeople ? 'Người tham gia' : 'Trò chuyện'}</h3>
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => { setShowPeople(false); setShowChat(false); }}><X className="h-4 w-4" /></Button>
                 </header>
                 
-    const [waitingList, setWaitingList] = useState<any[]>([])
-
-    const startCall = async () => {
-      try {
-        // ... (existing getUserMedia logic)
-        
-        const signalR = new CallSignalR({
-          // ... (existing events)
-          onIncomingJoinRequest: (req: any) => {
-            setWaitingList(prev => [...prev.filter(p => p.UserId !== req.UserId), req]);
-            toast.info(`${req.FullName} đang đợi ở phòng chờ`, {
-                action: {
-                    label: "Xem",
-                    onClick: () => { setShowPeople(true); setShowChat(false); }
-                }
-            });
-          },
-        });
-        // ...
-    }
-
-    const handleAcceptWaiting = (userId: number) => {
-        signalRRef.current?.acceptJoinRequest(Number(callId), userId);
-        setWaitingList(prev => prev.filter(p => p.UserId !== userId));
-    };
-
-    const handleDeclineWaiting = (userId: number) => {
-        signalRRef.current?.declineJoinRequest(Number(callId), userId);
-        setWaitingList(prev => prev.filter(p => p.UserId !== userId));
-    };
-
-    // ... (down in the sidebar render)
                 {showPeople && (
                     <ScrollArea className="flex-1 p-6">
                         <div className="space-y-6">
-                            {waitingList.length > 0 && (
+                            {waitingList.length > 0 && user?.id === hostId && (
                                 <div className="space-y-3">
                                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 mb-2">Đang chờ phê duyệt ({waitingList.length})</h4>
                                     {waitingList.map((p, i) => (
-                                        <div key={`wait-${i}`} className="flex items-center gap-4 p-3 rounded-2xl bg-primary/5 border border-primary/20 animate-pulse">
+                                        <div key={`wait-${i}`} className="flex items-center gap-4 p-3 rounded-2xl bg-primary/5 border border-primary/20">
                                             <Avatar className="h-10 w-10">
-                                                <AvatarImage src={getAvatarUrl(p.AvatarPath)} />
-                                                <AvatarFallback className="bg-primary/10 text-primary text-xs font-black">{p.FullName?.substring(0, 1)}</AvatarFallback>
+                                                <AvatarFallback className="bg-primary/10 text-primary text-xs font-black uppercase">{p.FullName?.substring(0, 1)}</AvatarFallback>
                                             </Avatar>
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-xs font-black truncate text-white/90">{p.FullName}</p>
                                                 <div className="flex gap-2 mt-2">
-                                                    <Button size="sm" className="h-7 px-3 text-[10px] font-black uppercase rounded-lg bg-primary" onClick={() => handleAcceptWaiting(p.UserId)}>Chấp nhận</Button>
-                                                    <Button size="sm" variant="ghost" className="h-7 px-3 text-[10px] font-black uppercase rounded-lg text-white/40 hover:text-white" onClick={() => handleDeclineWaiting(p.UserId)}>Từ chối</Button>
+                                                    <Button size="sm" className="h-7 px-3 text-[10px] font-black uppercase rounded-lg bg-primary" onClick={() => { signalRRef.current?.acceptJoinRequest(Number(callId), p.UserId); setWaitingList(prev => prev.filter(x => x.UserId !== p.UserId)); }}>Duyệt</Button>
+                                                    <Button size="sm" variant="ghost" className="h-7 px-3 text-[10px] font-black uppercase rounded-lg text-white/40" onClick={() => { signalRRef.current?.declineJoinRequest(Number(callId), p.UserId); setWaitingList(prev => prev.filter(x => x.UserId !== p.UserId)); }}>Từ chối</Button>
                                                 </div>
                                             </div>
                                         </div>
@@ -544,17 +459,24 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                             )}
 
                             <div className="space-y-3">
-                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-2">Đang tham gia ({meetingParticipants.length})</h4>
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-2">Trong cuộc họp ({meetingParticipants.length})</h4>
                                 {meetingParticipants.map((p, i) => (
-                                    <div key={i} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/5">
+                                    <div key={i} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/5 group">
                                         <Avatar className="h-10 w-10">
-                                            <AvatarImage src={getAvatarUrl(p.avatarPath)} />
                                             <AvatarFallback className="bg-primary/10 text-primary text-xs font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
                                         </Avatar>
                                         <div className="min-w-0 flex-1">
                                             <p className="text-xs font-black truncate text-white/90">{p.fullName} {p.userId === user?.id && '(Bạn)'}</p>
-                                            <p className="text-[10px] font-bold text-primary/60 uppercase tracking-tighter">Đang tham gia</p>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                               {p.userId === hostId && <ShieldCheck className="w-3 h-3 text-primary opacity-60" />}
+                                               <p className="text-[10px] font-bold text-white/40 uppercase tracking-tighter">Đang tham gia</p>
+                                            </div>
                                         </div>
+                                        {user?.id === hostId && p.userId !== user?.id && (
+                                           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity text-destructive">
+                                              <X className="w-4 h-4" />
+                                           </Button>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -593,7 +515,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         )}
 
         {error && (
-            <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-destructive text-white px-6 py-3 rounded-full font-black uppercase tracking-widest text-[10px] shadow-2xl animate-in fade-in slide-in-from-top-4 z-50">{error}</div>
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-destructive text-white px-6 py-3 rounded-full font-black uppercase tracking-widest text-[10px] shadow-2xl animate-in fade-in slide-in-from-top-4 z-50 transition-all">{error}</div>
         )}
       </main>
     </div>
@@ -611,11 +533,17 @@ function VideoPlayer({ stream, isLocal, isCameraOn }: { stream: MediaStream | nu
         <video ref={ref} autoPlay playsInline muted={isLocal} className={cn("h-full w-full object-cover transition-opacity duration-1000", isLocal && "scale-x-[-1]", !isCameraOn ? "opacity-0" : "opacity-100")} />
         {!isCameraOn && (
             <div className="absolute inset-0 flex items-center justify-center">
-                <Avatar className="h-24 w-24 ring-4 ring-red-500/20 shadow-2xl">
-                    <AvatarFallback className="bg-gradient-to-br from-red-600 to-red-900 text-3xl font-black text-white">L</AvatarFallback>
+                <Avatar className="h-24 w-24 ring-4 ring-primary/20 shadow-2xl">
+                    <AvatarFallback className="bg-gradient-to-br from-primary/80 to-primary text-3xl font-black text-white">L</AvatarFallback>
                 </Avatar>
             </div>
         )}
     </div>
   );
+}
+
+const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
