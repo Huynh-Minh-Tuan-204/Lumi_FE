@@ -64,7 +64,18 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   const [callMessages, setCallMessages] = useState<ChatMessage[]>([])
   const [reaction, setReaction] = useState<string | null>(null)
   const [processedUserLeft, setProcessedUserLeft] = useState<number | null>(null)
-  
+  const [waitingList, setWaitingList] = useState<any[]>([])
+
+  const handleAcceptWaiting = useCallback((userId: number) => {
+    signalRRef.current?.acceptJoinRequest(Number(callId), userId);
+    setWaitingList(prev => prev.filter(p => p.UserId !== userId));
+  }, [callId]);
+
+  const handleDeclineWaiting = useCallback((userId: number) => {
+    signalRRef.current?.declineJoinRequest(Number(callId), userId);
+    setWaitingList(prev => prev.filter(p => p.UserId !== userId));
+  }, [callId]);
+
   const meetingStartTime = useRef<Date>(new Date())
   const localVideoRef = useRef<HTMLVideoElement>(null)
   const localStreamRef = useRef<MediaStream | null>(null)
@@ -270,7 +281,16 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
             if (peer && !peer.ignoreOffer) {
               await peer.connection.addIceCandidate(candidate).catch(() => {});
             }
-          }
+          },
+          onIncomingJoinRequest: (req: any) => {
+            setWaitingList(prev => [...prev.filter(p => p.UserId !== req.UserId), req]);
+            toast.info(`${req.FullName} đang đợi ở phòng chờ`, {
+                action: {
+                    label: "Xem",
+                    onClick: () => { setShowPeople(true); setShowChat(false); }
+                }
+            });
+          },
         });
 
         signalRRef.current = signalR;
@@ -385,9 +405,25 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-xs shadow-lg shadow-primary/30">L</div>
             <div className="flex flex-col -space-y-0.5">
                <span className="text-sm font-black tracking-tight">{participantName} Meeting</span>
-               <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
-                 <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                 Mã phòng: #{callId} | {formatDuration(callDuration)}
+               <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    <span className="text-[10px] font-black text-primary uppercase">Phòng: #{callId}</span>
+                 </div>
+                 <span className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter">
+                   {formatDuration(callDuration)}
+                 </span>
+                 <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-5 w-5 text-gray-500 hover:text-primary transition-colors"
+                    onClick={() => {
+                        navigator.clipboard.writeText(callId.replace('#', ''));
+                        toast.success("Đã sao chép mã phòng");
+                    }}
+                 >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"></path></svg>
+                 </Button>
                </div>
             </div>
         </div>
@@ -450,21 +486,78 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                     <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => { setShowPeople(false); setShowChat(false); }}><X className="h-4 w-4" /></Button>
                 </header>
                 
+    const [waitingList, setWaitingList] = useState<any[]>([])
+
+    const startCall = async () => {
+      try {
+        // ... (existing getUserMedia logic)
+        
+        const signalR = new CallSignalR({
+          // ... (existing events)
+          onIncomingJoinRequest: (req: any) => {
+            setWaitingList(prev => [...prev.filter(p => p.UserId !== req.UserId), req]);
+            toast.info(`${req.FullName} đang đợi ở phòng chờ`, {
+                action: {
+                    label: "Xem",
+                    onClick: () => { setShowPeople(true); setShowChat(false); }
+                }
+            });
+          },
+        });
+        // ...
+    }
+
+    const handleAcceptWaiting = (userId: number) => {
+        signalRRef.current?.acceptJoinRequest(Number(callId), userId);
+        setWaitingList(prev => prev.filter(p => p.UserId !== userId));
+    };
+
+    const handleDeclineWaiting = (userId: number) => {
+        signalRRef.current?.declineJoinRequest(Number(callId), userId);
+        setWaitingList(prev => prev.filter(p => p.UserId !== userId));
+    };
+
+    // ... (down in the sidebar render)
                 {showPeople && (
                     <ScrollArea className="flex-1 p-6">
-                        <div className="space-y-3">
-                            {meetingParticipants.map((p, i) => (
-                                <div key={i} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/5">
-                                    <Avatar className="h-10 w-10">
-                                        <AvatarImage src={getAvatarUrl(p.avatarPath)} />
-                                        <AvatarFallback className="bg-primary/10 text-primary text-xs font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-xs font-black truncate text-white/90">{p.fullName} {p.userId === user?.id && '(Bạn)'}</p>
-                                        <p className="text-[10px] font-bold text-primary/60 uppercase tracking-tighter">Đang tham gia</p>
-                                    </div>
+                        <div className="space-y-6">
+                            {waitingList.length > 0 && (
+                                <div className="space-y-3">
+                                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 mb-2">Đang chờ phê duyệt ({waitingList.length})</h4>
+                                    {waitingList.map((p, i) => (
+                                        <div key={`wait-${i}`} className="flex items-center gap-4 p-3 rounded-2xl bg-primary/5 border border-primary/20 animate-pulse">
+                                            <Avatar className="h-10 w-10">
+                                                <AvatarImage src={getAvatarUrl(p.AvatarPath)} />
+                                                <AvatarFallback className="bg-primary/10 text-primary text-xs font-black">{p.FullName?.substring(0, 1)}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-xs font-black truncate text-white/90">{p.FullName}</p>
+                                                <div className="flex gap-2 mt-2">
+                                                    <Button size="sm" className="h-7 px-3 text-[10px] font-black uppercase rounded-lg bg-primary" onClick={() => handleAcceptWaiting(p.UserId)}>Chấp nhận</Button>
+                                                    <Button size="sm" variant="ghost" className="h-7 px-3 text-[10px] font-black uppercase rounded-lg text-white/40 hover:text-white" onClick={() => handleDeclineWaiting(p.UserId)}>Từ chối</Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div className="h-px bg-white/5 my-6" />
                                 </div>
-                            ))}
+                            )}
+
+                            <div className="space-y-3">
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-2">Đang tham gia ({meetingParticipants.length})</h4>
+                                {meetingParticipants.map((p, i) => (
+                                    <div key={i} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/5">
+                                        <Avatar className="h-10 w-10">
+                                            <AvatarImage src={getAvatarUrl(p.avatarPath)} />
+                                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-xs font-black truncate text-white/90">{p.fullName} {p.userId === user?.id && '(Bạn)'}</p>
+                                            <p className="text-[10px] font-bold text-primary/60 uppercase tracking-tighter">Đang tham gia</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </ScrollArea>
                 )}

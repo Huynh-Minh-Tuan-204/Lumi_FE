@@ -24,6 +24,9 @@ export interface CallSignalRHandlers {
   onUserJoined?: (connectionId: string, userId: number, displayName: string) => void
   onUserLeft?: (connectionId: string, userId: number, displayName: string) => void
   onConnectionStateChange?: (state: signalR.HubConnectionState) => void
+  onIncomingJoinRequest?: (req: any) => void
+  onJoinRequestAccepted?: (meetingId: number) => void
+  onJoinRequestDeclined?: (meetingId: number, reason: string) => void
 }
 
 export class CallSignalR {
@@ -71,6 +74,18 @@ export class CallSignalR {
 
     connection.on('UserLeft', (connectionId: string, userId: number, displayName: string) => {
       this.handlers.onUserLeft?.(connectionId, userId, displayName)
+    })
+
+    connection.on('IncomingJoinRequest', (req: any) => {
+      this.handlers.onIncomingJoinRequest?.(req)
+    })
+
+    connection.on('JoinRequestAccepted', (meetingId: number) => {
+      this.handlers.onJoinRequestAccepted?.(meetingId)
+    })
+
+    connection.on('JoinRequestDeclined', (meetingId: number, reason: string) => {
+      this.handlers.onJoinRequestDeclined?.(meetingId, reason)
     })
 
     connection.onreconnected(() => {
@@ -132,5 +147,20 @@ export class CallSignalR {
   async sendIceCandidate(callId: string, targetUserId: number, candidate: RTCIceCandidateInit): Promise<void> {
     if (!this.isConnected) return
     await this.connection?.invoke('SendIceCandidate', callId, targetUserId, candidate)
+  }
+
+  async requestJoin(meetingId: number): Promise<void> {
+    if (!this.isConnected) return
+    await this.connection?.invoke('RequestJoin', meetingId)
+  }
+
+  async acceptJoinRequest(meetingId: number, attendeeId: number): Promise<void> {
+    if (!this.isConnected) return
+    await this.connection?.invoke('AcceptJoinRequest', meetingId, attendeeId)
+  }
+
+  async declineJoinRequest(meetingId: number, attendeeId: number): Promise<void> {
+    if (!this.isConnected) return
+    await this.connection?.invoke('DeclineJoinRequest', meetingId, attendeeId)
   }
 }

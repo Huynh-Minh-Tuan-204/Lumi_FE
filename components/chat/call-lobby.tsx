@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn, getAvatarUrl } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
+import { CallSignalR } from '@/lib/call-signalr'
 
 interface CallLobbyProps {
   meetingId: string | number
@@ -41,43 +42,62 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
   
   const [isAuthorized, setIsAuthorized] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [isWaiting, setIsWaiting] = useState(false)
+  const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle')
+  const signalRRef = useRef<CallSignalR | null>(null)
 
   const stopPreview = useCallback(() => {
     if (stream) {
       stream.getTracks().forEach(track => {
         track.stop()
-        console.log(`LUMI: Stopped track ${track.kind}`)
       })
       setStream(null)
     }
   }, [stream])
 
-  // 1. Verify access
+  // 1. Verify access & Connect SignalR
   useEffect(() => {
-    const verifyAccess = async () => {
+    const init = async () => {
       if (!token) return
       try {
+        const signalR = new CallSignalR({
+            onJoinRequestAccepted: (mId) => {
+                if (Number(mId) === Number(meetingId)) {
+                    setRequestStatus('accepted');
+                    toast.success("Yêu cầu tham gia đã được chấp nhận!");
+                    stopPreview();
+                    onJoin(isMicOn, isCamOn);
+                }
+            },
+            onJoinRequestDeclined: (mId, reason) => {
+                if (Number(mId) === Number(meetingId)) {
+                    setRequestStatus('declined');
+                    setIsWaiting(false);
+                    toast.error(reason || "Yêu cầu bị từ chối.");
+                }
+            }
+        });
+        await signalR.connect(token);
+        signalRRef.current = signalR;
         setIsAuthorized(true)
       } catch (err) {
-        toast.error("Bạn không có quyền tham gia.")
+        toast.error("Không thể kết nối dịch vụ cuộc gọi.")
         onCancel()
       } finally {
         setIsLoading(false)
       }
     }
-    verifyAccess()
-  }, [token, meetingId])
+    init()
+    return () => {
+        signalRRef.current?.disconnect();
+    }
+  }, [token, meetingId, onJoin, onCancel, isMicOn, isCamOn, stopPreview])
 
   // 2. Local Preview
   useEffect(() => {
-    if (!isAuthorized) return
+    if (!isAuthorized || isWaiting) return
 
     async function startPreview() {
-      // Stop old stream before starting new one
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop())
-      }
-
       try {
         if (!isCamOn && !isMicOn) {
             if (stream) {
@@ -99,40 +119,35 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
           }
         }
       } catch (err) {
-        console.error("Lỗi khởi tạo thiết bị:", err)
+        console.error("Lỗi thiết bị:", err)
         toast.warning("Không thể truy cập Camera/Mic.")
       }
     }
 
     startPreview()
-
-    return () => {
-      // Important: don't call stopPreview here directly as it depends on latest stream
-      // Just do internal cleanup
-    }
-  }, [isCamOn, isMicOn, isAuthorized])
-
-  // Cleanup on unmount
-  useEffect(() => {
-     return () => {
-        if (stream) stream.getTracks().forEach(t => t.stop())
-     }
-  }, [stream])
+  }, [isCamOn, isMicOn, isAuthorized, isWaiting])
 
   if (isLoading) {
     return (
       <div className="fixed inset-0 z-[10000] bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
            <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-           <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Đang chuẩn bị phòng họp...</p>
+           <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Đang chuẩn bị...</p>
         </div>
       </div>
     )
   }
 
-  const handleJoin = () => {
-     stopPreview()
-     onJoin(isMicOn, isCamOn)
+  const handleJoin = async () => {
+     setIsWaiting(true);
+     setRequestStatus('pending');
+     try {
+        await signalRRef.current?.requestJoin(Number(meetingId));
+        toast.info("Đã gửi yêu cầu tham gia.");
+     } catch (e) {
+        toast.error("Gửi yêu cầu thất bại.");
+        setIsWaiting(false);
+     }
   }
 
   const handleCancel = () => {
@@ -148,7 +163,21 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
         
         {/* Left: Preview */}
         <div className="flex-1 bg-[#050505] relative flex items-center justify-center min-h-[350px]">
-          {isCamOn ? (
+          {isWaiting ? (
+            <div className="flex flex-col items-center gap-6 animate-in zoom-in duration-500">
+               <div className="relative">
+                  <Avatar className="h-32 w-32 border-4 border-primary/20 p-1">
+                     <AvatarImage src={getAvatarUrl(user?.avatarPath)} className="rounded-full" />
+                     <AvatarFallback className="text-4xl font-black">{user?.fullName?.[0]}</AvatarFallback>
+                  </Avatar>
+                  <div className="absolute inset-0 border-4 border-primary rounded-full animate-ping opacity-20" />
+               </div>
+               <div className="text-center space-y-2 px-6">
+                  <h3 className="text-xl font-black uppercase tracking-widest text-white">Đang chờ phê duyệt...</h3>
+                  <p className="text-xs font-bold text-white/40 uppercase tracking-tighter">Bạn đang ở phòng đợi. Người tổ chức sẽ cho phép bạn tham gia sau khi cuộc họp bắt đầu.</p>
+               </div>
+            </div>
+          ) : isCamOn ? (
             <video 
               ref={videoRef} 
               autoPlay 
@@ -166,25 +195,26 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
             </div>
           )}
 
-          {/* Controls Overlay */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4">
-             <Button 
-                variant={isMicOn ? "secondary" : "destructive"} 
-                size="icon" 
-                className="h-12 w-12 rounded-full shadow-xl"
-                onClick={() => setIsMicOn(!isMicOn)}
-             >
-                {isMicOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-             </Button>
-             <Button 
-                variant={isCamOn ? "secondary" : "destructive"} 
-                size="icon" 
-                className="h-12 w-12 rounded-full shadow-xl"
-                onClick={() => setIsCamOn(!isCamOn)}
-             >
-                {isCamOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
-             </Button>
-          </div>
+          {!isWaiting && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4">
+               <Button 
+                  variant={isMicOn ? "secondary" : "destructive"} 
+                  size="icon" 
+                  className="h-12 w-12 rounded-full shadow-xl"
+                  onClick={() => setIsMicOn(!isMicOn)}
+               >
+                  {isMicOn ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+               </Button>
+               <Button 
+                  variant={isCamOn ? "secondary" : "destructive"} 
+                  size="icon" 
+                  className="h-12 w-12 rounded-full shadow-xl"
+                  onClick={() => setIsCamOn(!isCamOn)}
+               >
+                  {isCamOn ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+               </Button>
+            </div>
+          )}
         </div>
 
         {/* Right: Info & Join */}
@@ -202,29 +232,45 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
               <div>
                  <h2 className="text-xl font-black uppercase tracking-tight leading-tight">{title}</h2>
                  <p className="text-xs font-bold text-muted-foreground mt-2 flex items-center gap-2">
-                    <Users className="h-3 w-3" /> Cuộc gọi nhóm bảo mật
+                    <Users className="h-3 w-3" /> Lumi Meeting | Bảo mật
                  </p>
               </div>
 
-              <div className="space-y-4">
-                 <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Tùy chọn thiết bị</p>
-                 <Button variant="outline" className="w-full justify-start gap-3 rounded-xl py-6 font-bold text-xs bg-background/50">
-                    <Settings className="h-4 w-4 opacity-40" />
-                    Thiết lập Camera & Mic
-                 </Button>
-              </div>
+              {isWaiting ? (
+                <div className="p-6 bg-primary/5 rounded-[2rem] border border-primary/10 space-y-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary">Thông báo</p>
+                    <p className="text-[11px] font-medium leading-relaxed opacity-60 italic">
+                        "Vui lòng đợi trong giây lát. Hệ thống đang bảo mật cuộc gọi của bạn."
+                    </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Thiết bị</p>
+                    <Button variant="outline" className="w-full justify-start gap-3 rounded-xl py-6 font-bold text-xs bg-background/50">
+                        <Settings className="h-4 w-4 opacity-40" />
+                        Cài đặt âm thanh/hình ảnh
+                    </Button>
+                </div>
+              )}
            </div>
 
            <div className="space-y-3 pt-8">
-              <Button 
-                className="w-full bg-primary text-primary-foreground py-7 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
-                onClick={handleJoin}
-              >
-                <PhoneCall className="mr-3 h-5 w-5" /> Tham gia ngay
-              </Button>
-              <p className="text-[9px] text-center font-bold opacity-30 px-4 uppercase leading-relaxed">
-                 Bằng cách nhấn tham gia, bạn đồng ý với các tiêu chuẩn bảo mật của Lumi
-              </p>
+              {!isWaiting ? (
+                <Button 
+                    className="w-full bg-primary text-primary-foreground py-7 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                    onClick={handleJoin}
+                >
+                    <PhoneCall className="mr-3 h-5 w-5" /> Tham gia
+                </Button>
+              ) : (
+                <Button 
+                    variant="ghost"
+                    className="w-full py-7 rounded-2xl font-black uppercase tracking-widest text-xs opacity-40 italic cursor-wait"
+                    disabled
+                >
+                    Đang xin phê duyệt...
+                </Button>
+              )}
            </div>
         </div>
       </div>
