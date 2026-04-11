@@ -395,8 +395,8 @@ export function ChatArea({
           type={showLobby.type}
           title={showLobby.title}
           conversationId={conversation.id}
-          onJoin={() => {
-            router.push(`/call/${showLobby.meetingId}?type=${showLobby.type}`)
+          onJoin={(mic, cam) => {
+            router.push(`/call/${showLobby.meetingId}?type=${showLobby.type}&mic=${mic}&cam=${cam}`)
             setShowLobby(null)
           }}
           onCancel={() => setShowLobby(null)}

@@ -24,7 +24,7 @@ interface CallLobbyProps {
   type: 'voice' | 'video'
   title: string
   conversationId: number
-  onJoin: () => void
+  onJoin: (mic: boolean, cam: boolean) => void
   onCancel: () => void
 }
 
@@ -38,16 +38,24 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
   const [isAuthorized, setIsAuthorized] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
-  // 1. Verify access (ACL / JWT)
+  const stopPreview = useCallback(() => {
+    if (stream) {
+      stream.getTracks().forEach(track => {
+        track.stop()
+        console.log(`LUMI: Stopped track ${track.kind}`)
+      })
+      setStream(null)
+    }
+  }, [stream])
+
+  // 1. Verify access
   useEffect(() => {
     const verifyAccess = async () => {
       if (!token) return
       try {
-        // Here we'd normally call an API to get a signed join token
-        // For now, we simulate a check against membership
         setIsAuthorized(true)
       } catch (err) {
-        toast.error("Bạn không có quyền tham gia cuộc họp này.")
+        toast.error("Bạn không có quyền tham gia.")
         onCancel()
       } finally {
         setIsLoading(false)
@@ -61,52 +69,78 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
     if (!isAuthorized) return
 
     async function startPreview() {
+      // Stop old stream before starting new one
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop())
+      }
+
       try {
         const localStream = await navigator.mediaDevices.getUserMedia({
-          video: isCamOn,
+          video: isCamOn ? { width: 1280, height: 720 } : false,
           audio: isMicOn
         })
         setStream(localStream)
         if (videoRef.current) {
           videoRef.current.srcObject = localStream
+          videoRef.current.onloadedmetadata = () => {
+             videoRef.current?.play().catch(e => console.error("Play error:", e))
+          }
         }
       } catch (err) {
         console.error("Lỗi khởi tạo thiết bị:", err)
-        toast.warning("Không thể truy cập Camera/Mic. Vui lòng kiểm tra quyền trình duyệt.")
+        toast.warning("Không thể truy cập Camera/Mic.")
       }
     }
 
     startPreview()
 
     return () => {
-      stream?.getTracks().forEach(track => track.stop())
+      // Important: don't call stopPreview here directly as it depends on latest stream
+      // Just do internal cleanup
     }
   }, [isCamOn, isMicOn, isAuthorized])
 
+  // Cleanup on unmount
+  useEffect(() => {
+     return () => {
+        if (stream) stream.getTracks().forEach(t => t.stop())
+     }
+  }, [stream])
+
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4 animate-pulse">
-           <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-           <p className="text-xs font-black uppercase tracking-widest opacity-50">Đang kiểm tra quyền truy cập...</p>
+      <div className="fixed inset-0 z-[10000] bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+           <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+           <p className="text-[10px] font-black uppercase tracking-widest opacity-40">Đang chuẩn bị phòng họp...</p>
         </div>
       </div>
     )
   }
 
+  const handleJoin = () => {
+     stopPreview()
+     onJoin(isMicOn, isCamOn)
+  }
+
+  const handleCancel = () => {
+     stopPreview()
+     onCancel()
+  }
+
   return (
-    <div className="fixed inset-0 z-50 bg-background/98 backdrop-blur-2xl flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl bg-card border shadow-2xl rounded-3xl overflow-hidden flex flex-col md:flex-row">
+    <div className="fixed inset-0 z-[9999] bg-background flex items-center justify-center p-0 md:p-10 animate-in fade-in duration-300">
+      <div className="w-full h-full md:h-auto md:max-w-5xl bg-card border shadow-2xl md:rounded-[40px] overflow-hidden flex flex-col md:flex-row relative">
         
         {/* Left: Preview */}
-        <div className="flex-1 bg-black relative aspect-video md:aspect-auto flex items-center justify-center min-h-[300px]">
-          {isCamOn && stream ? (
+        <div className="flex-1 bg-[#050505] relative flex items-center justify-center min-h-[350px]">
+          {isCamOn ? (
             <video 
               ref={videoRef} 
               autoPlay 
               muted 
               playsInline 
-              className="w-full h-full object-cover mirror"
+              className="w-full h-full object-cover scale-x-[-1]"
             />
           ) : (
             <div className="flex flex-col items-center gap-4">
@@ -146,7 +180,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
                  <div className="p-2 bg-primary/10 rounded-xl text-primary">
                     <ShieldCheck className="h-6 w-6" />
                  </div>
-                 <Button variant="ghost" size="icon" onClick={onCancel} className="rounded-full">
+                 <Button variant="ghost" size="icon" onClick={handleCancel} className="rounded-full">
                     <X className="h-5 w-5" />
                  </Button>
               </div>
@@ -170,10 +204,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
            <div className="space-y-3 pt-8">
               <Button 
                 className="w-full bg-primary text-primary-foreground py-7 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
-                onClick={() => {
-                   stream?.getTracks().forEach(track => track.stop())
-                   onJoin()
-                }}
+                onClick={handleJoin}
               >
                 <PhoneCall className="mr-3 h-5 w-5" /> Tham gia ngay
               </Button>

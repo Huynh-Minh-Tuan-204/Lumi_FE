@@ -133,8 +133,8 @@ export function IncomingCallOverlay() {
           type={incomingCall.callType as any}
           title={incomingCall.convName || `Cuộc gọi từ ${incomingCall.callerName}`}
           conversationId={0} // Not needed for redirection
-          onJoin={() => {
-            router.push(`/call/${incomingCall.meetingId}?type=${incomingCall.callType}`)
+          onJoin={(mic, cam) => {
+            router.push(`/call/${incomingCall.meetingId}?type=${incomingCall.callType}&mic=${mic}&cam=${cam}`)
             setShowLobby(false)
             clearIncomingCall()
           }}
