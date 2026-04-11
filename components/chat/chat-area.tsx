@@ -152,12 +152,16 @@ export function ChatArea({
   const pinnedList = useMemo(() => messages.filter(m => m.isPinned), [messages])
   const latestPin = pinnedList[pinnedList.length - 1]
 
-  const scrollToMessage = useCallback((msgId: number) => {
-    const el = document.getElementById(`message-${msgId}`)
+  const scrollToMessage = useCallback((msgId: any) => {
+    const id = typeof msgId === 'string' ? msgId : msgId.toString();
+    const el = document.getElementById(`message-${id}`)
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       el.classList.add('bg-primary/20')
       setTimeout(() => el.classList.remove('bg-primary/20'), 2000)
+    } else {
+      console.warn(`Target message-${id} not found in DOM`);
+      toast.error('Không tìm thấy vị trí tin nhắn');
     }
   }, [])
 
@@ -301,6 +305,7 @@ export function ChatArea({
   if (!conversation) return null
 
   return (
+    <TooltipProvider>
     <div className={cn('flex flex-col bg-background h-full overflow-hidden relative', className)}>
       <header className="flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-md z-30 border-b shadow-sm shrink-0">
         <div className="flex items-center gap-3">
@@ -318,7 +323,6 @@ export function ChatArea({
         </div>
         
         <div className="flex items-center gap-1">
-          <TooltipProvider>
             {conversation.type !== 'Group' && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -375,7 +379,6 @@ export function ChatArea({
                  </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </TooltipProvider>
         </div>
       </header>
 
@@ -395,16 +398,14 @@ export function ChatArea({
              </div>
              
              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <TooltipProvider>
-                   <Tooltip>
-                      <TooltipTrigger asChild>
-                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); togglePinMessage(latestPin.id); }}>
-                            <PinOff className="h-3.5 w-3.5" />
-                         </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Bỏ ghim nhanh</TooltipContent>
-                   </Tooltip>
-                </TooltipProvider>
+                 <Tooltip>
+                    <TooltipTrigger asChild>
+                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); togglePinMessage(latestPin.id); }}>
+                          <PinOff className="h-3.5 w-3.5" />
+                       </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Bỏ ghim nhanh</TooltipContent>
+                 </Tooltip>
 
                 <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}>
                    <ChevronDown className={cn("h-4 w-4 transition-transform", isPinnedListExpanded && "rotate-180")} />
@@ -515,7 +516,10 @@ export function ChatArea({
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator />
                                       <DropdownMenuItem 
-                                        onClick={() => setMessages(prev => prev.filter(msg => msg.id !== m.id))}
+                                        onClick={async () => {
+                                           setMessages(prev => prev.filter(msg => msg.id !== m.id));
+                                           try { await hideMessageForMe(m.id); } catch(e) {}
+                                        }}
                                         className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"
                                       >
                                          <X className="h-3.5 w-3.5" /> Xóa phía tôi
@@ -611,5 +615,6 @@ export function ChatArea({
       <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
       <input type="file" accept="image/*" ref={imageInputRef} className="hidden" onChange={handleFileUpload} />
     </div>
+    </TooltipProvider>
   )
 }

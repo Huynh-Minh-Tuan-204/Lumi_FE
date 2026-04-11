@@ -401,6 +401,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         lastUserUpdate,
         sendSticker,
         togglePinMessage,
+        hideMessageForMe: useCallback(async(messageId: number) => {
+          if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+            await connectionRef.current.invoke('HideMessageForMe', messageId)
+          }
+        }, []),
         sendReminder,
         markAllNotificationsRead: async () => {
           if (!token) return;
