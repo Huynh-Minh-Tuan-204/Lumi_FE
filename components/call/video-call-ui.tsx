@@ -361,6 +361,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                     <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
                 </Avatar>
             ))}
+            </div>
         </div>
       </header>
 

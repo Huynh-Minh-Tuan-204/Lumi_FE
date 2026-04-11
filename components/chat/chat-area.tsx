@@ -475,7 +475,7 @@ export function ChatArea({
                                  })}
                               </div>
                             )}
-                             {m.encryptedContent !== "[Attachment]" && (
+                             {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
                                <p className="font-medium leading-relaxed">{m.encryptedContent}</p>
                              )}
                             
