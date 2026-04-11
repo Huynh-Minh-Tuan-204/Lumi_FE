@@ -209,9 +209,18 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
           video: callType === 'video'
         });
         if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
+        
         localStreamRef.current = stream;
-        stream.getAudioTracks().forEach(t => t.enabled = !isMuted);
-        stream.getVideoTracks().forEach(t => t.enabled = isCameraOn);
+        
+        if (!initialMic) {
+            stream.getAudioTracks().forEach(t => t.enabled = false);
+        }
+        
+        if (callType === 'video' && !initialCam) {
+            // Stop the track completely to turn off the hardware LED
+            stream.getVideoTracks().forEach(t => t.stop());
+        }
+
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
         const signalR = new CallSignalR({
@@ -280,7 +289,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       peersRef.current.clear();
       signalRRef.current?.disconnect();
     };
-  }, [callId, token, user, callType, createPeerConnection, meetingParticipants, removePeer]);
+  }, [callId, token, user, callType, createPeerConnection, meetingParticipants, removePeer, initialMic, initialCam]);
 
   const toggleMic = () => {
     setIsMuted(prev => {
@@ -290,12 +299,37 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     });
   };
 
-  const toggleCamera = () => {
-    setIsCameraOn(prev => {
-      const next = !prev;
-      localStreamRef.current?.getVideoTracks().forEach(t => t.enabled = next);
-      return next;
-    });
+  const toggleCamera = async () => {
+    if (isCameraOn) {
+      setIsCameraOn(false);
+      localStreamRef.current?.getVideoTracks().forEach(t => t.stop()); // Stop hardware
+    } else {
+      setIsCameraOn(true);
+      try {
+          const newStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const newTrack = newStream.getVideoTracks()[0];
+          
+          if (localStreamRef.current) {
+              // Remove old stopped tracks
+              localStreamRef.current.getVideoTracks().forEach(t => localStreamRef.current?.removeTrack(t));
+              localStreamRef.current.addTrack(newTrack);
+          }
+          
+          peersRef.current.forEach(peer => {
+              // Find sender that was previously handling the stopped video track
+              // WebRTC senders retain the track kind even if stopped
+              const sender = peer.connection.getSenders().find(s => s.track === null || s.track?.kind === 'video');
+              if (sender) {
+                  sender.replaceTrack(newTrack);
+              } else if (localStreamRef.current) {
+                  peer.connection.addTrack(newTrack, localStreamRef.current);
+              }
+          });
+      } catch (err) {
+          toast.error("Không thể bật camera");
+          setIsCameraOn(false);
+      }
+    }
   };
 
   const toggleScreenShare = async () => {

@@ -384,6 +384,12 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const hideMessageForMe = useCallback(async(messageId: number) => {
+    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+      await connectionRef.current.invoke('HideMessageForMe', messageId)
+    }
+  }, [])
+
   if (!mounted) return <div style={{ visibility: 'hidden' }}>{children}</div>;
 
   return (
@@ -408,11 +414,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         lastUserUpdate,
         sendSticker,
         togglePinMessage,
-        hideMessageForMe: useCallback(async(messageId: number) => {
-          if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
-            await connectionRef.current.invoke('HideMessageForMe', messageId)
-          }
-        }, []),
+        hideMessageForMe,
         sendReminder,
         markAllNotificationsRead: async () => {
           if (!token) return;
