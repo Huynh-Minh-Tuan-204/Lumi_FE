@@ -268,7 +268,7 @@ export function ChatArea({
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !conversation) return
     try {
-      await sendMessage(conversation.id, newMessage, '')
+      await sendMessage(conversation.id, newMessage, '', replyingTo?.id)
       setNewMessage('')
       setReplyingTo(null)
     } catch (e) { toast.error('Gửi thất bại') }
@@ -550,7 +550,22 @@ export function ChatArea({
       </div>
 
       {/* Input Section */}
-      <div className="bg-card border-t pt-3 pb-5 px-5 space-y-4 shadow-[0_-8px_30px_rgba(0,0,0,0.1)] shrink-0 z-40">
+      <div className="bg-card border-t pt-2 pb-5 px-5 space-y-3 shadow-[0_-8px_30px_rgba(0,0,0,0.1)] shrink-0 z-40 relative">
+        {replyingTo && (
+          <div className="absolute -top-[52px] left-0 right-0 bg-background/95 backdrop-blur-md border-t border-primary/20 p-2 px-6 flex items-center justify-between animate-in slide-in-from-bottom-2 shadow-2xl">
+             <div className="flex items-center gap-3 border-l-2 border-primary pl-3 min-w-0">
+                <Reply className="h-3 w-3 text-primary opacity-50" />
+                <div className="min-w-0">
+                   <p className="text-[9px] font-black uppercase text-primary tracking-tighter">Đang trả lời {replyingTo.senderName}</p>
+                   <p className="text-xs truncate opacity-70 italic">{replyingTo.encryptedContent}</p>
+                </div>
+             </div>
+             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-destructive/10 hover:text-destructive" onClick={() => setReplyingTo(null)}>
+                <X className="h-3.5 w-3.5" />
+             </Button>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 opacity-60">
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-5 w-5" /></Button>
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all" onClick={() => fileInputRef.current?.click()}><Paperclip className="h-5 w-5" /></Button>

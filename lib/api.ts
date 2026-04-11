@@ -453,6 +453,12 @@ export const conversationsApi = {
       method: 'DELETE',
       token,
     }),
+
+  deleteMessage: (token: string, id: number) =>
+    request<any>(`/Messages/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
 }
 
 // ========== Attachments API (api/Attachments/*) ==========
