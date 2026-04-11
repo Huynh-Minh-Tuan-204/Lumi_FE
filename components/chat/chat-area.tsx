@@ -167,6 +167,22 @@ export function ChatArea({
     }
   }, [scrollToMessage])
 
+  // Sync Pinned State from SignalR
+  useEffect(() => {
+    if (pinnedMessages && conversation && pinnedMessages.conversationId === conversation.id) {
+      setMessages(prev => prev.map(m => 
+        m.id === pinnedMessages.messageId ? { ...m, isPinned: pinnedMessages.isPinned } : m
+      ));
+    }
+  }, [pinnedMessages, conversation?.id]);
+
+  // Sync Deleted State from SignalR
+  useEffect(() => {
+    if (lastDeletedMessage && conversation && lastDeletedMessage.conversationId === conversation.id) {
+      setMessages(prev => prev.filter(m => m.id !== lastDeletedMessage.messageId));
+    }
+  }, [lastDeletedMessage, conversation?.id]);
+
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token || !user) return
     try {
@@ -461,18 +477,68 @@ export function ChatArea({
                             )}
                             <p className="font-medium leading-relaxed">{m.encryptedContent}</p>
                             
-                            {/* Nút Pin nhanh bên cạnh tin nhắn */}
-                            <button 
-                              onClick={() => togglePinMessage(m.id)}
-                              className={cn(
-                                "absolute top-0 opacity-0 group-hover/msg:opacity-100 transition-opacity p-1.5 rounded-full bg-background border shadow-sm hover:scale-110",
-                                isOwn ? "-left-10" : "-right-10",
-                                m.isPinned ? "text-primary border-primary/20" : "text-muted-foreground"
-                              )}
-                            >
-                               {m.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-                            </button>
-                         </div>
+                            {/* Nút Pin nhanh và Menu hành động */}
+                             <div className={cn(
+                                "absolute bottom-0 opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1",
+                                isOwn ? "-left-20" : "-right-20"
+                             )}>
+                                <button 
+                                  onClick={() => togglePinMessage(m.id)}
+                                  className={cn(
+                                    "p-1.5 rounded-full bg-background border shadow-sm hover:scale-110 transition-all",
+                                    m.isPinned ? "text-primary border-primary/20" : "text-muted-foreground"
+                                  )}
+                                >
+                                   {m.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                                </button>
+
+                                <DropdownMenu>
+                                   <DropdownMenuTrigger asChild>
+                                      <button className="p-1.5 rounded-full bg-background border shadow-sm hover:scale-110 transition-all text-muted-foreground">
+                                         <MoreVertical className="h-3 w-3" />
+                                      </button>
+                                   </DropdownMenuTrigger>
+                                   <DropdownMenuContent align={isOwn ? "end" : "start"} className="w-48 p-1 rounded-xl shadow-2xl">
+                                      <DropdownMenuItem onClick={() => setReplyingTo(m)} className="p-2 gap-2 text-xs font-bold uppercase tracking-wider">
+                                         <Reply className="h-3.5 w-3.5" /> Trả lời
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        onClick={async () => {
+                                           if (confirm('Chia sẻ tin nhắn này?')) {
+                                              toast.success('Đã sao chép nội dung để chia sẻ');
+                                              navigator.clipboard.writeText(m.encryptedContent);
+                                           }
+                                        }} 
+                                        className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"
+                                      >
+                                         <Send className="h-3.5 w-3.5" /> Chia sẻ
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem 
+                                        onClick={() => setMessages(prev => prev.filter(msg => msg.id !== m.id))}
+                                        className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"
+                                      >
+                                         <X className="h-3.5 w-3.5" /> Xóa phía tôi
+                                      </DropdownMenuItem>
+                                      {isOwn && (
+                                        <DropdownMenuItem 
+                                          onClick={async () => {
+                                             if (confirm('Thu hồi tin nhắn này với mọi người?')) {
+                                                try {
+                                                   await conversationsApi.deleteMessage(token!, m.id);
+                                                   toast.success('Đã thu hồi tin nhắn');
+                                                } catch (e) { toast.error('Lỗi khi thu hồi'); }
+                                             }
+                                          }}
+                                          className="p-2 gap-2 text-xs font-bold uppercase tracking-wider text-destructive"
+                                        >
+                                           <Trash2 className="h-3.5 w-3.5" /> Thu hồi
+                                        </DropdownMenuItem>
+                                      )}
+                                   </DropdownMenuContent>
+                                </DropdownMenu>
+                             </div>
+                          </div>
                          <span className="text-[9px] opacity-20 font-black px-1 uppercase tracking-widest">{formatMessageTime(m.createdAt)}</span>
                       </div>
                   </div>
