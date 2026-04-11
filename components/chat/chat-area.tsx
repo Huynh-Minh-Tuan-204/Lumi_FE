@@ -25,6 +25,7 @@ import {
   Image as ImageIcon, 
   Users, 
   LogOut, 
+  ChevronRight, 
   ChevronDown, 
   Hash, 
   Reply, 
@@ -40,7 +41,8 @@ import {
   Phone,
   Video as VideoIcon,
   Activity as ActivityIcon,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  X
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -77,16 +79,49 @@ interface Message {
   parentMessageId?: number
 }
 
-interface ChatAreaProps {
-  conversation: any
-  onBack?: () => void
-  onShowMembers?: () => void
-  onToggleBoard?: () => void
-  onToggleSearch?: () => void
-  onToggleCalendar?: () => void
-  onRefreshConversations?: () => void
-  isMobile?: boolean
-  className?: string
+// Gom nhóm tin nhắn hệ thống (Pin/Unpin) kiểu Zalo
+function SystemMessageGroup({ messages, onScrollTo }: { messages: Message[], onScrollTo: (id: number) => void }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  if (messages.length === 0) return null;
+
+  const latest = messages[messages.length - 1];
+  const previous = messages.slice(0, -1);
+
+  return (
+    <div className="flex flex-col items-center my-4 space-y-2">
+      {isExpanded && previous.map(m => (
+        <div key={m.id} className="bg-muted/30 px-4 py-1.5 rounded-full text-[10px] text-muted-foreground border border-black/5 opacity-60 animate-in fade-in slide-in-from-top-1">
+           <Pin className="inline h-3 w-3 mr-2 opacity-50" />
+           {m.encryptedContent}
+           {m.parentMessageId && (
+             <button onClick={() => onScrollTo(m.parentMessageId!)} className="ml-2 text-primary hover:underline font-black uppercase text-[9px]">Xem</button>
+           )}
+        </div>
+      ))}
+      
+      {messages.length > 1 && (
+        <button 
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-[10px] font-black uppercase tracking-widest text-primary/60 hover:text-primary transition-colors bg-muted/20 px-3 py-1 rounded-full border border-primary/5"
+        >
+          {isExpanded ? 'Thu gọn cập nhật' : `Xem thêm ${messages.length - 1} cập nhật trước`}
+        </button>
+      )}
+
+      <div className="bg-muted/40 px-5 py-2 rounded-full text-[11px] text-muted-foreground flex items-center gap-3 border border-primary/10 shadow-sm font-medium animate-in zoom-in-95 duration-300">
+        <Pin className={cn("h-3.5 w-3.5", latest.encryptedContent.includes('bỏ ghim') ? "text-destructive" : "text-primary")} />
+        <span>{latest.encryptedContent}</span>
+        {latest.parentMessageId && (
+          <button 
+            onClick={() => onScrollTo(latest.parentMessageId!)}
+            className="ml-1 text-primary font-black hover:underline uppercase text-[10px] bg-primary/5 px-2 py-0.5 rounded"
+          >
+            Xem
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function ChatArea({ 
@@ -125,6 +160,12 @@ export function ChatArea({
       setTimeout(() => el.classList.remove('bg-primary/20'), 2000)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).scrollToMsg = scrollToMessage
+    }
+  }, [scrollToMessage])
 
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token || !user) return
@@ -172,6 +213,7 @@ export function ChatArea({
           createdAt: m.createdAt || m.CreatedAt || new Date().toISOString(),
           isPinned: m.isPinned || m.IsPinned,
           attachments: m.attachments || m.Attachments || [],
+          parentMessageId: m.parentMessageId || m.ParentMessageId
         }))
         setMessages(mapped.sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()))
         markAsRead(conversation.id)
@@ -188,13 +230,15 @@ export function ChatArea({
           if (prev.some(m => m.id === lastMessage.id)) return prev;
           return [...prev, {
             id: lastMessage.id,
+            conversationId: lastMessage.conversationId,
             senderId: lastMessage.senderId,
             senderName: lastMessage.sender,
             encryptedContent: lastMessage.message || "",
             messageType: lastMessage.messageType || 'Text',
             createdAt: lastMessage.time.toISOString(),
             attachments: lastMessage.attachments || [],
-            isPinned: lastMessage.isPinned
+            isPinned: lastMessage.isPinned,
+            parentMessageId: lastMessage.parentMessageId
           }];
        });
        markAsRead(conversation.id);
@@ -213,6 +257,30 @@ export function ChatArea({
       setReplyingTo(null)
     } catch (e) { toast.error('Gửi thất bại') }
   }
+
+  // Chia nhóm tin nhắn (Text/Attachment vs System)
+  const messageGroups = useMemo(() => {
+    const groups: any[] = [];
+    let currentSystemGroup: Message[] = [];
+
+    messages.forEach(m => {
+      if (m.messageType === 'System' && (m.encryptedContent.includes('ghim') || m.encryptedContent.includes('bỏ ghim'))) {
+        currentSystemGroup.push(m);
+      } else {
+        if (currentSystemGroup.length > 0) {
+          groups.push({ type: 'system-group', messages: [...currentSystemGroup] });
+          currentSystemGroup = [];
+        }
+        groups.push({ type: 'message', data: m });
+      }
+    });
+
+    if (currentSystemGroup.length > 0) {
+      groups.push({ type: 'system-group', messages: [...currentSystemGroup] });
+    }
+
+    return groups;
+  }, [messages]);
 
   if (!conversation) return null
 
@@ -295,17 +363,54 @@ export function ChatArea({
         </div>
       </header>
 
-      {/* Pinned Messages */}
-      {pinnedList.length > 0 && (
-         <div className="z-20 bg-background/95 backdrop-blur-md border-b flex items-center transition-all duration-300 border-l-4 border-l-primary h-12 shadow-sm relative animate-in slide-in-from-top-1 px-4 gap-3 shrink-0 cursor-pointer hover:bg-muted/30" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}>
-             <Pin className="h-3.5 w-3.5 text-primary fill-primary" />
-             <div className="flex-1 min-w-0">
-                <p className="text-[9px] font-black uppercase text-primary tracking-tighter opacity-70">Tin nhắn đã ghim ({pinnedList.length})</p>
-                <p className="text-xs truncate opacity-90 font-bold">
-                    {latestPin.senderName}: {latestPin.encryptedContent}
-                </p>
+      {/* Pinned Messages - Zalo Style with Toggle and Fast Unpin */}
+      {latestPin && (
+         <div className="z-20 bg-background/95 backdrop-blur-md border-b flex items-center transition-all duration-300 border-l-4 border-l-primary h-12 shadow-sm relative animate-in slide-in-from-top-1 px-4 gap-3 shrink-0 group">
+             <div className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer" onClick={() => scrollToMessage(latestPin.id)}>
+                <Pin className="h-3.5 w-3.5 text-primary fill-primary" />
+                <div className="min-w-0">
+                   <p className="text-[9px] font-black uppercase text-primary tracking-tighter opacity-70">
+                      Tin nhắn đã ghim {pinnedList.length > 1 && `(+${pinnedList.length - 1})`}
+                   </p>
+                   <p className="text-xs truncate opacity-90 font-bold">
+                       {latestPin.senderName}: {latestPin.encryptedContent}
+                   </p>
+                </div>
              </div>
-             <ChevronDown className={cn("h-4 w-4 transition-transform opacity-30", isPinnedListExpanded && "rotate-180")} />
+             
+             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <TooltipProvider>
+                   <Tooltip>
+                      <TooltipTrigger asChild>
+                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); togglePinMessage(latestPin.id); }}>
+                            <PinOff className="h-3.5 w-3.5" />
+                         </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Bỏ ghim nhanh</TooltipContent>
+                   </Tooltip>
+                </TooltipProvider>
+
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}>
+                   <ChevronDown className={cn("h-4 w-4 transition-transform", isPinnedListExpanded && "rotate-180")} />
+                </Button>
+             </div>
+
+             {isPinnedListExpanded && pinnedList.length > 1 && (
+               <div className="absolute top-12 left-0 right-0 bg-background border-b shadow-xl p-2 z-10 animate-in slide-in-from-top-2">
+                  <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
+                     {pinnedList.slice(0, -1).reverse().map(p => (
+                       <div key={p.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-muted/50 group/item cursor-pointer" onClick={() => { scrollToMessage(p.id); setIsPinnedListExpanded(false); }}>
+                          <p className="text-xs truncate flex-1 pr-4">
+                             <span className="font-bold">{p.senderName}:</span> {p.encryptedContent}
+                          </p>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover/item:opacity-100 text-destructive" onClick={(e) => { e.stopPropagation(); togglePinMessage(p.id); }}>
+                             <X className="h-3 w-3" />
+                          </Button>
+                       </div>
+                     ))}
+                  </div>
+               </div>
+             )}
          </div>
       )}
 
@@ -332,28 +437,46 @@ export function ChatArea({
       {/* Main Chat Area */}
       <div className="flex-1 overflow-hidden relative bg-muted/5">
         <ScrollArea className="h-full">
-           <div className="p-4 flex flex-col justify-end min-h-full space-y-8 pb-10">
-              {messages.map((m) => (
-                <div key={m.id} id={`message-${m.id}`} className={cn("flex gap-3 animate-in slide-in-from-bottom-2", m.senderId === user?.id ? "flex-row-reverse" : "flex-row")}>
-                    <div className={cn("max-w-[75%] space-y-1", m.senderId === user?.id ? "items-end" : "items-start")}>
-                       {! (m.senderId === user?.id) && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
-                       <div className={cn("px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border", m.senderId === user?.id ? "bg-primary text-primary-foreground border-transparent" : "bg-card")}>
-                          {m.attachments && m.attachments.length > 0 && (
-                            <div className="mb-2">
-                               {m.attachments.map((a: any, i: number) => (
-                                 <a key={i} href={getAvatarUrl(a.filePath)} target="_blank" className="flex items-center gap-2 p-2 bg-black/5 rounded-lg border border-black/5">
-                                    <FileText className="h-4 w-4" />
-                                    <span className="text-xs font-bold truncate">{a.fileName}</span>
-                                 </a>
-                               ))}
-                            </div>
-                          )}
-                          <p className="font-medium leading-relaxed">{m.encryptedContent}</p>
-                       </div>
-                       <span className="text-[9px] opacity-20 font-black px-1">{formatMessageTime(m.createdAt)}</span>
-                    </div>
-                </div>
-              ))}
+           <div className="p-4 flex flex-col justify-end min-h-full space-y-4 pb-10">
+              {messageGroups.map((group, idx) => {
+                if (group.type === 'system-group') {
+                  return <SystemMessageGroup key={`sys-${idx}`} messages={group.messages} onScrollTo={scrollToMessage} />;
+                }
+                const m = group.data;
+                return (
+                  <div key={m.id} id={`message-${m.id}`} className={cn("flex gap-3 animate-in slide-in-from-bottom-2", m.senderId === user?.id ? "flex-row-reverse" : "flex-row")}>
+                      <div className={cn("max-w-[75%] space-y-1", m.senderId === user?.id ? "items-end" : "items-start")}>
+                         {! (m.senderId === user?.id) && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
+                         <div className={cn("px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border relative group/msg", m.senderId === user?.id ? "bg-primary text-primary-foreground border-transparent" : "bg-card")}>
+                            {m.attachments && m.attachments.length > 0 && (
+                              <div className="mb-2 space-y-1">
+                                 {m.attachments.map((a: any, i: number) => (
+                                   <a key={i} href={getAvatarUrl(a.filePath)} target="_blank" className="flex items-center gap-2 p-2 bg-black/5 rounded-lg border border-black/5 hover:bg-black/10 transition-colors">
+                                      <FileText className="h-4 w-4" />
+                                      <span className="text-xs font-bold truncate">{a.fileName}</span>
+                                   </a>
+                                 ))}
+                              </div>
+                            )}
+                            <p className="font-medium leading-relaxed">{m.encryptedContent}</p>
+                            
+                            {/* Nút Pin nhanh bên cạnh tin nhắn */}
+                            <button 
+                              onClick={() => togglePinMessage(m.id)}
+                              className={cn(
+                                "absolute top-0 opacity-0 group-hover/msg:opacity-100 transition-opacity p-1.5 rounded-full bg-background border shadow-sm hover:scale-110",
+                                isOwn ? "-left-10" : "-right-10",
+                                m.isPinned ? "text-primary border-primary/20" : "text-muted-foreground"
+                              )}
+                            >
+                               {m.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                            </button>
+                         </div>
+                         <span className="text-[9px] opacity-20 font-black px-1 uppercase tracking-widest">{formatMessageTime(m.createdAt)}</span>
+                      </div>
+                  </div>
+                )
+              })}
               <div ref={messagesEndRef} />
            </div>
         </ScrollArea>
