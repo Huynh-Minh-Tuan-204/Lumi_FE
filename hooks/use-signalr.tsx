@@ -390,8 +390,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  if (!mounted) return <div style={{ visibility: 'hidden' }}>{children}</div>;
-
   return (
     <SignalRContext.Provider
       value={{
@@ -431,7 +429,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         onTriggeredReminder: (cb: any) => {}, 
       }}
     >
-      {children}
+      {!mounted ? <div style={{ visibility: 'hidden' }}>{children}</div> : children}
     </SignalRContext.Provider>
   )
 }

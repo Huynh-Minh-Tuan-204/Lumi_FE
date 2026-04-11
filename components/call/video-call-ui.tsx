@@ -313,6 +313,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
               // Remove old stopped tracks
               localStreamRef.current.getVideoTracks().forEach(t => localStreamRef.current?.removeTrack(t));
               localStreamRef.current.addTrack(newTrack);
+              // Re-assign srcObject to trigger UI update
+              if (localVideoRef.current) localVideoRef.current.srcObject = localStreamRef.current;
           }
           
           peersRef.current.forEach(peer => {

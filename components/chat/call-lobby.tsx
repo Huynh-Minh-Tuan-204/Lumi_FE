@@ -30,6 +30,9 @@ interface CallLobbyProps {
 }
 
 export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCancel }: CallLobbyProps) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   const { user, token } = useAuth()
   const [isMicOn, setIsMicOn] = useState(true)
   const [isCamOn, setIsCamOn] = useState(type === 'video')
@@ -128,9 +131,6 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
      stopPreview()
      onCancel()
   }
-
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
 
   if (!mounted) return null
 
