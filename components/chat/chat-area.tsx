@@ -475,7 +475,9 @@ export function ChatArea({
                                  })}
                               </div>
                             )}
-                            <p className="font-medium leading-relaxed">{m.encryptedContent}</p>
+                             {m.encryptedContent !== "[Attachment]" && (
+                               <p className="font-medium leading-relaxed">{m.encryptedContent}</p>
+                             )}
                             
                             {/* Nút Pin nhanh và Menu hành động */}
                              <div className={cn(
