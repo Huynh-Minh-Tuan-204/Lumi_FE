@@ -13,6 +13,15 @@ export function getAvatarUrl(path?: string) {
   return `${baseUrl}${cleanPath}?v=${Math.floor(Date.now() / 10000)}`;
 }
 
+export function getAttachmentUrl(id: number, token?: string) {
+  const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api';
+  let url = `${rawUrl}/Attachments/${id}/download`;
+  if (token) {
+    url += `?access_token=${token}`;
+  }
+  return url;
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
@@ -81,15 +90,6 @@ export function getInitials(name: string) {
     .slice(0, 2);
 }
 
-/**
- * Zalo-style relative time formatting:
- * - < 1 minute: "Vài giây"
- * - < 1 hour: "X phút"
- * - < 24 hours (today): "X giờ"
- * - Yesterday: "Hôm qua"
- * - Same year: "DD/MM"
- * - Different year: "DD/MM/YY"
- */
 export function formatZaloRelativeTime(dateInput: string | Date | null) {
   if (!dateInput) return '';
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
@@ -109,7 +109,6 @@ export function formatZaloRelativeTime(dateInput: string | Date | null) {
   const isToday = now.toDateString() === date.toDateString();
   if (isToday) {
     const hour = Math.floor(diffInSeconds / 3600);
-    // Nếu quá 12h thì hiện giờ cụ thể thay vì "X giờ" để rõ ràng hơn, hoặc giữ nguyên kiểu X giờ nếu user thích
     if (hour < 12) return `${hour} giờ`;
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   }

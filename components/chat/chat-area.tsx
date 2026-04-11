@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { 
   cn, 
-  getAvatarUrl, 
+  getAvatarUrl,
+  getAttachmentUrl,
   formatMessageTime,
   formatToVNTime,
   formatToVNDate
@@ -210,15 +211,22 @@ export function ChatArea({
     if (lastMessage && conversation && lastMessage.conversationId === conversation.id) {
        setMessages(prev => {
           if (prev.some(m => m.id === lastMessage.id)) return prev;
+          
+          // Ensure attachments is always an array
+          let attachments = lastMessage.attachments || [];
+          if (typeof attachments === 'string') {
+            try { attachments = JSON.parse(attachments); } catch(e) { attachments = []; }
+          }
+
           return [...prev, {
             id: lastMessage.id,
             conversationId: lastMessage.conversationId,
             senderId: lastMessage.senderId,
-            senderName: lastMessage.sender,
-            encryptedContent: lastMessage.message || "",
+            senderName: lastMessage.senderName || lastMessage.sender,
+            encryptedContent: lastMessage.content || lastMessage.message || "",
             messageType: lastMessage.messageType || 'Text',
-            createdAt: lastMessage.time.toISOString(),
-            attachments: lastMessage.attachments || [],
+            createdAt: lastMessage.createdAt || lastMessage.time?.toISOString() || new Date().toISOString(),
+            attachments: attachments,
             isPinned: lastMessage.isPinned,
             parentMessageId: lastMessage.parentMessageId
           }];
@@ -429,13 +437,42 @@ export function ChatArea({
                          {! isOwn && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
                          <div className={cn("px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border relative group/msg", isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card")}>
                             {m.attachments && m.attachments.length > 0 && (
-                              <div className="mb-2 space-y-1">
-                                 {m.attachments.map((a: any, i: number) => (
-                                   <a key={i} href={getAvatarUrl(a.filePath)} target="_blank" className="flex items-center gap-2 p-2 bg-black/5 rounded-lg border border-black/5 hover:bg-black/10 transition-colors">
-                                      <FileText className="h-4 w-4" />
-                                      <span className="text-xs font-bold truncate">{a.fileName}</span>
-                                   </a>
-                                 ))}
+                              <div className="mb-2 space-y-2">
+                                 {m.attachments.map((a: any, i: number) => {
+                                   const isImage = a.mimeType?.startsWith('image/');
+                                   const url = getAttachmentUrl(a.id, token!);
+                                   
+                                   if (isImage) {
+                                     return (
+                                       <div key={i} className="relative group/img cursor-pointer max-w-sm rounded-xl overflow-hidden border shadow-sm">
+                                          <img 
+                                            src={url} 
+                                            alt={a.fileName} 
+                                            className="w-full h-auto object-cover hover:scale-105 transition-transform duration-500"
+                                            onClick={() => window.open(url, '_blank')}
+                                          />
+                                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                             <Button variant="secondary" size="sm" className="rounded-full gap-2" onClick={() => window.open(url, '_blank')}>
+                                                <ImageIcon className="h-3.5 w-3.5" /> Xem ảnh
+                                             </Button>
+                                          </div>
+                                       </div>
+                                     );
+                                   }
+
+                                   return (
+                                     <a key={i} href={url} target="_blank" className="flex items-center gap-3 p-3 bg-black/5 hover:bg-black/10 rounded-xl border border-black/5 transition-all group/file">
+                                        <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
+                                           <FileText className="h-5 w-5 text-primary" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                           <p className="text-xs font-bold truncate">{a.fileName}</p>
+                                           <p className="text-[10px] opacity-40 uppercase font-black">{(a.fileSize / 1024).toFixed(1)} KB • Tải về</p>
+                                        </div>
+                                        <Download className="h-4 w-4 opacity-0 group-hover/file:opacity-60 transition-opacity" />
+                                     </a>
+                                   );
+                                 })}
                               </div>
                             )}
                             <p className="font-medium leading-relaxed">{m.encryptedContent}</p>
