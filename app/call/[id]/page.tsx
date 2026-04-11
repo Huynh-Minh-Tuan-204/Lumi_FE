@@ -11,6 +11,8 @@ export default function CallPage() {
   const { isAuthenticated, isLoading, user } = useAuth()
   const searchParams = useSearchParams()
   const urlType = searchParams.get('type')
+  const initialMic = searchParams.get('mic') !== 'false'
+  const initialCam = searchParams.get('cam') !== 'false'
   const [callType, setCallType] = useState<'video' | 'voice'>(
     urlType === 'voice' ? 'voice' : 'video'
   )
@@ -46,6 +48,8 @@ export default function CallPage() {
       callType={callType}
       participantName={user?.fullName || 'User'}
       onEndCall={handleEndCall}
+      initialMic={initialMic}
+      initialCam={initialCam}
     />
   )
 }

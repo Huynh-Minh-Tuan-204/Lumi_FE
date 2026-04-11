@@ -40,9 +40,10 @@ interface SearchResult {
 interface MessageSearchSidebarProps {
   conversationId: number
   onClose: () => void
+  onGoToMessage?: (id: number) => void
 }
 
-export function MessageSearchSidebar({ conversationId, onClose }: MessageSearchSidebarProps) {
+export function MessageSearchSidebar({ conversationId, onClose, onGoToMessage }: MessageSearchSidebarProps) {
   const { token } = useAuth()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])

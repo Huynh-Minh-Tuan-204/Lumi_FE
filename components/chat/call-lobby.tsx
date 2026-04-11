@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { 
@@ -128,8 +129,13 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
      onCancel()
   }
 
-  return (
-    <div className="fixed inset-0 z-[9999] bg-background flex items-center justify-center p-0 md:p-10 animate-in fade-in duration-300">
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
+  if (!mounted) return null
+
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] bg-background flex items-center justify-center p-0 md:p-10 animate-in fade-in duration-300">
       <div className="w-full h-full md:h-auto md:max-w-5xl bg-card border shadow-2xl md:rounded-[40px] overflow-hidden flex flex-col md:flex-row relative">
         
         {/* Left: Preview */}
@@ -214,6 +220,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
            </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

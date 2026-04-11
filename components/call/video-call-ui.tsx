@@ -18,6 +18,8 @@ interface VideoCallUIProps {
   callType: 'video' | 'voice'
   participantName: string
   onEndCall: () => void
+  initialMic?: boolean
+  initialCam?: boolean
 }
 
 interface UserPeer {
@@ -43,12 +45,12 @@ const RTC_CONFIG: RTCConfiguration = {
   ],
 }
 
-export function VideoCallUI({ callId, callType, participantName, onEndCall }: VideoCallUIProps) {
+export function VideoCallUI({ callId, callType, participantName, onEndCall, initialMic = true, initialCam = true }: VideoCallUIProps) {
   const { user, token } = useAuth()
   const { sendMessage, lastMessage, lastUserLeft } = useSignalR()
 
-  const [isMuted, setIsMuted] = useState(false)
-  const [isCameraOn, setIsCameraOn] = useState(callType === 'video')
+  const [isMuted, setIsMuted] = useState(!initialMic)
+  const [isCameraOn, setIsCameraOn] = useState(callType === 'video' && initialCam)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [callDuration, setCallDuration] = useState(0)
@@ -208,6 +210,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall }: Vi
         });
         if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
         localStreamRef.current = stream;
+        stream.getAudioTracks().forEach(t => t.enabled = !isMuted);
+        stream.getVideoTracks().forEach(t => t.enabled = isCameraOn);
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
         const signalR = new CallSignalR({

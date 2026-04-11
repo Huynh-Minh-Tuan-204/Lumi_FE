@@ -264,7 +264,7 @@ export function ChatArea({
     let currentSystemGroup: Message[] = [];
 
     messages.forEach(m => {
-      if (m.messageType === 'System' && (m.encryptedContent.includes('ghim') || m.encryptedContent.includes('bỏ ghim'))) {
+      if ((m.messageType === 'System' || m.messageType === 'Announcement') && (m.encryptedContent.includes('ghim') || m.encryptedContent.includes('bỏ ghim'))) {
         currentSystemGroup.push(m);
       } else {
         if (currentSystemGroup.length > 0) {
