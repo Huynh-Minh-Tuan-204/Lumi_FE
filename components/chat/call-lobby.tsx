@@ -40,6 +40,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
   const [stream, setStream] = useState<MediaStream | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   
+  const [isHost, setIsHost] = useState(false)
   const [isAuthorized, setIsAuthorized] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isWaiting, setIsWaiting] = useState(false)
@@ -60,6 +61,14 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
     const init = async () => {
       if (!token) return
       try {
+        // Fetch meeting details to check host status
+        try {
+          const mInfo: any = await meetingsApi.getMeeting(token, meetingId.toString())
+          if (mInfo && mInfo.isHost) {
+            setIsHost(true)
+          }
+        } catch (e) { console.error("Error fetching meeting info", e) }
+
         const signalR = new CallSignalR({
             onJoinRequestAccepted: (mId) => {
                 if (String(mId) === String(meetingId)) {

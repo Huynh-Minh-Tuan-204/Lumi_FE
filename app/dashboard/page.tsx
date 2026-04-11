@@ -2,12 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { adminApi, conversationsApi } from '@/lib/api'
+import { adminApi, conversationsApi, meetingsApi } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Users, MessageSquare, Activity, Bell, UserPlus, Hash } from 'lucide-react'
+import { Users, MessageSquare, Activity, Bell, UserPlus, Hash, Video, Plus, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
+import { toast } from 'sonner'
+import { CallLobby } from '@/components/chat/call-lobby'
 
 interface Stats {
   totalUsers: number
@@ -18,6 +21,8 @@ interface Stats {
 
 export default function DashboardPage() {
   const { token, user } = useAuth()
+  const [meetingCode, setMeetingCode] = useState('')
+  const [showLobby, setShowLobby] = useState<{ meetingId: string; type: 'voice' | 'video'; title: string; conversationId: number } | null>(null)
 
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
@@ -71,6 +76,36 @@ export default function DashboardPage() {
     loadData()
   }, [token])
 
+  const handleCreateMeeting = async () => {
+    if (!token) return;
+    try {
+      const resp = await meetingsApi.startGlobalMeeting(token, "Cuộc họp nhanh");
+      setShowLobby({
+        meetingId: resp.meetingId,
+        type: 'video',
+        title: resp.title,
+        conversationId: resp.conversationId
+      });
+    } catch (e) {
+      toast.error("Không thể tạo cuộc họp.");
+    }
+  }
+
+  const handleJoinMeeting = async () => {
+    if (!token || !meetingCode.trim()) return;
+    try {
+      const resp = await meetingsApi.getMeeting(token, meetingCode.trim());
+      setShowLobby({
+        meetingId: resp.meetingGuid,
+        type: 'video',
+        title: resp.title,
+        conversationId: resp.conversationId
+      });
+    } catch (e) {
+      toast.error("Mã phòng không hợp lệ hoặc đã kết thúc.");
+    }
+  }
+
   const getInitials = (name: string) =>
     name
       .split(' ')
@@ -102,6 +137,46 @@ export default function DashboardPage() {
             </Link>
           </Button>
         )}
+      </div>
+
+      {/* Meeting Hub */}
+      <div className="grid gap-4 md:grid-cols-2">
+         <Card className="bg-primary text-primary-foreground border-none shadow-xl shadow-primary/20 overflow-hidden relative group">
+            <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+            <CardHeader>
+               <CardTitle className="flex items-center gap-2">
+                  <Video className="h-5 w-5" /> Cuộc họp nhanh
+               </CardTitle>
+               <CardDescription className="text-primary-foreground/70">Tạo mã phòng ngẫu nhiên và bắt đầu thảo luận ngay lập tức.</CardDescription>
+            </CardHeader>
+            <CardContent>
+               <Button onClick={handleCreateMeeting} variant="secondary" className="w-full h-12 rounded-xl font-black uppercase tracking-widest gap-2">
+                  <Plus className="h-4 w-4" /> Tạo cuộc họp
+               </Button>
+            </CardContent>
+         </Card>
+
+         <Card className="border-2 border-primary/10 shadow-lg">
+            <CardHeader>
+               <CardTitle className="flex items-center gap-2">
+                  <Hash className="h-5 w-5 text-primary" /> Tham gia bằng mã
+               </CardTitle>
+               <CardDescription>Nhập đúng mã phòng (phân biệt hoa thường) để tham gia.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+               <div className="flex gap-2">
+                  <Input 
+                    placeholder="Mã phòng (vd: a1b2c-d3e4f-g5h6i)" 
+                    value={meetingCode}
+                    onChange={(e) => setMeetingCode(e.target.value)}
+                    className="h-12 border-primary/20 focus-visible:ring-primary rounded-xl font-bold font-mono"
+                  />
+                  <Button onClick={handleJoinMeeting} className="h-12 w-12 rounded-xl p-0" variant="default">
+                     <ArrowRight className="h-5 w-5" />
+                  </Button>
+               </div>
+            </CardContent>
+         </Card>
       </div>
 
       {/* Stats */}
@@ -204,6 +279,19 @@ export default function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {showLobby && (
+        <CallLobby 
+          meetingId={showLobby.meetingId}
+          type={showLobby.type}
+          title={showLobby.title}
+          conversationId={showLobby.conversationId}
+          onJoin={() => {
+            window.location.href = `/call/${showLobby.meetingId}`;
+          }}
+          onCancel={() => setShowLobby(null)}
+        />
+      )}
     </div>
   )
 }
