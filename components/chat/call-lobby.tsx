@@ -41,6 +41,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
   const [stream, setStream] = useState<MediaStream | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   
+  const [realMeetingGuid, setRealMeetingGuid] = useState<string | null>(null)
   const [isHost, setIsHost] = useState(false)
   const [isAuthorized, setIsAuthorized] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -62,17 +63,22 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
     const init = async () => {
       if (!token) return
       try {
-        // Fetch meeting details to check host status
+        let currentGuid = String(meetingId);
+        // Fetch meeting details to check host status & resolve real Guid
         try {
           const mInfo: any = await meetingsApi.getMeeting(token, meetingId.toString())
-          if (mInfo && mInfo.isHost) {
-            setIsHost(true)
+          if (mInfo) {
+            if (mInfo.isHost) setIsHost(true);
+            if (mInfo.meetingGuid) {
+              currentGuid = mInfo.meetingGuid;
+              setRealMeetingGuid(mInfo.meetingGuid);
+            }
           }
         } catch (e) { console.error("Error fetching meeting info", e) }
 
         const signalR = new CallSignalR({
             onJoinRequestAccepted: (mId) => {
-                if (String(mId) === String(meetingId)) {
+                if (String(mId) === currentGuid || String(mId) === String(meetingId)) {
                     setRequestStatus('accepted');
                     toast.success("Yêu cầu tham gia đã được chấp nhận!");
                     stopPreview();
@@ -80,7 +86,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
                 }
             },
             onJoinRequestDeclined: (mId, reason) => {
-                if (String(mId) === String(meetingId)) {
+                if (String(mId) === currentGuid || String(mId) === String(meetingId)) {
                     setRequestStatus('declined');
                     setIsWaiting(false);
                     toast.error(reason || "Yêu cầu bị từ chối.");
@@ -149,12 +155,15 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
   }
 
   const handleJoin = async () => {
+     // Always use the real resolved Guid if available
+     const finalGuid = realMeetingGuid || String(meetingId);
+
      // User is host OR joining from an established conversation (already a member)
      const canJoinDirectly = isHost || (conversationId && conversationId > 0);
 
      if (canJoinDirectly) {
         try {
-          if (token) await meetingsApi.joinMeeting(token, meetingId.toString());
+          if (token) await meetingsApi.joinMeeting(token, finalGuid);
         } catch(e) {}
         stopPreview();
         onJoin(isMicOn, isCamOn);
@@ -164,7 +173,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
      setIsWaiting(true);
      setRequestStatus('pending');
      try {
-        await signalRRef.current?.requestJoin(String(meetingId));
+        await signalRRef.current?.requestJoin(finalGuid);
         toast.info("Đã gửi yêu cầu tham gia.");
      } catch (e) {
         toast.error("Gửi yêu cầu thất bại.");

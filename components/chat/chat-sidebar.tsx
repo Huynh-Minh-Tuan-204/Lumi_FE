@@ -20,7 +20,9 @@ import {
   Bell,
   ChevronRight,
   ChevronDown,
-  Plus
+  Plus,
+  X,
+  Video
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -197,19 +199,27 @@ export function ChatSidebar({
                 <input 
                     placeholder="Mã phòng..." 
                     className="flex-1 bg-transparent border-none outline-none text-[11px] font-bold placeholder:text-sidebar-foreground/30"
-                    onKeyDown={(e) => {
+                    onKeyDown={async (e) => {
                         if (e.key === 'Enter') {
                             const val = e.currentTarget.value.replace('#', '').trim();
                             if (val) {
-                                window.location.href = `/call/${val}?type=video`;
+                               try {
+                                 const m = await meetingsApi.getMeeting(token!, val);
+                                 window.location.href = `/call/${m.meetingGuid || m.id}?type=video`;
+                               } catch(e) { toast.error("Mã phòng không hợp lệ"); }
                             }
                         }
                     }}
                 />
-                <Button size="icon" className="h-7 w-7 rounded-lg group" onClick={(e) => {
+                <Button size="icon" className="h-7 w-7 rounded-lg group" onClick={async (e) => {
                     const input = e.currentTarget.parentElement?.querySelector('input');
                     const val = input?.value.replace('#', '').trim();
-                    if (val) window.location.href = `/call/${val}?type=video`;
+                    if (val) {
+                       try {
+                         const m = await meetingsApi.getMeeting(token!, val);
+                         window.location.href = `/call/${m.meetingGuid || m.id}?type=video`;
+                       } catch(e) { toast.error("Mã phòng không hợp lệ"); }
+                    }
                 }}>
                     <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
                 </Button>
@@ -345,7 +355,7 @@ function ConversationItem({ conversation, isSelected, onSelect, unreadCount, isO
           </span>
         </div>
         <p className={cn("text-xs truncate opacity-60 font-medium", isSelected ? "text-primary-foreground/80" : "text-sidebar-foreground/60")}>
-          {conversation.type === 'GlobalMeeting' ? `Mã phòng: #${conversation.id}` : (lastContent.includes('[Attachment]') ? '📎 Gửi một tệp đính kèm' : lastContent)}
+          {conversation.type === 'GlobalMeeting' ? `Mã phòng: #${conversation.meetingGuid || conversation.id}` : (lastContent.includes('[Attachment]') ? '📎 Gửi một tệp đính kèm' : lastContent)}
         </p>
       </div>
 

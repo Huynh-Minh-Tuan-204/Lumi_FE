@@ -85,6 +85,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [lastScheduleUpdate, setLastScheduleUpdate] = useState<{ type: 'created' | 'status' | 'deleted', data: any } | null>(null)
   const [lastUserLeft, setLastUserLeft] = useState<number | null>(null)
   const [activeMeeting, setActiveMeeting] = useState<{ meetingId: string; conversationId: number; title: string; callType: string; hostName: string } | null>(null)
+  const notifiedMeetingsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     if (!token) {
@@ -237,20 +238,29 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
     connection.on('MeetingStarted', (data: any) => {
       const { meetingId, conversationId, title, callType, hostName } = data
-      setActiveMeeting({ meetingId, conversationId, title, callType, hostName })
+      const mIdString = String(meetingId);
+      if (notifiedMeetingsRef.current.has(mIdString)) return;
+      notifiedMeetingsRef.current.add(mIdString);
+
+      setActiveMeeting({ meetingId: mIdString, conversationId, title, callType, hostName })
     })
 
     connection.on('GlobalMeetingStarted', (data: any) => {
       const { meetingId, conversationId, title, hostName, type } = data;
-      setActiveMeeting({ meetingId, conversationId, title, callType: type || 'video', hostName });
+      const mIdString = String(meetingId);
+      
+      // Deduplicate toasts
+      if (notifiedMeetingsRef.current.has(mIdString)) return;
+      notifiedMeetingsRef.current.add(mIdString);
+
+      setActiveMeeting({ meetingId: mIdString, conversationId, title, callType: type || 'video', hostName });
       
       toast.info(`🚀 CUỘC HỌP MỚI: ${title}`, {
         description: `Bởi ${hostName}. Bạn đã được mời tham gia!`,
         action: {
           label: "THAM GIA",
           onClick: () => {
-             // Logic to show lobby which will be handled by components observing activeMeeting
-             // Or we could redirect? Best to just let Dashboard/ChatArea handle it via activeMeeting state
+             window.location.href = `/call/${mIdString}?type=${type || 'video'}`;
           }
         },
         duration: 20000
