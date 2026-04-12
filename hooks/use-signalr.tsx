@@ -238,6 +238,27 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connection.on('MeetingStarted', (data: any) => {
       const { meetingId, conversationId, title, callType, hostName } = data
       setActiveMeeting({ meetingId, conversationId, title, callType, hostName })
+      
+      // If NOT in this conversation, show a toast invitation
+      toast.info(`📞 Cuộc họp bắt đầu: ${title}`, {
+        description: `Bởi: ${hostName || 'Một người dùng'}. Nhấp để tham gia.`,
+        action: {
+          label: 'Tham gia',
+          onClick: () => window.location.href = `/call/${meetingId}`
+        }
+      })
+    })
+
+    connection.on('GlobalMeetingStarted', (data: any) => {
+      const { meetingId, title, hostName } = data
+      toast.success(`🌟 Cuộc họp công khai mới: ${title}`, {
+        description: `Bởi: ${hostName || 'Admin'}. Mọi người đều có thể tham gia!`,
+        duration: 15000,
+        action: {
+          label: 'Tham gia ngay',
+          onClick: () => window.location.href = `/call/${meetingId}`
+        }
+      })
     })
 
     connection.on('MeetingEnded', (data: any) => {

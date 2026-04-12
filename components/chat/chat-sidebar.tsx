@@ -119,8 +119,13 @@ export function ChatSidebar({
     });
   }, [uniqueConversations]);
 
-  const meetingRooms = useMemo(() => sortedConversations.filter(c => c.type === 'GlobalMeeting'), [sortedConversations]);
-  const directChats = useMemo(() => sortedConversations.filter(c => c.type !== 'GlobalMeeting'), [sortedConversations]);
+  const meetingRooms = useMemo(() => sortedConversations.filter(c => 
+    c.type === 'GlobalMeeting' || c.name.toUpperCase().includes('CUỘC HỌP')
+  ), [sortedConversations]);
+
+  const directChats = useMemo(() => sortedConversations.filter(c => 
+    c.type !== 'GlobalMeeting' && !c.name.toUpperCase().includes('CUỘC HỌP')
+  ), [sortedConversations]);
 
   return (
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border overflow-hidden">
@@ -221,6 +226,33 @@ export function ChatSidebar({
               </div>
             ) : (
               <div className="space-y-4">
+                <div className="space-y-1">
+                   <button 
+                    onClick={() => setIsChatsExpanded(!isChatsExpanded)}
+                    className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors"
+                   >
+                      <span className="flex items-center gap-2">
+                        <MessageSquare className="h-3 w-3 text-primary/60" /> Trò chuyện ({directChats.length})
+                      </span>
+                      <ChevronDown className={cn("h-3 w-3 transition-transform duration-300", !isChatsExpanded && "-rotate-90")} />
+                   </button>
+                   
+                   {isChatsExpanded && (
+                      <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-300">
+                         {directChats.map(c => (
+                            <ConversationItem 
+                              key={c.id} 
+                              conversation={c} 
+                              isSelected={selectedConversation?.id === c.id}
+                              onSelect={() => onSelectConversation(c)}
+                              unreadCount={unreadCounts[c.id] || 0}
+                              isOnline={c.type === 'Private' ? onlineUsers.has(c.id) : false}
+                            />
+                         ))}
+                      </div>
+                   )}
+                </div>
+
                 {meetingRooms.length > 0 && (
                    <div className="space-y-1">
                       <button 
@@ -248,33 +280,6 @@ export function ChatSidebar({
                       )}
                    </div>
                 )}
-
-                <div className="space-y-1">
-                   <button 
-                    onClick={() => setIsChatsExpanded(!isChatsExpanded)}
-                    className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors"
-                   >
-                      <span className="flex items-center gap-2">
-                        <MessageSquare className="h-3 w-3 text-primary/60" /> Trò chuyện ({directChats.length})
-                      </span>
-                      <ChevronDown className={cn("h-3 w-3 transition-transform duration-300", !isChatsExpanded && "-rotate-90")} />
-                   </button>
-                   
-                   {isChatsExpanded && (
-                      <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-300">
-                         {directChats.map(c => (
-                            <ConversationItem 
-                              key={c.id} 
-                              conversation={c} 
-                              isSelected={selectedConversation?.id === c.id}
-                              onSelect={() => onSelectConversation(c)}
-                              unreadCount={unreadCounts[c.id] || 0}
-                              isOnline={c.type === 'Private' ? onlineUsers.has(c.id) : false}
-                            />
-                         ))}
-                      </div>
-                   )}
-                </div>
               </div>
             )}
           </div>
