@@ -149,6 +149,12 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
   }
 
   const handleJoin = async () => {
+     if (isHost) {
+        stopPreview();
+        onJoin(isMicOn, isCamOn);
+        return;
+     }
+
      setIsWaiting(true);
      setRequestStatus('pending');
      try {
@@ -183,8 +189,12 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
                   <div className="absolute inset-0 border-4 border-primary rounded-full animate-ping opacity-20" />
                </div>
                <div className="text-center space-y-2 px-6">
-                  <h3 className="text-xl font-black uppercase tracking-widest text-white">Đang chờ phê duyệt...</h3>
-                  <p className="text-xs font-bold text-white/40 uppercase tracking-tighter">Bạn đang ở phòng đợi. Người tổ chức sẽ cho phép bạn tham gia sau khi cuộc họp bắt đầu.</p>
+                  <h3 className="text-xl font-black uppercase tracking-widest text-white">
+                    {isHost ? "Sẵn sàng tham gia" : "Đang chờ phê duyệt..."}
+                  </h3>
+                  <p className="text-xs font-bold text-white/40 uppercase tracking-tighter">
+                    {isHost ? "Bạn là người tổ chức cuộc họp này." : "Bạn đang ở phòng đợi. Người tổ chức sẽ cho phép bạn tham gia sau khi cuộc họp bắt đầu."}
+                  </p>
                </div>
             </div>
           ) : isCamOn ? (
