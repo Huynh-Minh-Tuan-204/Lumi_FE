@@ -223,12 +223,11 @@ export function ChatSidebar({
                     <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
                 </Button>
             </div>
-            <p className="text-[9px] font-bold text-sidebar-foreground/30 uppercase tracking-tighter mt-1.5 ml-2">Tham gia nhanh bằng mã phòng</p>
+            <p className="text-[8px] font-black text-sidebar-foreground/20 uppercase tracking-[0.2em] mt-1 ml-2">Tham gia nhanh bằng mã phòng</p>
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-        <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 bg-sidebar/30">
           <div className="p-2 space-y-6">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-20 opacity-20 gap-3">
@@ -303,8 +302,7 @@ export function ChatSidebar({
               </div>
             )}
           </div>
-        </ScrollArea>
-      </div>
+      </ScrollArea>
       
       {showLobby && (
         <CallLobby 
@@ -347,14 +345,18 @@ function ConversationItem({ conversation, isSelected, onSelect, unreadCount, isO
       </div>
       
       <div className="flex-1 min-w-0 text-left space-y-0.5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="font-bold text-sm truncate uppercase tracking-tight">{conversation.name}</p>
-          <span className={cn("text-[10px] font-medium opacity-40 shrink-0", isSelected ? "text-primary-foreground" : "")}>
-            {lastMsg?.createdAt ? formatZaloRelativeTime(lastMsg.createdAt) : ''}
+        <div className="flex items-center justify-between mb-0.5">
+          <span className={cn("text-xs font-black uppercase tracking-tight truncate", isSelected ? "text-primary-foreground" : "text-sidebar-foreground")}>
+            {conversation.name}
+          </span>
+          <span className="text-[9px] font-medium opacity-40">
+            {conversation.lastMessage?.createdAt ? formatZaloRelativeTime(conversation.lastMessage.createdAt) : ''}
           </span>
         </div>
-        <p className={cn("text-xs truncate opacity-60 font-medium", isSelected ? "text-primary-foreground/80" : "text-sidebar-foreground/60")}>
-          {conversation.type === 'GlobalMeeting' ? `Mã phòng: #${conversation.meetingGuid || conversation.id}` : (lastContent.includes('[Attachment]') ? '📎 Gửi một tệp đính kèm' : lastContent)}
+        <p className={cn("text-[10px] truncate opacity-80 font-black tracking-tight", isSelected ? "text-primary-foreground/90 whitespace-nowrap" : "text-primary/60")}>
+          {conversation.type === 'GlobalMeeting' 
+            ? (conversation.meetingGuid ? `CODE: ${conversation.meetingGuid}` : `ID: #${conversation.id}`) 
+            : (lastContent.includes('[Attachment]') ? '📎 Gửi một tệp đính kèm' : lastContent)}
         </p>
       </div>
 

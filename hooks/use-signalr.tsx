@@ -248,14 +248,19 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connection.on('GlobalMeetingStarted', (data: any) => {
       const { meetingId, conversationId, title, hostName, hostId, type } = data;
       
-      // Don't show toast to the host
-      if (user && hostId === user.id) return;
+      // 1. Don't show toast to the host (Admin)
+      if (user && (hostId === user.id || hostName === user.fullName)) return;
       
       const mIdString = String(meetingId);
+      const convKey = `conv-${conversationId}`;
       
-      // Deduplicate toasts
-      if (notifiedMeetingsRef.current.has(mIdString)) return;
+      // 2. Strict Deduplication: Check if we've already notified for this meeting or conversation recently
+      if (notifiedMeetingsRef.current.has(mIdString) || notifiedMeetingsRef.current.has(convKey)) {
+        return;
+      }
+      
       notifiedMeetingsRef.current.add(mIdString);
+      notifiedMeetingsRef.current.add(convKey);
 
       setActiveMeeting({ meetingId: mIdString, conversationId, title, callType: type || 'video', hostName });
       
