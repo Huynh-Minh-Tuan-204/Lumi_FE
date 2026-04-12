@@ -230,8 +230,7 @@ export function ChatSidebar({
           </div>
         </ScrollArea>
       </div>
-      </div>
-
+      
       {showLobby && (
         <CallLobby 
           meetingId={showLobby.meetingId}

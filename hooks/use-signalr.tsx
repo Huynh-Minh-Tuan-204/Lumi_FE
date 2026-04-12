@@ -348,9 +348,13 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     }
   },[])
 
-  const markAsRead = useCallback(async(conversationId: number) => {
+  const markAsRead = useCallback(async(conversationId: number, messageId: number = 0) => {
     if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
-      await connectionRef.current.invoke('MarkAsRead', conversationId)
+      try {
+        await connectionRef.current.invoke('MarkAsRead', conversationId, messageId)
+      } catch (err) {
+        console.warn('SignalR: MarkAsRead failed', err)
+      }
     }
   }, [])
 
