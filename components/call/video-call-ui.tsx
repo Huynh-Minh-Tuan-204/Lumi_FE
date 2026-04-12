@@ -96,6 +96,57 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       updatePeerUI();
     }
   }, [updatePeerUI]);
+  
+  const screenStreamRef = useRef<MediaStream | null>(null);
+
+  const stopScreenShare = useCallback(() => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(t => t.stop());
+      screenStreamRef.current = null;
+    }
+
+    if (localStreamRef.current) {
+      const videoTrack = localStreamRef.current.getVideoTracks()[0];
+      peersRef.current.forEach(peer => {
+        const sender = peer.connection.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+          sender.replaceTrack(videoTrack);
+        }
+      });
+    }
+
+    setIsScreenSharing(false);
+  }, []);
+
+  const toggleScreenShare = useCallback(async () => {
+    if (!isScreenSharing) {
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        screenStreamRef.current = stream;
+        
+        const videoTrack = stream.getVideoTracks()[0];
+        
+        // Update all peers
+        peersRef.current.forEach(peer => {
+          const sender = peer.connection.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) {
+            sender.replaceTrack(videoTrack);
+          }
+        });
+
+        // Handle when user stops sharing via browser bar
+        videoTrack.onended = () => {
+          stopScreenShare();
+        };
+
+        setIsScreenSharing(true);
+      } catch (err) {
+        console.error("Screen share error:", err);
+      }
+    } else {
+      stopScreenShare();
+    }
+  }, [isScreenSharing, stopScreenShare]);
 
   const fetchMeetingData = useCallback(async (signal?: AbortSignal) => {
     if (!token || !callId) return
