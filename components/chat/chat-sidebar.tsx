@@ -36,7 +36,6 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { meetingsApi } from '@/lib/api'
 import { CallLobby } from '@/components/chat/call-lobby'
-import { Video } from 'lucide-react'
 
 interface Conversation {
   id: number
