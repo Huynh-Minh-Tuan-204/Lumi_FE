@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { cn, getAvatarUrl } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
+import { meetingsApi } from '@/lib/api'
 import { CallSignalR } from '@/lib/call-signalr'
 
 interface CallLobbyProps {

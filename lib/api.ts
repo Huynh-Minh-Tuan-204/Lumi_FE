@@ -492,17 +492,11 @@ export const attachmentsApi = {
 
 // ========== Meetings (Calls) API (api/Meetings/*) ==========
 export const meetingsApi = {
-  getMeeting: (token: string, id: number) =>
-    request<any>(`/Meetings/${id}`, { token }),
-
-  getConversationMeeting: (token: string, conversationId: number) =>
-    request<any>(`/Meetings/conversation/${conversationId}`, { token }),
-
-  getMeetings: (token: string) =>
-    request<any[]>('/Meetings', { token }),
-
-  getMeeting: (token: string, idOrCode: string) =>
+  getMeeting: (token: string, idOrCode: string | number) =>
     request<any>(`/Meetings/${idOrCode}`, { token }),
+
+  getMeetingByGuid: (token: string, guid: string) =>
+    request<any>(`/Meetings/${guid}`, { token }),
 
   startGlobalMeeting: (token: string, title?: string, callType: string = 'video') =>
     request<any>(`/Meetings/start-global`, {

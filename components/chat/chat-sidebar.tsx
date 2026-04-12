@@ -32,6 +32,9 @@ import {
 import { ThemeToggle } from '@/components/theme-toggle'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { meetingsApi } from '@/lib/api'
+import { CallLobby } from '@/components/chat/call-lobby'
+import { Video } from 'lucide-react'
 
 interface Conversation {
   id: number
@@ -65,8 +68,25 @@ export function ChatSidebar({
   unreadCounts,
   isMobile = false,
 }: ChatSidebarProps) {
+  const { token } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [filterMode, setFilterMode] = useState<'all' | 'unread'>('all')
+  const [showLobby, setShowLobby] = useState<{ meetingId: any; type: 'voice' | 'video'; title: string } | null>(null)
+
+  const handleCreateMeeting = async () => {
+    if (!token) return
+    try {
+      toast.info("Đang khởi tạo cuộc họp...")
+      const resp = await meetingsApi.startGlobalMeeting(token, "Cuộc họp nhanh")
+      setShowLobby({
+        meetingId: resp.meetingGuid || resp.id,
+        type: 'video',
+        title: resp.title
+      })
+    } catch (e) {
+      toast.error("Không thể tạo cuộc họp.")
+    }
+  }
 
   const uniqueConversations = useMemo(() => {
     const seen = new Set();
@@ -151,7 +171,14 @@ export function ChatSidebar({
           />
         </div>
 
-        <div className="pt-2">
+        <div className="pt-1">
+            <Button 
+                onClick={handleCreateMeeting}
+                className="w-full h-11 rounded-xl bg-primary shadow-lg shadow-primary/20 font-black uppercase tracking-widest text-[10px] gap-2 mb-3"
+            >
+                <Video className="h-4 w-4" /> Tạo cuộc họp mới
+            </Button>
+
             <div className="flex items-center gap-2 p-1.5 bg-primary/5 rounded-xl border border-primary/10">
                 <Hash className="h-4 w-4 text-primary opacity-40 ml-2" />
                 <input 
@@ -203,6 +230,20 @@ export function ChatSidebar({
           </div>
         </ScrollArea>
       </div>
+      </div>
+
+      {showLobby && (
+        <CallLobby 
+          meetingId={showLobby.meetingId}
+          type={showLobby.type}
+          title={showLobby.title}
+          conversationId={0}
+          onJoin={(mic, cam) => {
+            window.location.href = `/call/${showLobby.meetingId}?type=${showLobby.type}&mic=${mic}&cam=${cam}`;
+          }}
+          onCancel={() => setShowLobby(null)}
+        />
+      )}
     </div>
   )
 }
