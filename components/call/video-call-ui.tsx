@@ -156,26 +156,38 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   const fetchMeetingData = useCallback(async (signal?: AbortSignal) => {
     if (!token || !callId) return
     try {
-      // Get meeting details by GUID
-      const meeting = await meetingsApi.getMeetingByGuid(token, callId)
+      // Get meeting details by GUID or ID
+      const meeting = await meetingsApi.getMeeting(token, callId)
       if (signal?.aborted) return
+
+      // --- CRITICAL FIX: REDIRECT IF USING INTERNAL ID ---
+      // If the current URL has the internal number but we have the string Guid, redirect!
+      if (meeting.meetingGuid && meeting.meetingGuid !== callId) {
+         window.location.replace(`/call/${meeting.meetingGuid}${window.location.search}`);
+         return;
+      }
+
       setConvId(meeting.conversationId)
       setHostId(meeting.createdBy)
       
-      const history = await conversationsApi.getMessages(token, meeting.conversationId)
-      if (!signal?.aborted) {
-        const mappedHistory: ChatMessage[] = history.map((d: any) => ({
-          id: d.id ?? d.Id,
-          conversationId: meeting.conversationId,
-          senderId: d.senderId ?? d.SenderId,
-          sender: d.senderName ?? d.SenderName ?? d.sender ?? 'User',
-          message: d.content ?? d.message ?? d.encryptedContent ?? "",
-          time: new Date(d.createdAt ?? d.CreatedAt ?? d.time ?? Date.now()),
-          iv: d.iv ?? d.Iv,
-          messageType: d.messageType ?? d.MessageType,
-        }))
-        setCallMessages(mappedHistory)
-      }
+      // Now fetch messages (should not be 403 anymore as backend JoinCall adds us)
+      try {
+        const history = await conversationsApi.getMessages(token, meeting.conversationId)
+        if (!signal?.aborted) {
+          const mappedHistory: ChatMessage[] = history.map((d: any) => ({
+            id: d.id ?? d.Id,
+            conversationId: meeting.conversationId,
+            senderId: d.senderId ?? d.SenderId,
+            sender: d.senderName ?? d.SenderName ?? d.sender ?? 'User',
+            message: d.content ?? d.message ?? d.encryptedContent ?? "",
+            time: new Date(d.createdAt ?? d.CreatedAt ?? d.time ?? Date.now()),
+            iv: d.iv ?? d.Iv,
+            messageType: d.messageType ?? d.MessageType,
+          }))
+          setCallMessages(mappedHistory)
+        }
+      } catch(e) { console.warn("Could not fetch messages yet", e); }
+
     } catch (e) {
       if (!signal?.aborted) console.error("Error fetching meeting data", e)
     }
