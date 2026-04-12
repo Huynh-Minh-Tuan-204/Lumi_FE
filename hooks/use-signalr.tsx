@@ -246,7 +246,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     })
 
     connection.on('GlobalMeetingStarted', (data: any) => {
-      const { meetingId, conversationId, title, hostName, type } = data;
+      const { meetingId, conversationId, title, hostName, hostId, type } = data;
+      
+      // Don't show toast to the host
+      if (user && hostId === user.id) return;
+      
       const mIdString = String(meetingId);
       
       // Deduplicate toasts
