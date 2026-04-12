@@ -22,6 +22,7 @@ interface Stats {
 export default function DashboardPage() {
   const { token, user } = useAuth()
   const [meetingCode, setMeetingCode] = useState('')
+  const [meetingName, setMeetingName] = useState('Cuộc họp nhanh')
   const [showLobby, setShowLobby] = useState<{ meetingId: string; type: 'voice' | 'video'; title: string; conversationId: number } | null>(null)
 
   const [stats, setStats] = useState<Stats>({
@@ -79,7 +80,7 @@ export default function DashboardPage() {
   const handleCreateMeeting = async () => {
     if (!token) return;
     try {
-      const resp = await meetingsApi.startGlobalMeeting(token, "Cuộc họp nhanh");
+      const resp = await meetingsApi.startGlobalMeeting(token, meetingName || "Cuộc họp nhanh");
       setShowLobby({
         meetingId: resp.meetingId,
         type: 'video',
@@ -145,11 +146,17 @@ export default function DashboardPage() {
             <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
             <CardHeader>
                <CardTitle className="flex items-center gap-2">
-                  <Video className="h-5 w-5" /> Cuộc họp nhanh
+                  <Video className="h-5 w-5" /> Cuộc họp của bạn
                </CardTitle>
-               <CardDescription className="text-primary-foreground/70">Tạo mã phòng ngẫu nhiên và bắt đầu thảo luận ngay lập tức.</CardDescription>
+               <CardDescription className="text-primary-foreground/70">Đặt tên và bắt đầu thảo luận ngay lập tức.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+               <Input 
+                 placeholder="Tên cuộc họp..." 
+                 value={meetingName}
+                 onChange={(e) => setMeetingName(e.target.value)}
+                 className="h-10 border-white/20 bg-white/10 text-white placeholder:text-white/40 rounded-xl font-bold focus-visible:ring-offset-0 focus-visible:ring-white/30"
+               />
                <Button onClick={handleCreateMeeting} variant="secondary" className="w-full h-12 rounded-xl font-black uppercase tracking-widest gap-2">
                   <Plus className="h-4 w-4" /> Tạo cuộc họp
                </Button>

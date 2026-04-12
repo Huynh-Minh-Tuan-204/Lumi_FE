@@ -140,8 +140,13 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         };
 
         setIsScreenSharing(true);
-      } catch (err) {
-        console.error("Screen share error:", err);
+      } catch (err: any) {
+        if (err.name === 'NotAllowedError' || err.message?.includes('denied')) {
+          console.log("Screen share cancelled by user");
+        } else {
+          console.error("Screen share error:", err);
+          toast.error("Lỗi khi chia sẻ màn hình");
+        }
       }
     } else {
       stopScreenShare();
@@ -257,7 +262,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         }
         
         if (callType === 'video' && !initialCam) {
-            stream.getVideoTracks().forEach(t => t.stop());
+            stream.getVideoTracks().forEach(t => t.enabled = false);
         }
 
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
@@ -340,12 +345,20 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     startCall();
     return () => {
       active = false;
-      localStreamRef.current?.getTracks().forEach(t => t.stop());
+      localStreamRef.current?.getTracks().forEach(t => { t.stop(); t.enabled = false; });
       peersRef.current.forEach(p => p.connection.close());
       peersRef.current.clear();
       signalRRef.current?.disconnect();
     };
   }, [callId, token, user, callType, createPeerConnection, removePeer, initialMic, initialCam]);
+
+  // Sync Local Stream States
+  useEffect(() => {
+    if (localStreamRef.current) {
+        localStreamRef.current.getAudioTracks().forEach(t => t.enabled = !isMuted);
+        localStreamRef.current.getVideoTracks().forEach(t => t.enabled = isCameraOn);
+    }
+  }, [isMuted, isCameraOn]);
 
   useEffect(() => {
     if (lastMessage && lastMessage.conversationId === convId) {

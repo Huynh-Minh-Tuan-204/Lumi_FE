@@ -287,7 +287,7 @@ export function ChatArea({
             <h2 className="font-black text-sm truncate uppercase tracking-tight">{conversation.name}</h2>
             <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-60 flex items-center gap-1.5">
                <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-               {conversation.type === 'Group' ? 'Hội nhóm' : 'Liên lạc'}
+               {conversation.type === 'GlobalMeeting' ? `ID: ${conversation.id}` : conversation.type === 'Group' ? 'Hội nhóm' : 'Liên lạc'}
             </p>
           </div>
         </div>
@@ -401,23 +401,32 @@ export function ChatArea({
          </div>
       )}
 
-      {/* Active Meeting Banner */}
+      {/* Active Meeting Banner - Teams Style */}
       {activeMeeting && activeMeeting.conversationId === conversation.id && (
-        <div className="z-20 bg-primary/10 border-b px-4 py-2.5 flex items-center justify-between animate-in slide-in-from-top-1">
+        <div className="z-20 bg-primary/20 backdrop-blur-xl px-4 py-2 flex items-center justify-between border-b animate-in slide-in-from-top-1 border-primary/20 shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
            <div className="flex items-center gap-3">
-              <VideoIcon className="h-5 w-5 text-primary animate-pulse" />
+              <div className="h-8 w-8 rounded-lg bg-primary/30 flex items-center justify-center animate-pulse">
+                <VideoIcon className="h-4 w-4 text-primary" />
+              </div>
               <div className="min-w-0">
-                 <p className="text-[10px] font-black uppercase tracking-widest text-primary">Cuộc họp đang diễn ra</p>
-                 <p className="text-xs font-bold truncate opacity-80">{activeMeeting.title}</p>
+                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/80">Cuộc họp đang diễn ra</p>
+                 <p className="text-[10px] font-bold truncate opacity-90">{activeMeeting.title}</p>
               </div>
            </div>
-           <Button 
-            size="sm" 
-            className="rounded-full px-5 h-8 font-black uppercase text-[10px] tracking-widest shadow-lg shadow-primary/20"
-            onClick={() => setShowLobby({ meetingId: activeMeeting.meetingGuid, type: (activeMeeting.callType as any) || 'video', title: activeMeeting.title })}
-           >
-              Tham gia ngay
-           </Button>
+           <div className="flex items-center gap-2">
+               <div className="flex -space-x-1.5 mr-2">
+                  {[1,2].map(i => (
+                    <div key={i} className="h-5 w-5 rounded-full border border-background bg-muted text-[8px] flex items-center justify-center font-bold">U</div>
+                  ))}
+               </div>
+               <Button 
+                size="sm" 
+                className="rounded-lg px-4 h-7 font-black uppercase text-[9px] tracking-widest bg-primary hover:bg-primary/80 shadow-lg shadow-primary/10 transition-all hover:scale-105"
+                onClick={() => setShowLobby({ meetingId: activeMeeting.meetingGuid, type: (activeMeeting.callType as any) || 'video', title: activeMeeting.title })}
+               >
+                  Tham gia
+               </Button>
+           </div>
         </div>
       )}
 

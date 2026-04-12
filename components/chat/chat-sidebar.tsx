@@ -72,6 +72,9 @@ export function ChatSidebar({
   const [searchQuery, setSearchQuery] = useState('')
   const [filterMode, setFilterMode] = useState<'all' | 'unread'>('all')
   const [showLobby, setShowLobby] = useState<{ meetingId: any; type: 'voice' | 'video'; title: string } | null>(null)
+  
+  const [isRoomsExpanded, setIsRoomsExpanded] = useState(true)
+  const [isChatsExpanded, setIsChatsExpanded] = useState(true)
 
   const handleCreateMeeting = async () => {
     if (!token) return
@@ -115,6 +118,9 @@ export function ChatSidebar({
       return timeB - timeA;
     });
   }, [uniqueConversations]);
+
+  const meetingRooms = useMemo(() => sortedConversations.filter(c => c.type === 'GlobalMeeting'), [sortedConversations]);
+  const directChats = useMemo(() => sortedConversations.filter(c => c.type !== 'GlobalMeeting'), [sortedConversations]);
 
   return (
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border overflow-hidden">
@@ -214,17 +220,61 @@ export function ChatSidebar({
                  <p className="text-[10px] font-black uppercase tracking-[0.3em]">Đang tải...</p>
               </div>
             ) : (
-              <div className="space-y-1">
-                {sortedConversations.map(c => (
-                  <ConversationItem 
-                    key={c.id} 
-                    conversation={c} 
-                    isSelected={selectedConversation?.id === c.id}
-                    onSelect={() => onSelectConversation(c)}
-                    unreadCount={unreadCounts[c.id] || 0}
-                    isOnline={c.type === 'Private' ? onlineUsers.has(c.id) : false}
-                  />
-                ))}
+              <div className="space-y-4">
+                {meetingRooms.length > 0 && (
+                   <div className="space-y-1">
+                      <button 
+                        onClick={() => setIsRoomsExpanded(!isRoomsExpanded)}
+                        className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors group"
+                      >
+                         <span className="flex items-center gap-2">
+                            <Video className="h-3 w-3 text-primary/60" /> Phòng họp ({meetingRooms.length})
+                         </span>
+                         <ChevronDown className={cn("h-3 w-3 transition-transform duration-300", !isRoomsExpanded && "-rotate-90")} />
+                      </button>
+                      
+                      {isRoomsExpanded && (
+                         <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-300">
+                            {meetingRooms.map(c => (
+                               <ConversationItem 
+                                 key={c.id} 
+                                 conversation={c} 
+                                 isSelected={selectedConversation?.id === c.id}
+                                 onSelect={() => onSelectConversation(c)}
+                                 unreadCount={unreadCounts[c.id] || 0}
+                               />
+                            ))}
+                         </div>
+                      )}
+                   </div>
+                )}
+
+                <div className="space-y-1">
+                   <button 
+                    onClick={() => setIsChatsExpanded(!isChatsExpanded)}
+                    className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors"
+                   >
+                      <span className="flex items-center gap-2">
+                        <MessageSquare className="h-3 w-3 text-primary/60" /> Trò chuyện ({directChats.length})
+                      </span>
+                      <ChevronDown className={cn("h-3 w-3 transition-transform duration-300", !isChatsExpanded && "-rotate-90")} />
+                   </button>
+                   
+                   {isChatsExpanded && (
+                      <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-300">
+                         {directChats.map(c => (
+                            <ConversationItem 
+                              key={c.id} 
+                              conversation={c} 
+                              isSelected={selectedConversation?.id === c.id}
+                              onSelect={() => onSelectConversation(c)}
+                              unreadCount={unreadCounts[c.id] || 0}
+                              isOnline={c.type === 'Private' ? onlineUsers.has(c.id) : false}
+                            />
+                         ))}
+                      </div>
+                   )}
+                </div>
               </div>
             )}
           </div>
@@ -279,7 +329,7 @@ function ConversationItem({ conversation, isSelected, onSelect, unreadCount, isO
           </span>
         </div>
         <p className={cn("text-xs truncate opacity-60 font-medium", isSelected ? "text-primary-foreground/80" : "text-sidebar-foreground/60")}>
-          {lastContent.includes('[Attachment]') ? '📎 Gửi một tệp đính kèm' : lastContent}
+          {conversation.type === 'GlobalMeeting' ? `Mã phòng: #${conversation.id}` : (lastContent.includes('[Attachment]') ? '📎 Gửi một tệp đính kèm' : lastContent)}
         </p>
       </div>
 
