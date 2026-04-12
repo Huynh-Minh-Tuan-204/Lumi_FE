@@ -149,7 +149,13 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
   }
 
   const handleJoin = async () => {
-     if (isHost) {
+     // User is host OR joining from an established conversation (already a member)
+     const canJoinDirectly = isHost || (conversationId && conversationId > 0);
+
+     if (canJoinDirectly) {
+        try {
+          if (token) await meetingsApi.joinMeeting(token, meetingId.toString());
+        } catch(e) {}
         stopPreview();
         onJoin(isMicOn, isCamOn);
         return;

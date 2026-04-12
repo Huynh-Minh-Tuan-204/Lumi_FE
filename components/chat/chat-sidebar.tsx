@@ -119,13 +119,15 @@ export function ChatSidebar({
     });
   }, [uniqueConversations]);
 
-  const meetingRooms = useMemo(() => sortedConversations.filter(c => 
-    c.type === 'GlobalMeeting' || c.name.toUpperCase().includes('CUỘC HỌP')
-  ), [sortedConversations]);
-
-  const directChats = useMemo(() => sortedConversations.filter(c => 
-    c.type !== 'GlobalMeeting' && !c.name.toUpperCase().includes('CUỘC HỌP')
-  ), [sortedConversations]);
+  const meetingRooms = useMemo(() => 
+    sortedConversations.filter(c => c.type === 'GlobalMeeting' || c.name.toLowerCase().includes('cuộc họp nhanh')), 
+    [sortedConversations]
+  );
+  
+  const directChats = useMemo(() => 
+    sortedConversations.filter(c => c.type !== 'GlobalMeeting' && !c.name.toLowerCase().includes('cuộc họp nhanh')), 
+    [sortedConversations]
+  );
 
   return (
     <div className="flex flex-col h-full bg-sidebar border-r border-sidebar-border overflow-hidden">
@@ -225,7 +227,7 @@ export function ChatSidebar({
                  <p className="text-[10px] font-black uppercase tracking-[0.3em]">Đang tải...</p>
               </div>
             ) : (
-              <div className="space-y-4">
+            <div className="space-y-4">
                 <div className="space-y-1">
                    <button 
                     onClick={() => setIsChatsExpanded(!isChatsExpanded)}
@@ -274,6 +276,15 @@ export function ChatSidebar({
                                  isSelected={selectedConversation?.id === c.id}
                                  onSelect={() => onSelectConversation(c)}
                                  unreadCount={unreadCounts[c.id] || 0}
+                                 onDelete={async () => {
+                                    if (confirm('Bạn có chắc muốn xóa cuộc họp này?')) {
+                                        try {
+                                          await meetingsApi.deleteMeeting(token!, c.id);
+                                          toast.success('Đã xóa cuộc họp');
+                                          window.location.reload();
+                                        } catch(e) { toast.error('Lỗi khi xóa'); }
+                                    }
+                                 }}
                                />
                             ))}
                          </div>
@@ -302,7 +313,7 @@ export function ChatSidebar({
   )
 }
 
-function ConversationItem({ conversation, isSelected, onSelect, unreadCount, isOnline }: any) {
+function ConversationItem({ conversation, isSelected, onSelect, unreadCount, isOnline, onDelete }: any) {
   const lastMsg = conversation.lastMessage;
   const lastContent = lastMsg?.message || lastMsg?.content || lastMsg?.encryptedContent || lastMsg?.EncryptedContent || '';
 
@@ -342,6 +353,15 @@ function ConversationItem({ conversation, isSelected, onSelect, unreadCount, isO
         <span className="h-5 min-w-[20px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center shadow-lg shadow-red-500/30 animate-in zoom-in duration-300">
           {unreadCount > 99 ? '99+' : unreadCount}
         </span>
+      )}
+      
+      {onDelete && isSelected && (
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="absolute right-2 top-2 p-1 rounded-full bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <X className="h-3 w-3" />
+        </button>
       )}
     </button>
   )

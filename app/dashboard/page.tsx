@@ -293,8 +293,14 @@ export default function DashboardPage() {
           type={showLobby.type}
           title={showLobby.title}
           conversationId={showLobby.conversationId}
-          onJoin={() => {
-            window.location.href = `/call/${showLobby.meetingId}`;
+          onJoin={(mic, cam) => {
+            const path = `/call/${showLobby.meetingId}?type=${showLobby.type}&mic=${mic}&cam=${cam}`;
+            import('next/navigation').then(({ useRouter }) => {
+                // If router is already available from hook
+            });
+            // Better to use current router instance from component
+            router.push(path);
+            setShowLobby(null);
           }}
           onCancel={() => setShowLobby(null)}
         />

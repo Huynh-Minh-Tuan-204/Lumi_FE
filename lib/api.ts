@@ -498,9 +498,6 @@ export const meetingsApi = {
   getMeetingByGuid: (token: string, guid: string) =>
     request<any>(`/Meetings/${guid}`, { token }),
 
-  getActiveMeeting: (token: string, conversationId: number) =>
-    request<any>(`/Meetings/active/${conversationId}`, { token }),
-
   startGlobalMeeting: (token: string, title?: string, callType: string = 'video') =>
     request<any>(`/Meetings/start-global`, {
       method: 'POST',
@@ -521,8 +518,11 @@ export const meetingsApi = {
   leaveMeeting: (token: string, id: number) =>
     request<any>(`/Meetings/${id}/leave`, { method: 'POST', token }),
 
-  endMeeting: (token: string, id: number) =>
-    request<any>(`/Meetings/${id}/end`, { method: 'POST', token }),
+  endMeeting: (token: string, idOrGuid: string | number) =>
+    request<any>(`/Meetings/end/${idOrGuid}`, { method: 'POST', token }),
+
+  deleteMeeting: (token: string, idOrGuid: string | number) =>
+    request<any>(`/Meetings/${idOrGuid}`, { method: 'DELETE', token }),
 
   declineCall: (token: string, id: number) =>
     request<any>(`/Meetings/${id}/decline`, { method: 'POST', token }),

@@ -238,27 +238,23 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connection.on('MeetingStarted', (data: any) => {
       const { meetingId, conversationId, title, callType, hostName } = data
       setActiveMeeting({ meetingId, conversationId, title, callType, hostName })
-      
-      // If NOT in this conversation, show a toast invitation
-      toast.info(`📞 Cuộc họp bắt đầu: ${title}`, {
-        description: `Bởi: ${hostName || 'Một người dùng'}. Nhấp để tham gia.`,
-        action: {
-          label: 'Tham gia',
-          onClick: () => window.location.href = `/call/${meetingId}`
-        }
-      })
     })
 
     connection.on('GlobalMeetingStarted', (data: any) => {
-      const { meetingId, title, hostName } = data
-      toast.success(`🌟 Cuộc họp công khai mới: ${title}`, {
-        description: `Bởi: ${hostName || 'Admin'}. Mọi người đều có thể tham gia!`,
-        duration: 15000,
+      const { meetingId, conversationId, title, hostName, type } = data;
+      setActiveMeeting({ meetingId, conversationId, title, callType: type || 'video', hostName });
+      
+      toast.info(`🚀 CUỘC HỌP MỚI: ${title}`, {
+        description: `Bởi ${hostName}. Bạn đã được mời tham gia!`,
         action: {
-          label: 'Tham gia ngay',
-          onClick: () => window.location.href = `/call/${meetingId}`
-        }
-      })
+          label: "THAM GIA",
+          onClick: () => {
+             // Logic to show lobby which will be handled by components observing activeMeeting
+             // Or we could redirect? Best to just let Dashboard/ChatArea handle it via activeMeeting state
+          }
+        },
+        duration: 20000
+      });
     })
 
     connection.on('MeetingEnded', (data: any) => {

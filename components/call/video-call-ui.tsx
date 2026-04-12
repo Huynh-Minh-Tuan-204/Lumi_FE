@@ -391,7 +391,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                <div className="flex items-center gap-2">
                  <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    <span className="text-[10px] font-black text-primary uppercase">Guid: {callId.substring(0, 8)}...</span>
+                    <span className="text-[10px] font-black text-primary uppercase">ID: {callId}</span>
                  </div>
                  <span className="text-[10px] text-gray-500 font-bold tracking-tighter uppercase whitespace-nowrap">
                    {formatDuration(callDuration)}
@@ -484,7 +484,10 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                       <MessageSquare className="h-6 w-6" />
                   </Button>
                   <div className="ml-2">
-                      <Button onClick={onEndCall} className="h-14 px-8 rounded-3xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-red-600/20">
+                      <Button onClick={async () => {
+                          if (signalRRef.current) await signalRRef.current.leaveCall(callId);
+                          onEndCall();
+                      }} className="h-14 px-8 rounded-3xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-red-600/20">
                           <PhoneOff className="h-5 w-5 mr-3" /> Kết thúc
                       </Button>
                   </div>

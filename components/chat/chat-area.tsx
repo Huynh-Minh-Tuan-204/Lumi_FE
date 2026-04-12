@@ -95,9 +95,8 @@ export function ChatArea({
   className 
  }: ChatAreaProps) {
   const { token, user } = useAuth()
-  const { isConnected, sendMessage, lastMessage, markAsRead, sendTyping, typingUsers, togglePinMessage, lastDeletedMessage, pinnedMessages, activeMeeting: globalMeeting } = useSignalR()
+  const { isConnected, sendMessage, lastMessage, markAsRead, sendTyping, typingUsers, togglePinMessage, lastDeletedMessage, pinnedMessages, activeMeeting } = useSignalR()
   const [messages, setMessages] = useState<Message[]>([])
-  const [localActiveMeeting, setLocalActiveMeeting] = useState<{ meetingGuid: string; title: string, callType?: string } | null>(null)
   const [newMessage, setNewMessage] = useState('')
   const [isPinnedListExpanded, setIsPinnedListExpanded] = useState(false)
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
@@ -153,13 +152,6 @@ export function ChatArea({
 
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token || !user) return
-    
-    // If there's already an active meeting in this room, just join it!
-    if (localActiveMeeting) {
-       setShowLobby({ meetingId: localActiveMeeting.meetingGuid, type, title: localActiveMeeting.title })
-       return
-    }
-
     try {
       const title = `${type === 'voice' ? 'Cuộc gọi thoại' : 'Cuộc gọi video'} - ${conversation.name}`
       const resp = await meetingsApi.startMeeting(token, conversation.id, title, [], type)
@@ -190,10 +182,9 @@ export function ChatArea({
   }
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadMessages = async () => {
       if (!conversation || !token) return
       try {
-        // Load messages
         const response: any = await conversationsApi.getMessages(token, conversation.id)
         const data = Array.isArray(response) ? response : (response.items || [])
         const mapped = data.map((m: any) => ({
@@ -209,26 +200,12 @@ export function ChatArea({
         }))
         setMessages(mapped.sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()))
         markAsRead(conversation.id)
-
-        // Check for active meeting
-        try {
-           const active = await meetingsApi.getActiveMeeting(token, conversation.id)
-           setActiveMeeting({ meetingId: active.meetingId, title: active.title, callType: active.callType })
-        } catch(e) { setActiveMeeting(null) }
-
       } catch (e) { console.error(e) }
     }
-    loadData()
+    loadMessages()
     setReplyingTo(null)
     setIsPinnedListExpanded(false)
   }, [conversation?.id, token])
-
-  // Sync with global meeting events
-  useEffect(() => {
-    if (globalActiveMeeting && globalActiveMeeting.conversationId === conversation?.id) {
-       setActiveMeeting({ meetingId: globalActiveMeeting.meetingId, title: globalActiveMeeting.title, callType: globalActiveMeeting.callType })
-    }
-  }, [globalActiveMeeting, conversation?.id])
 
   useEffect(() => {
     if (lastMessage && conversation && lastMessage.conversationId === conversation.id) {
@@ -256,12 +233,7 @@ export function ChatArea({
        });
        markAsRead(conversation.id);
     }
-  // Sync with Global Meeting Events
-  useEffect(() => {
-     if (globalMeeting && globalMeeting.conversationId === conversation?.id) {
-        setLocalActiveMeeting({ meetingGuid: globalMeeting.meetingId, title: globalMeeting.title, callType: globalMeeting.callType });
-     }
-  }, [globalMeeting, conversation?.id]);
+  }, [lastMessage, conversation?.id])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -274,28 +246,6 @@ export function ChatArea({
       setNewMessage('')
       setReplyingTo(null)
     } catch (e) { toast.error('Gửi thất bại') }
-  }
-
-  const handleLeaveConversation = async () => {
-    if (!conversation || !token || !user) return
-    if (!confirm('Bạn có chắc chắn muốn rời khỏi hội thoại này?')) return
-    try {
-      await conversationsApi.leave(token, conversation.id, user.id)
-      toast.success('Đã rời khỏi hội thoại')
-      onBack?.()
-      onRefreshConversations?.()
-    } catch (e) { toast.error('Lỗi khi rời khỏi hội thoại') }
-  }
-
-  const handleDeleteConversation = async () => {
-    if (!conversation || !token) return
-    if (!confirm('BẠN CÓ CHẮC CHẮN MUỐN XÓA TOÀN BỘ PHÒNG NÀY? Thao tác này không thể hoàn tác.')) return
-    try {
-      await conversationsApi.deleteConversation(token, conversation.id)
-      toast.success('Đã xóa phòng thành công')
-      onBack?.()
-      onRefreshConversations?.()
-    } catch (e) { toast.error('Lỗi khi xóa phòng. Có thể bạn không có quyền.') }
   }
 
   // Chia nhóm tin nhắn (Text/Attachment vs System)
@@ -394,15 +344,7 @@ export function ChatArea({
                     <ActivityIcon className="h-4 w-4 text-primary" /> Bảng tin nhóm
                  </DropdownMenuItem>
                  <DropdownMenuSeparator />
-                 {conversation.type === 'GlobalMeeting' && (
-                   <>
-                     <DropdownMenuItem onClick={handleDeleteConversation} className="text-destructive p-2.5 rounded-xl text-xs font-black uppercase tracking-widest gap-3">
-                       <Trash2 className="h-4 w-4" /> Xóa toàn bộ phòng
-                     </DropdownMenuItem>
-                     <DropdownMenuSeparator />
-                   </>
-                 )}
-                 <DropdownMenuItem onClick={handleLeaveConversation} className="text-destructive p-2.5 rounded-xl text-xs font-black uppercase tracking-widest gap-3">
+                 <DropdownMenuItem className="text-destructive p-2.5 rounded-xl text-xs font-black uppercase tracking-widest gap-3">
                     <LogOut className="h-4 w-4" /> Rời khỏi hội thoại
                  </DropdownMenuItem>
               </DropdownMenuContent>
@@ -460,7 +402,7 @@ export function ChatArea({
       )}
 
       {/* Active Meeting Banner - Teams Style */}
-      {localActiveMeeting && conversation && (
+      {activeMeeting && activeMeeting.conversationId === conversation.id && (
         <div className="z-20 bg-primary/20 backdrop-blur-xl px-4 py-2 flex items-center justify-between border-b animate-in slide-in-from-top-1 border-primary/20 shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
            <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-lg bg-primary/30 flex items-center justify-center animate-pulse">
@@ -468,7 +410,7 @@ export function ChatArea({
               </div>
               <div className="min-w-0">
                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/80">Cuộc họp đang diễn ra</p>
-                 <p className="text-[10px] font-bold truncate opacity-90">{localActiveMeeting.title}</p>
+                 <p className="text-[10px] font-bold truncate opacity-90">{activeMeeting.title}</p>
               </div>
            </div>
            <div className="flex items-center gap-2">
@@ -480,7 +422,7 @@ export function ChatArea({
                <Button 
                 size="sm" 
                 className="rounded-lg px-4 h-7 font-black uppercase text-[9px] tracking-widest bg-primary hover:bg-primary/80 shadow-lg shadow-primary/10 transition-all hover:scale-105"
-                onClick={() => setShowLobby({ meetingId: localActiveMeeting.meetingGuid, type: (localActiveMeeting.callType as any) || 'video', title: localActiveMeeting.title })}
+                onClick={() => setShowLobby({ meetingId: activeMeeting.meetingGuid, type: (activeMeeting.callType as any) || 'video', title: activeMeeting.title })}
                >
                   Tham gia
                </Button>
