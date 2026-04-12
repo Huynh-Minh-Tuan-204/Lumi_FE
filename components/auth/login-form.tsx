@@ -47,8 +47,13 @@ export function LoginForm() {
       <div className="w-full max-w-md space-y-8">
         {/* Logo and branding */}
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-lg">
-            <MessageSquare className="h-8 w-8 text-primary-foreground" />
+          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-linear-to-br from-primary to-accent shadow-2xl shadow-primary/40 mb-2 transform hover:scale-105 transition-transform duration-300">
+            <svg viewBox="0 0 24 24" fill="none" className="h-12 w-12 text-white drop-shadow-lg" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 13.4876 3.36093 14.891 4 16.1272L3 21L7.87279 20C9.10904 20.6391 10.5124 21 12 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 8V12L14 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-50"/>
+              <circle cx="12" cy="12" r="3" fill="white" fillOpacity="0.2" />
+              <path d="M12 10C12 10 11 11 11 12C11 13 12 14 12 14" stroke="white" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
           </div>
           <h1 className="mt-6 text-3xl font-bold tracking-tight text-foreground">
             Lumi Chat

@@ -345,7 +345,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       peersRef.current.clear();
       signalRRef.current?.disconnect();
     };
-  }, [callId, token, user, callType, createPeerConnection, meetingParticipants, removePeer, initialMic, initialCam]);
+  }, [callId, token, user, callType, createPeerConnection, removePeer, initialMic, initialCam]);
 
   useEffect(() => {
     if (lastMessage && lastMessage.conversationId === convId) {
