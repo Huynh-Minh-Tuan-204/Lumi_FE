@@ -5,6 +5,7 @@ import * as signalR from '@microsoft/signalr'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
 import { announcementsApi } from '@/lib/api'
+import { getSessionKey, encryptMessage, decryptMessage } from '@/lib/crypto-utils'
 
 const HUB_URL = process.env.NEXT_PUBLIC_SIGNALR_HUB_URL || 'https://mintuan-001-site1.ktempurl.com/chatHub';
 
@@ -29,8 +30,8 @@ export interface ChatMessage {
 export interface SignalRHookReturn {
   isConnected: boolean
   isReconnecting: boolean
-  sendMessage: (conversationId:number, encryptedMessage:string, iv:string, parentMessageId?: number) => Promise<void>
-  sendNotification: (message:string) => Promise<void>
+  sendMessage: (conversationId: number, plaintext: string, messageType?: string, parentMessageId?: number) => Promise<void>
+  sendNotification: (message: string) => Promise<void>
   lastMessage: ChatMessage | null
   lastReadUpdate: { conversationId: number, userId: number } | null
   onTriggeredReminder: (callback: (data: { conversationId: number, content: string }) => void) => void
@@ -69,10 +70,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
   const connectionRef = useRef<signalR.HubConnection | null>(null)
 
-  const [isConnected,setIsConnected] = useState(false)
+  const [isConnected, setIsConnected] = useState(false)
   const [isReconnecting, setIsReconnecting] = useState(false)
-  const [lastMessage,setLastMessage] = useState<ChatMessage | null>(null)
-  const [notifications,setNotifications] = useState<ChatMessage[]>([])
+  const [lastMessage, setLastMessage] = useState<ChatMessage | null>(null)
+  const [notifications, setNotifications] = useState<ChatMessage[]>([])
   const [lastReadUpdate, setLastReadUpdate] = useState<{ conversationId: number, userId: number } | null>(null)
   const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set())
   const [incomingCall, setIncomingCall] = useState<{ meetingId: string; callerName: string; callType: string; convName: string } | null>(null)
@@ -86,32 +87,43 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [lastUserLeft, setLastUserLeft] = useState<number | null>(null)
   const [activeMeeting, setActiveMeeting] = useState<{ meetingId: string; conversationId: number; title: string; callType: string; hostName: string } | null>(null)
   const notifiedMeetingsRef = useRef<Set<string>>(new Set())
+  const cryptoKeyRef = useRef<CryptoKey | null>(null)
+
+  // Initialize E2EE Key
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      getSessionKey().then(key => {
+        cryptoKeyRef.current = key
+      })
+    }
+  }, [])
+
 
   useEffect(() => {
     if (!token) {
-        setNotifications([]);
-        setOnlineUsers(new Set());
-        setLastMessage(null);
-        setLastReadUpdate(null);
-        setIncomingCall(null);
-        setCallDeclined(null);
-        setLastGroupUpdate(null);
-        setTypingUsers([]);
-        setLastUserUpdate(null);
-        setPinnedMessages(null);
-        setLastDeletedMessage(null);
-        setLastScheduleUpdate(null);
-        setActiveMeeting(null);
-        setIsConnected(false);
-        setIsReconnecting(false);
-        return
+      setNotifications([]);
+      setOnlineUsers(new Set());
+      setLastMessage(null);
+      setLastReadUpdate(null);
+      setIncomingCall(null);
+      setCallDeclined(null);
+      setLastGroupUpdate(null);
+      setTypingUsers([]);
+      setLastUserUpdate(null);
+      setPinnedMessages(null);
+      setLastDeletedMessage(null);
+      setLastScheduleUpdate(null);
+      setActiveMeeting(null);
+      setIsConnected(false);
+      setIsReconnecting(false);
+      return
     }
 
     const fetchHistory = async () => {
       try {
         const url = process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api';
         const response = await fetch(`${url}/Announcements`, {
-          headers: { 
+          headers: {
             'Authorization': `Bearer ${token}`,
             'ngrok-skip-browser-warning': 'true'
           }
@@ -136,32 +148,45 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     fetchHistory();
 
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl(HUB_URL,{
-        accessTokenFactory:()=>token,
+      .withUrl(HUB_URL, {
+        accessTokenFactory: () => token,
         headers: { "ngrok-skip-browser-warning": "true" }
       })
       .withAutomaticReconnect()
       .configureLogging(signalR.LogLevel.None)
       .build()
 
-    connection.on('ReceiveMessage', (data: any) => {
+    connection.on('ReceiveMessage', async (data: any) => {
       const { id, conversationId, senderId, senderName, content, iv, messageType, stickerUrl, isPinned, createdAt, attachments, avatarPath, parentMessageId } = data;
-      setLastMessage({
-          id,
-          conversationId,
-          senderId,
-          sender: senderName,
-          message: content,
-          iv,
-          messageType,
-          stickerUrl,
-          isPinned,
-          time: new Date(createdAt),
-          attachments: attachments || [],
-          isSystem: false,
-          avatarPath: avatarPath,
-          parentMessageId: parentMessageId
+
+      let displayContent = content;
+      if (messageType === 'PLAIN' || !messageType) {
+        if (cryptoKeyRef.current) {
+          displayContent = await decryptMessage(content, iv || '', cryptoKeyRef.current);
+        } else {
+          // Key not yet loaded, try to get it again (fallback)
+          const key = await getSessionKey();
+          cryptoKeyRef.current = key;
+          displayContent = await decryptMessage(content, iv || '', key);
         }
+      }
+
+      setLastMessage({
+        id,
+        conversationId,
+        senderId,
+        sender: senderName,
+        message: displayContent,
+        iv,
+        messageType,
+        stickerUrl,
+        isPinned,
+        time: new Date(createdAt),
+        attachments: attachments || [],
+        isSystem: false,
+        avatarPath: avatarPath,
+        parentMessageId: parentMessageId
+      }
       )
     })
 
@@ -171,7 +196,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
     connection.on('ReceiveNotification', (data: any) => {
       const { id, title, sender, message, category, forceConfirmed, createdAt, isSystem } = data;
-      
+
       // Hiển thị toast cho tất cả thông báo
       if (category === "Security" && forceConfirmed) {
         toast.error(`🚨 CẢNH BÁO: ${title || "Security Alert"}`, {
@@ -239,7 +264,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connection.on('MeetingStarted', (data: any) => {
       const { meetingId, conversationId, title, callType, hostName, hostId } = data
       const mIdString = String(meetingId);
-      
+
       if (notifiedMeetingsRef.current.has(mIdString)) return;
       notifiedMeetingsRef.current.add(mIdString);
 
@@ -247,42 +272,42 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
       // Show toast notification for 5 seconds as requested
       if (user && hostId !== user.id) {
-          toast.info(`🚀 CUỘC HỌP MỚI: ${title}`, {
-            description: `Bởi ${hostName}. Tham gia ngay!`,
-            duration: 5000,
-            action: {
-              label: "THAM GIA",
-              onClick: () => window.location.href = `/call/${mIdString}?type=${callType || 'video'}`
-            }
-          });
+        toast.info(`🚀 CUỘC HỌP MỚI: ${title}`, {
+          description: `Bởi ${hostName}. Tham gia ngay!`,
+          duration: 5000,
+          action: {
+            label: "THAM GIA",
+            onClick: () => window.location.href = `/call/${mIdString}?type=${callType || 'video'}`
+          }
+        });
       }
     })
 
     connection.on('GlobalMeetingStarted', (data: any) => {
       const { meetingId, conversationId, title, hostName, hostId, type } = data;
-      
+
       // 1. Don't show toast to the host (Admin)
       if (user && (hostId === user.id || hostName === user.fullName)) return;
-      
+
       const mIdString = String(meetingId);
       const convKey = `conv-${conversationId}`;
-      
+
       // 2. Strict Deduplication: Check if we've already notified for this meeting or conversation recently
       if (notifiedMeetingsRef.current.has(mIdString) || notifiedMeetingsRef.current.has(convKey)) {
         return;
       }
-      
+
       notifiedMeetingsRef.current.add(mIdString);
       notifiedMeetingsRef.current.add(convKey);
 
       setActiveMeeting({ meetingId: mIdString, conversationId, title, callType: type || 'video', hostName });
-      
+
       toast.info(`🚀 CUỘC HỌP MỚI: ${title}`, {
         description: `Bởi ${hostName}. Bạn đã được mời tham gia!`,
         action: {
           label: "THAM GIA",
           onClick: () => {
-             window.location.href = `/call/${mIdString}?type=${type || 'video'}`;
+            window.location.href = `/call/${mIdString}?type=${type || 'video'}`;
           }
         },
         duration: 5000
@@ -373,32 +398,47 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     })
 
     connection.start()
-      .then(()=>setIsConnected(true))
-      .catch(err=>{
+      .then(() => setIsConnected(true))
+      .catch(err => {
         console.error("SignalR Start Error:", err)
         setTimeout(() => {
           if (!isConnected) {
-            connection.start().then(() => setIsConnected(true)).catch(() => {})
+            connection.start().then(() => setIsConnected(true)).catch(() => { })
           }
         }, 5000)
       })
 
     connectionRef.current = connection
 
-    return ()=>{
+    return () => {
       connection.stop()
     }
 
-  },[token])
+  }, [token])
 
-  const sendMessage = useCallback(async(conversationId:number,encryptedMessage:string,iv:string)=>{
-    if(connectionRef.current?.state===signalR.HubConnectionState.Connected){
-      await connectionRef.current.invoke('SendMessage', conversationId, encryptedMessage, iv)
+  const sendMessage = useCallback(async (conversationId: number, plaintext: string, messageType: string = 'PLAIN', parentMessageId?: number) => {
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
+      try {
+        let contentToSend = plaintext;
+        let ivToSend = "";
+
+        // Only encrypt if it's a plain message (not stickers/calls/etc if you want, but user asked for E2EE)
+        if (messageType === 'PLAIN' && cryptoKeyRef.current) {
+          const encrypted = await encryptMessage(plaintext, cryptoKeyRef.current);
+          contentToSend = encrypted.encryptedContent;
+          ivToSend = encrypted.iv;
+        }
+
+        await connectionRef.current.invoke('SendMessage', conversationId, contentToSend, ivToSend, messageType, parentMessageId || 0);
+      } catch (err) {
+        console.error("Failed to send encrypted message:", err);
+        toast.error("Lỗi khi gửi tin nhắn bảo mật");
+      }
     }
-  },[])
+  }, [])
 
-  const markAsRead = useCallback(async(conversationId: number, messageId: number = 0) => {
-    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+  const markAsRead = useCallback(async (conversationId: number, messageId: number = 0) => {
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       try {
         await connectionRef.current.invoke('MarkAsRead', conversationId, messageId)
       } catch (err) {
@@ -407,38 +447,38 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const sendNotification = useCallback(async(message:string)=>{
-    if(connectionRef.current?.state===signalR.HubConnectionState.Connected){
+  const sendNotification = useCallback(async (message: string) => {
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       await connectionRef.current.invoke('SendNotification', message)
     }
-  },[])
+  }, [])
 
-  const sendTyping = useCallback(async(conversationId: number) => {
-    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+  const sendTyping = useCallback(async (conversationId: number) => {
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       await connectionRef.current.invoke('SendTyping', conversationId)
     }
   }, [])
 
-  const sendSticker = useCallback(async(conversationId: number, stickerUrl: string) => {
-    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+  const sendSticker = useCallback(async (conversationId: number, stickerUrl: string) => {
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       await connectionRef.current.invoke('SendSticker', conversationId, stickerUrl)
     }
   }, [])
 
-  const togglePinMessage = useCallback(async(messageId: number) => {
-    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+  const togglePinMessage = useCallback(async (messageId: number) => {
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       await connectionRef.current.invoke('TogglePinMessage', messageId)
     }
   }, [])
 
-  const sendReminder = useCallback(async(conversationId: number, content: string, remindAtIso: string) => {
-    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+  const sendReminder = useCallback(async (conversationId: number, content: string, remindAtIso: string) => {
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       await connectionRef.current.invoke('SendReminder', conversationId, content, remindAtIso)
     }
   }, [])
 
-  const hideMessageForMe = useCallback(async(messageId: number) => {
-    if(connectionRef.current?.state === signalR.HubConnectionState.Connected){
+  const hideMessageForMe = useCallback(async (messageId: number) => {
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       await connectionRef.current.invoke('HideMessageForMe', messageId)
     }
   }, [])
@@ -472,14 +512,14 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           try {
             await announcementsApi.markAllRead(token);
             setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-          } catch (e) {}
+          } catch (e) { }
         },
         pinnedMessages,
         lastDeletedMessage,
         lastScheduleUpdate,
         lastUserLeft,
         activeMeeting,
-        onTriggeredReminder: (cb: any) => {}, 
+        onTriggeredReminder: (cb: any) => { },
       }}
     >
       {!mounted ? <div style={{ visibility: 'hidden' }}>{children}</div> : children}
@@ -487,8 +527,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-export function useSignalR(){
+export function useSignalR() {
   const ctx = useContext(SignalRContext)
-  if(!ctx) throw new Error('useSignalR must be used within SignalRProvider')
+  if (!ctx) throw new Error('useSignalR must be used within SignalRProvider')
   return ctx
 }

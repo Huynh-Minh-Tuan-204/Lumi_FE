@@ -60,6 +60,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useAuth } from '@/lib/auth-context'
+import { getSessionKey, decryptMessage } from '@/lib/crypto-utils'
 import { conversationsApi, meetingsApi, attachmentsApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
 import { toast } from 'sonner'
@@ -96,7 +97,7 @@ export function ChatArea({
   className 
  }: ChatAreaProps) {
   const { token, user } = useAuth()
-  const { isConnected, sendMessage, lastMessage, markAsRead, sendTyping, typingUsers, togglePinMessage, lastDeletedMessage, pinnedMessages, activeMeeting } = useSignalR()
+  const { isConnected, sendMessage, lastMessage, markAsRead, sendTyping, typingUsers, togglePinMessage, lastDeletedMessage, pinnedMessages, activeMeeting, initiateE2EEHandshake } = useSignalR()
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isPinnedListExpanded, setIsPinnedListExpanded] = useState(false)
@@ -151,6 +152,13 @@ export function ChatArea({
     }
   }, [lastDeletedMessage, conversation?.id]);
 
+  useEffect(() => {
+    if (conversation?.id) {
+       initiateE2EEHandshake(conversation.id);
+    }
+  }, [conversation?.id, initiateE2EEHandshake]);
+
+
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token || !user) return
     
@@ -182,13 +190,14 @@ export function ChatArea({
       await attachmentsApi.upload(token, file, conversation.id)
       toast.success('Thành công!')
       const updatedMessages = await conversationsApi.getMessages(token, conversation.id)
-      setMessages(updatedMessages.map((m: any) => ({
+      const mappedHistory = updatedMessages.map((m: any) => ({
         ...m,
         id: m.id || m.Id,
         conversationId: m.conversationId || conversation.id,
         isPinned: m.isPinned || m.IsPinned,
         encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
-      })))
+      }))
+      setMessages(mappedHistory)
     } catch (error) { toast.error('Thất bại.') }
   }
 
@@ -198,17 +207,19 @@ export function ChatArea({
       try {
         const response: any = await conversationsApi.getMessages(token, conversation.id)
         const data = Array.isArray(response) ? response : (response.items || [])
-        const mapped = data.map((m: any) => ({
-          ...m,
-          id: m.id || m.Id,
-          conversationId: m.conversationId || conversation.id,
-          senderId: m.senderId || m.SenderId,
-          encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
-          createdAt: m.createdAt || m.CreatedAt || new Date().toISOString(),
-          isPinned: m.isPinned || m.IsPinned,
-          attachments: m.attachments || m.Attachments || [],
-          parentMessageId: m.parentMessageId || m.ParentMessageId
-        }))
+        const mapped = data.map((m: any) => {
+          return {
+            ...m,
+            id: m.id || m.Id,
+            conversationId: m.conversationId || conversation.id,
+            senderId: m.senderId || m.SenderId,
+            encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
+            createdAt: m.createdAt || m.CreatedAt || new Date().toISOString(),
+            isPinned: m.isPinned || m.IsPinned,
+            attachments: m.attachments || m.Attachments || [],
+            parentMessageId: m.parentMessageId || m.ParentMessageId
+          }
+        })
         setMessages(mapped.sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()))
         markAsRead(conversation.id)
       } catch (e) { console.error(e) }
