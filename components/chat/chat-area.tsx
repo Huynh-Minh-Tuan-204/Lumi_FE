@@ -478,14 +478,9 @@ export function ChatArea({
         title={showLobby.title} 
         conversationId={conversation.id}
         onJoin={(mic, cam) => {
-           console.log("Joining meeting:", showLobby.meetingId, "Mic:", mic, "Cam:", cam);
-           // Success: Navigate to meeting page with states
+           // Đã có biến router được định nghĩa ở đầu ChatArea
            setShowLobby(null);
-           if (typeof router !== 'undefined' && router) {
-              router.push(`/meeting/${showLobby.meetingId}?mic=${mic}&cam=${cam}`);
-           } else {
-              window.location.href = `/meeting/${showLobby.meetingId}?mic=${mic}&cam=${cam}`;
-           }
+           router.push(`/meeting/${showLobby.meetingId}?mic=${mic}&cam=${cam}`);
         }}
         onCancel={() => setShowLobby(null)} 
       />
