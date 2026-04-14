@@ -678,10 +678,10 @@ export function ChatArea({
                          <div className={cn(
                              "rounded-2xl shadow-sm text-sm break-words border relative group/msg overflow-hidden transition-all duration-300", 
                              isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card",
-                             m.encryptedContent?.trim() === "[Attachment]" ? "p-1" : "p-0"
+                             (m.attachments && m.attachments.length > 0 && (!m.encryptedContent || m.encryptedContent.trim() === "[Attachment]" || m.encryptedContent.trim() === "")) ? "p-0.5" : "p-0"
                           )}>
                              {m.attachments && m.attachments.length > 0 && (
-                               <div className={cn("space-y-1", m.encryptedContent?.trim() !== "[Attachment]" && "p-2 pb-0")}>
+                               <div className={cn("space-y-1", (m.encryptedContent && m.encryptedContent.trim() !== "[Attachment]" && m.encryptedContent.trim() !== "") && "p-2 pb-0")}>
                                  {m.attachments.map((a: any, i: number) => {
                                    const isImage = a.mimeType?.startsWith('image/');
                                    const url = getAttachmentUrl(a.id, token!);
