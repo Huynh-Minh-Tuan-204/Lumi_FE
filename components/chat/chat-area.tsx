@@ -153,6 +153,13 @@ export function ChatArea({
 
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token || !user) return
+    
+    // Nếu có cuộc họp đang diễn ra trong nhóm, dùng lại mã đó
+    if (activeMeeting && activeMeeting.conversationId === conversation.id) {
+       setShowLobby({ meetingId: activeMeeting.meetingId, type, title: activeMeeting.title })
+       return
+    }
+
     try {
       const title = `${type === 'voice' ? 'Cuộc gọi thoại' : 'Cuộc gọi video'} - ${conversation.name}`
       const resp = await meetingsApi.startMeeting(token, conversation.id, title, [], type)

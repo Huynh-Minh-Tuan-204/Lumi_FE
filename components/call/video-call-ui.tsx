@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useAuth } from '@/lib/auth-context'
 import { meetingsApi, conversationsApi } from '@/lib/api'
-import { CallSignalR } from '@/lib/call-signalr'
 import { useSignalR, ChatMessage } from '@/hooks/use-signalr'
 import { useCall } from '@/hooks/use-call'
 import { toast } from 'sonner'
@@ -25,14 +24,57 @@ interface VideoCallUIProps {
   initialCam?: boolean
 }
 
+function formatDuration(seconds: number) {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  return [h > 0 ? h : null, m, s].filter(x => x !== null).map(x => x!.toString().padStart(2, '0')).join(':')
+}
+
+function VideoPlayer({ stream, isLocal, isCameraOn }: { stream: MediaStream | null, isLocal: boolean, isCameraOn: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  
+  useEffect(() => {
+    if (videoRef.current && stream) {
+      videoRef.current.srcObject = stream
+    }
+  }, [stream])
+
+  return (
+    <div className="relative w-full h-full bg-[#121212] flex items-center justify-center overflow-hidden rounded-2xl">
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted={isLocal}
+        className={cn(
+          "max-w-full max-h-full object-contain transition-all duration-700",
+          isLocal && "scale-x-[-1]",
+          !isCameraOn && "opacity-0"
+        )}
+      />
+      {!isCameraOn && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1e1e1e] to-[#0f0f0f]">
+          <Avatar className="h-24 w-24 ring-4 ring-primary/20 shadow-2xl">
+            <AvatarFallback className="bg-primary/10 text-primary text-3xl font-black uppercase">L</AvatarFallback>
+          </Avatar>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function VideoCallUI({ callId, callType, participantName, onEndCall, initialMic = true, initialCam = true }: VideoCallUIProps) {
   const { user, token } = useAuth()
   const { sendMessage, lastMessage } = useSignalR()
-
-  const [isMuted, setIsMuted] = useState(!initialMic)
-  const [isCameraOn, setIsCameraOn] = useState(callType === 'video' && initialCam)
-  const [isScreenSharing, setIsScreenSharing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { 
+    joinCall, endCall, activeCallId, localStream, remotePeers,
+    isMuted, setIsMuted, isCameraOn, setIsCameraOn,
+    isMinimized, setIsMinimized, isScreenSharing, toggleScreenShare,
+    signalR
+  } = useCall()
+  
+  const router = useRouter()
   const [callDuration, setCallDuration] = useState(0)
 
   // Sidebar states
@@ -45,14 +87,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   const [callMessages, setCallMessages] = useState<ChatMessage[]>([])
   const [meetingStartTimeState, setMeetingStartTimeState] = useState<Date | null>(null)
   const [waitingList, setWaitingList] = useState<any[]>([])
-  const [isMinimized, setIsMinimized] = useState(false)
 
-  const meetingStartTime = useRef<Date>(new Date())
-  const localVideoRef = useRef<HTMLVideoElement>(null)
-  const localStreamRef = useRef<MediaStream | null>(null)
-  const signalRRef = useRef<CallSignalR | null>(null)
-  const peersRef = useRef<Map<number, PeerState>>(new Map())
-  const [remotePeers, setRemotePeers] = useState<UserPeer[]>([]) 
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -60,89 +95,19 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     return () => clearInterval(timer)
   }, [])
 
-  const updatePeerUI = useCallback(() => {
-    const list: UserPeer[] = Array.from(peersRef.current.values()).map(p => ({
-      userId: p.userId,
-      userName: p.userName,
-      stream: p.stream
-    }));
-    setRemotePeers(list);
-  }, []);
-
-  const removePeer = useCallback((userId: number) => {
-    const peer = peersRef.current.get(userId);
-    if (peer) {
-      peer.connection.close();
-      peersRef.current.delete(userId);
-      updatePeerUI();
+  // Navigation Logic on Minimize
+  useEffect(() => {
+    if (isMinimized && convId) {
+       router.push(`/dashboard?convId=${convId}`)
     }
-  }, [updatePeerUI]);
-  
-  const screenStreamRef = useRef<MediaStream | null>(null);
-
-  const stopScreenShare = useCallback(() => {
-    if (screenStreamRef.current) {
-      screenStreamRef.current.getTracks().forEach(t => t.stop());
-      screenStreamRef.current = null;
-    }
-
-    if (localStreamRef.current) {
-      const videoTrack = localStreamRef.current.getVideoTracks()[0];
-      peersRef.current.forEach(peer => {
-        const sender = peer.connection.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) {
-          sender.replaceTrack(videoTrack);
-        }
-      });
-    }
-
-    setIsScreenSharing(false);
-  }, []);
-
-  const toggleScreenShare = useCallback(async () => {
-    if (!isScreenSharing) {
-      try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        screenStreamRef.current = stream;
-        
-        const videoTrack = stream.getVideoTracks()[0];
-        
-        // Update all peers
-        peersRef.current.forEach(peer => {
-          const sender = peer.connection.getSenders().find(s => s.track?.kind === 'video');
-          if (sender) {
-            sender.replaceTrack(videoTrack);
-          }
-        });
-
-        // Handle when user stops sharing via browser bar
-        videoTrack.onended = () => {
-          stopScreenShare();
-        };
-
-        setIsScreenSharing(true);
-      } catch (err: any) {
-        if (err.name === 'NotAllowedError' || err.message?.includes('denied')) {
-          console.log("Screen share cancelled by user");
-        } else {
-          console.error("Screen share error:", err);
-          toast.error("Lỗi khi chia sẻ màn hình");
-        }
-      }
-    } else {
-      stopScreenShare();
-    }
-  }, [isScreenSharing, stopScreenShare]);
+  }, [isMinimized, convId, router])
 
   const fetchMeetingData = useCallback(async (signal?: AbortSignal) => {
     if (!token || !callId) return
     try {
-      // Get meeting details by GUID or ID
       const meeting = await meetingsApi.getMeeting(token, callId)
       if (signal?.aborted) return
 
-      // --- CRITICAL FIX: REDIRECT IF USING INTERNAL ID ---
-      // If the current URL has the internal number but we have the string Guid, redirect!
       if (meeting.meetingGuid && meeting.meetingGuid !== callId) {
          window.location.replace(`/call/${meeting.meetingGuid}${window.location.search}`);
          return;
@@ -153,12 +118,10 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       
       const startAtRaw = meeting.createdAt || meeting.startTime || meeting.CreatedAt || meeting.StartTime;
       if (startAtRaw) {
-          // Add 1 second buffer to be safe
-          const startAtDate = new Date(startAtRaw);
-          setMeetingStartTimeState(new Date(startAtDate.getTime() - 1000));
+          // Add buffer to keep it isolated
+          setMeetingStartTimeState(new Date(new Date(startAtRaw).getTime() - 2000));
       }
       
-      // Now fetch messages (should not be 403 anymore as backend JoinCall adds us)
       try {
         const history = await conversationsApi.getMessages(token, meeting.conversationId)
         if (!signal?.aborted) {
@@ -168,16 +131,15 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
             senderId: d.senderId ?? d.SenderId,
             sender: d.senderName ?? d.SenderName ?? d.sender ?? d.Sender ?? 'User',
             message: d.content ?? d.message ?? d.encryptedContent ?? d.EncryptedContent ?? "",
-            time: new Date(d.createdAt ?? d.CreatedAt ?? d.time ?? Date.now()),
+            time: d.createdAt ? new Date(d.createdAt) : new Date(),
             iv: d.iv ?? d.Iv,
             messageType: d.messageType ?? d.MessageType,
           }))
           setCallMessages(mappedHistory)
         }
-      } catch(e) { console.warn("Could not fetch messages yet", e); }
-
+      } catch(e) { console.warn(e); }
     } catch (e) {
-      if (!signal?.aborted) console.error("Error fetching meeting data", e)
+      if (!signal?.aborted) console.error(e)
     }
   }, [callId, token])
 
@@ -193,29 +155,17 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     }
   }, [callId, token, callType, joinCall])
 
-
-  // Sync Local Stream States
-  useEffect(() => {
-    if (localStreamRef.current) {
-        localStreamRef.current.getAudioTracks().forEach(t => t.enabled = !isMuted);
-        localStreamRef.current.getVideoTracks().forEach(t => t.enabled = isCameraOn);
-    }
-  }, [isMuted, isCameraOn]);
-
   useEffect(() => {
     if (lastMessage && lastMessage.conversationId === convId) {
-      setCallMessages(prev => [...prev, lastMessage]);
+      setCallMessages(prev => [...prev.filter(m => m.id !== lastMessage.id), lastMessage]);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
   }, [lastMessage, convId]);
 
-
-
-
   const allStreams = useMemo(() => [
-    { id: user?.id || 0, name: "Bạn", stream: localStreamRef.current, isLocal: true },
+    { id: user?.id || 0, name: "Bạn", stream: localStream, isLocal: true },
     ...remotePeers.map(p => ({ id: p.userId, name: p.userName, stream: p.stream, isLocal: false }))
-  ], [user, remotePeers]);
+  ], [user, remotePeers, localStream]);
 
   const filteredCallMessages = useMemo(() => 
     meetingStartTimeState 
@@ -224,24 +174,20 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   , [callMessages, meetingStartTimeState]);
 
   const partnerPeer = remotePeers[0];
-  const displayStream = partnerPeer ? partnerPeer.stream : localStreamRef.current;
+  const displayStream = partnerPeer ? partnerPeer.stream : localStream;
   const isLocalDisplay = !partnerPeer;
   const displayNameDisplay = partnerPeer ? partnerPeer.userName : "Bạn (Đang đợi...)";
 
-
-    return (
+  return (
     <div className={cn(
-        "flex h-screen flex-col bg-[#0a0a0a] text-white overflow-hidden relative font-sans transition-all duration-500 shadow-2xl",
-        isMinimized ? "fixed bottom-6 right-6 w-[320px] h-[180px] z-[99999] rounded-2xl border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] scale-in-center" : "h-screen"
+        "flex h-screen flex-col bg-[#0a0a0a] text-white overflow-hidden relative font-sans transition-all duration-500 shadow-2xl"
     )}>
       <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-black to-blue-900/10 opacity-50 pointer-events-none" />
 
-      {/* Header - Hidden when minimized or replaced with small overlay */}
-      {!isMinimized && (
-        <header className="relative flex h-14 items-center justify-between bg-[#1A1A1A]/80 backdrop-blur-2xl px-6 border-b border-white/5 z-30 shadow-2xl">
-            <div className="flex items-center gap-4">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-500/20">L</div>
-                <div className="flex flex-col -space-y-0.5">
+      <header className="relative flex h-14 items-center justify-between bg-[#1A1A1A]/80 backdrop-blur-2xl px-6 border-b border-white/5 z-30 shadow-2xl">
+          <div className="flex items-center gap-4">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-500/20">L</div>
+              <div className="flex flex-col -space-y-0.5">
                 <span className="text-sm font-black tracking-tight">{participantName} Meeting</span>
                 <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">
@@ -263,96 +209,46 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                         <Send className="w-3 h-3" />
                     </Button>
                 </div>
-                </div>
-            </div>
-            <div className="flex items-center gap-2">
-                <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-8 w-8 text-gray-400 hover:text-white"
-                    onClick={() => setIsMinimized(!isMinimized)}
-                >
-                    <Minimize2 className="h-4 w-4" />
-                </Button>
-                <div className="flex -space-x-2">
-                {meetingParticipants.slice(0, 3).map((p, i) => (
-                    <Avatar key={i} className="w-8 h-8 border-2 border-[#1A1A1A] ring-1 ring-white/10">
-                        <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
-                    </Avatar>
-                ))}
-                </div>
-            </div>
-        </header>
-      )}
+              </div>
+          </div>
+          <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white" onClick={() => setIsMinimized(true)}>
+                  <Minimize2 className="h-4 w-4" />
+              </Button>
+          </div>
+      </header>
 
       <main className="flex-1 flex min-h-0 relative z-10">
         <section className="flex-1 p-6 flex flex-col relative overflow-hidden">
-             
-             {isMinimized ? (
-                // Minimized View - Show partner or generic placeholder
-                <div className="relative w-full h-full group">
-                   <VideoPlayer stream={displayStream} isLocal={isLocalDisplay} isCameraOn={isCameraOn} />
-                   
-                   {/* Overlay Controls for Minimized State */}
-                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
-                      <div className="flex gap-2">
-                          <Button variant="secondary" size="icon" onClick={() => setIsMuted(!isMuted)} className={cn("h-10 w-10 rounded-full bg-white/20 hover:bg-white/40 border-none", isMuted && "bg-red-500/80 hover:bg-red-600")}>
-                              {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                          </Button>
-                          <Button variant="secondary" size="icon" onClick={() => setIsCameraOn(!isCameraOn)} className={cn("h-10 w-10 rounded-full bg-white/20 hover:bg-white/40 border-none", !isCameraOn && "bg-red-500/80 hover:bg-red-600")}>
-                                {isCameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-                          </Button>
-                          <Button variant="destructive" size="icon" onClick={async () => { if (signalRRef.current) await signalRRef.current.leaveCall(callId); onEndCall(); }} className="h-10 w-10 rounded-full">
-                              <PhoneOff className="h-4 w-4" />
-                          </Button>
-                      </div>
-                      <Button variant="secondary" size="sm" onClick={() => setIsMinimized(false)} className="rounded-full bg-primary hover:bg-primary/80 border-none text-[10px] font-black h-7">
-                         <Maximize2 className="h-3 w-3 mr-2" /> MỞ RỘNG
-                      </Button>
-                   </div>
-
-                   <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ring-1 ring-white/10">
-                        {displayNameDisplay}
-                   </div>
-                </div>
-             ) : (
-                // Full View - Grid
-                <>
-                <div className={cn(
-                    "grid gap-4 w-full h-full p-2 place-items-center",
-                    allStreams.length === 1 ? "grid-cols-1" : allStreams.length === 2 ? "grid-cols-2" : "grid-cols-2 md:grid-cols-3"
-                )}>
-                    {allStreams.map((p) => (
+            <div className={cn(
+                "grid gap-4 w-full h-full p-2 place-items-center",
+                allStreams.length === 1 ? "grid-cols-1" : allStreams.length === 2 ? "grid-cols-2" : "grid-cols-2 md:grid-cols-3"
+            )}>
+                {allStreams.map((p) => (
                     <div key={p.id} className="relative rounded-3xl overflow-hidden bg-[#121212] w-full h-full border border-white/5 shadow-2xl group transition-all duration-500 hover:border-primary/30 flex items-center justify-center">
                         <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.isLocal ? isCameraOn : true} />
                         <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-xl px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ring-1 ring-white/10 flex items-center gap-2 z-20">
                             {p.name} {p.isLocal && "(Tôi)"}
-                            {p.id === hostId && (
-                            <div className="flex items-center gap-1 text-primary">
-                                <ShieldCheck className="w-3 h-3" />
-                                <span className="text-[8px] font-black tracking-[0.2em]">CHỦ PHÒNG</span>
-                            </div>
-                            )}
                         </div>
                     </div>
                 ))}
-                </div>
+            </div>
 
-                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#1A1A1A]/95 backdrop-blur-2xl p-2 rounded-[2rem] border border-white/10 shadow-2xl">
-                    <TooltipProvider>
+            <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#1A1A1A]/95 backdrop-blur-2xl p-2 rounded-[2rem] border border-white/10 shadow-2xl">
+                <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={() => setIsCameraOn(!isCameraOn)} className={cn("h-14 w-14 rounded-full", !isCameraOn && "bg-primary text-white")}>
-                            {isCameraOn ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
-                        </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setIsCameraOn(!isCameraOn)} className={cn("h-14 w-14 rounded-full", !isCameraOn && "bg-primary text-white")}>
+                                {isCameraOn ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
+                            </Button>
                         </TooltipTrigger>
                         <TooltipContent>Bật/Tắt Camera</TooltipContent>
                     </Tooltip>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={() => setIsMuted(!isMuted)} className={cn("h-14 w-14 rounded-full", isMuted && "bg-primary text-white")}>
-                            {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-                        </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setIsMuted(!isMuted)} className={cn("h-14 w-14 rounded-full", isMuted && "bg-primary text-white")}>
+                                {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                            </Button>
                         </TooltipTrigger>
                         <TooltipContent>Bật/Tắt Mic</TooltipContent>
                     </Tooltip>
@@ -368,20 +264,15 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                         <MessageSquare className="h-6 w-6" />
                     </Button>
                     <div className="ml-2">
-                        <Button onClick={async () => {
-                            if (signalRRef.current) await signalRRef.current.leaveCall(callId);
-                            onEndCall();
-                        }} className="h-14 px-8 rounded-3xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-red-600/20">
+                        <Button onClick={() => { endCall(); onEndCall(); }} className="h-14 px-8 rounded-3xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-red-600/20">
                             <PhoneOff className="h-5 w-5 mr-3" /> Kết thúc
                         </Button>
                     </div>
-                    </TooltipProvider>
-                </div>
-                </>
-             )}
+                </TooltipProvider>
+            </div>
         </section>
 
-        {(showPeople || showChat) && !isMinimized && (
+        {(showPeople || showChat) && (
             <aside className="w-96 bg-[#121212]/95 border-l border-white/5 backdrop-blur-3xl flex flex-col z-20 animate-in slide-in-from-right duration-500">
                 <header className="p-6 border-b border-white/5 flex items-center justify-between">
                     <h3 className="font-black text-sm uppercase tracking-widest text-primary">{showPeople ? 'Người tham gia' : 'Trò chuyện'}</h3>
@@ -391,46 +282,15 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                 {showPeople && (
                     <ScrollArea className="flex-1 p-6">
                         <div className="space-y-6">
-                            {waitingList.length > 0 && user?.id === hostId && (
-                                <div className="space-y-3">
-                                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60 mb-2">Đang chờ phê duyệt ({waitingList.length})</h4>
-                                    {waitingList.map((p, i) => (
-                                        <div key={`wait-${i}`} className="flex items-center gap-4 p-3 rounded-2xl bg-primary/5 border border-primary/20">
-                                            <Avatar className="h-10 w-10">
-                                                <AvatarFallback className="bg-primary/10 text-primary text-xs font-black uppercase">{p.FullName?.substring(0, 1)}</AvatarFallback>
-                                            </Avatar>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-xs font-black truncate text-white/90">{p.FullName}</p>
-                                                <div className="flex gap-2 mt-2">
-                                                    <Button size="sm" className="h-7 px-3 text-[10px] font-black uppercase rounded-lg bg-primary" onClick={() => { signalRRef.current?.acceptJoinRequest(Number(callId), p.UserId); setWaitingList(prev => prev.filter(x => x.UserId !== p.UserId)); }}>Duyệt</Button>
-                                                    <Button size="sm" variant="ghost" className="h-7 px-3 text-[10px] font-black uppercase rounded-lg text-white/40" onClick={() => { signalRRef.current?.declineJoinRequest(Number(callId), p.UserId); setWaitingList(prev => prev.filter(x => x.UserId !== p.UserId)); }}>Từ chối</Button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <div className="h-px bg-white/5 my-6" />
-                                </div>
-                            )}
-
                             <div className="space-y-3">
-                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-2">Trong cuộc họp ({meetingParticipants.length})</h4>
-                                {meetingParticipants.map((p, i) => (
+                                {allStreams.map((p, i) => (
                                     <div key={i} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/5 group">
                                         <Avatar className="h-10 w-10">
-                                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
+                                            <AvatarFallback className="bg-primary/10 text-primary text-xs font-black uppercase">{p.name?.substring(0, 1)}</AvatarFallback>
                                         </Avatar>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-black truncate text-white/90">{p.fullName} {p.userId === user?.id && '(Bạn)'}</p>
-                                            <div className="flex items-center gap-1.5 mt-0.5">
-                                               {p.userId === hostId && <ShieldCheck className="w-3 h-3 text-primary opacity-60" />}
-                                               <p className="text-[10px] font-bold text-white/40 uppercase tracking-tighter">Đang tham gia</p>
-                                            </div>
+                                            <p className="text-xs font-black truncate text-white/90">{p.name}</p>
                                         </div>
-                                        {user?.id === hostId && p.userId !== user?.id && (
-                                           <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity text-destructive">
-                                              <X className="w-4 h-4" />
-                                           </Button>
-                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -467,47 +327,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                 )}
             </aside>
         )}
-
-        {error && (
-            <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-destructive text-white px-6 py-3 rounded-full font-black uppercase tracking-widest text-[10px] shadow-2xl animate-in fade-in slide-in-from-top-4 z-50 transition-all">{error}</div>
-        )}
       </main>
     </div>
   )
-}
-
-function VideoPlayer({ stream, isLocal, isCameraOn }: { stream: MediaStream | null, isLocal: boolean, isCameraOn: boolean }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    if (ref.current && stream) ref.current.srcObject = stream;
-  }, [stream]);
-
-  return (
-    <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
-        <video 
-          ref={ref} 
-          autoPlay 
-          playsInline 
-          muted={isLocal} 
-          className={cn(
-            "max-h-full max-w-full object-contain transition-opacity duration-1000", 
-            isLocal && "scale-x-[-1]", 
-            !isCameraOn ? "opacity-0" : "opacity-100"
-          )} 
-        />
-        {!isCameraOn && (
-            <div className="absolute inset-0 flex items-center justify-center bg-[#121212]">
-                <Avatar className="h-24 w-24 ring-4 ring-primary/20 shadow-2xl">
-                    <AvatarFallback className="bg-gradient-to-br from-primary/80 to-primary text-3xl font-black text-white">L</AvatarFallback>
-                </Avatar>
-            </div>
-        )}
-    </div>
-  );
-}
-
-const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }

@@ -38,8 +38,10 @@ interface CallContextType {
   setIsCameraOn: (val: boolean) => void
   isMinimized: boolean
   setIsMinimized: (val: boolean) => void
+  isScreenSharing: boolean
   joinCall: (callId: string, type: 'video' | 'voice') => Promise<void>
   endCall: () => void
+  toggleScreenShare: () => Promise<void>
   signalR: CallSignalR | null
 }
 
@@ -54,10 +56,12 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [isMuted, setIsMuted] = useState(false)
   const [isCameraOn, setIsCameraOn] = useState(true)
   const [isMinimized, setIsMinimized] = useState(false)
+  const [isScreenSharing, setIsScreenSharing] = useState(false)
 
   const signalRRef = useRef<CallSignalR | null>(null)
   const peersRef = useRef<Map<number, PeerState>>(new Map())
   const localStreamRef = useRef<MediaStream | null>(null)
+  const screenStreamRef = useRef<MediaStream | null>(null)
 
   const updatePeerUI = useCallback(() => {
     const list: UserPeer[] = Array.from(peersRef.current.values()).map(p => ({
@@ -89,9 +93,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       ignoreOffer: false
     }
 
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        pc.addTrack(track, localStreamRef.current!)
+    const currentStream = screenStreamRef.current || localStreamRef.current
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => {
+        pc.addTrack(track, currentStream!)
       })
     }
 
@@ -135,11 +140,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   const joinCall = useCallback(async (callId: string, type: 'video' | 'voice') => {
     if (!token || !user) return
-    
-    // Clean up previous if any
-    if (activeCallId && activeCallId !== callId) {
-        // ... cleanup
-    }
+    if (activeCallId === callId) return // Already in this call
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -161,7 +162,6 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           }
         },
         onUserLeft: (_connId, remoteUserId, displayName) => {
-          toast.info(`${displayName} đã rời cuộc họp`)
           removePeer(remoteUserId)
         },
         onReceiveOffer: async (offer, fromUserId) => {
@@ -195,9 +195,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             await peer.connection.addIceCandidate(candidate).catch(() => {})
           }
         },
-        onMeetingMemberList: () => {
-            // Can be handled by UI via event
-        }
+        onMeetingMemberList: () => {}
       })
 
       signalRRef.current = signalR
@@ -208,10 +206,11 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       console.error("Join call failed", err)
       throw err
     }
-  }, [token, user, createPeerConnection, removePeer])
+  }, [token, user, activeCallId, createPeerConnection, removePeer])
 
   const endCall = useCallback(() => {
     localStreamRef.current?.getTracks().forEach(t => t.stop())
+    screenStreamRef.current?.getTracks().forEach(t => t.stop())
     peersRef.current.forEach(p => p.connection.close())
     peersRef.current.clear()
     signalRRef.current?.disconnect()
@@ -220,9 +219,46 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setLocalStream(null)
     setRemotePeers([])
     setIsMinimized(false)
+    setIsScreenSharing(false)
   }, [])
 
-  // Sync states
+  const toggleScreenShare = useCallback(async () => {
+    if (!isScreenSharing) {
+        try {
+            const stream = await navigator.mediaDevices.getDisplayMedia({ video: true })
+            screenStreamRef.current = stream
+            const track = stream.getVideoTracks()[0]
+            
+            peersRef.current.forEach(peer => {
+                const sender = peer.connection.getSenders().find(s => s.track?.kind === 'video')
+                if (sender) sender.replaceTrack(track)
+            })
+            
+            track.onended = () => {
+                setIsScreenSharing(false)
+                if (localStreamRef.current) {
+                    const localTrack = localStreamRef.current.getVideoTracks()[0]
+                    peersRef.current.forEach(peer => {
+                        const sender = peer.connection.getSenders().find(s => s.track?.kind === 'video')
+                        if (sender) sender.replaceTrack(localTrack)
+                    })
+                }
+            }
+            setIsScreenSharing(true)
+        } catch (e) { console.error(e) }
+    } else {
+        screenStreamRef.current?.getTracks().forEach(t => t.stop())
+        setIsScreenSharing(false)
+        if (localStreamRef.current) {
+            const localTrack = localStreamRef.current.getVideoTracks()[0]
+            peersRef.current.forEach(peer => {
+                const sender = peer.connection.getSenders().find(s => s.track?.kind === 'video')
+                if (sender) sender.replaceTrack(localTrack)
+            })
+        }
+    }
+  }, [isScreenSharing])
+
   useEffect(() => {
     if (localStreamRef.current) {
         localStreamRef.current.getAudioTracks().forEach(t => t.enabled = !isMuted)
@@ -234,8 +270,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     <CallContext.Provider value={{
       activeCallId, localStream, remotePeers,
       isMuted, setIsMuted, isCameraOn, setIsCameraOn,
-      isMinimized, setIsMinimized,
-      joinCall, endCall,
+      isMinimized, setIsMinimized, isScreenSharing,
+      joinCall, endCall, toggleScreenShare,
       signalR: signalRRef.current
     }}>
       {children}
