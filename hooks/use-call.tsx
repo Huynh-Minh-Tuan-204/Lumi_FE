@@ -65,6 +65,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const peersRef = useRef<Map<number, PeerState>>(new Map())
   const localStreamRef = useRef<MediaStream | null>(null)
   const screenStreamRef = useRef<MediaStream | null>(null)
+  const lastEndedCallIdRef = useRef<string | null>(null)
 
   const updatePeerUI = useCallback(() => {
     const list: UserPeer[] = Array.from(peersRef.current.values()).map(p => ({
@@ -144,6 +145,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const joinCall = useCallback(async (callId: string, type: 'video' | 'voice') => {
     if (!token || !user) return
     if (activeCallId === callId) return // Already in this call
+    if (lastEndedCallIdRef.current === callId) return // Just ended this call, prevent zombie re-join
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -220,6 +222,12 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       signalRRef.current?.disconnect()
     } catch (e) { console.error("Error cleaning up call", e) }
     
+    // Anti-zombie: Store the ended call ID and clear it after 2s
+    if (activeCallId) {
+        lastEndedCallIdRef.current = activeCallId;
+        setTimeout(() => { lastEndedCallIdRef.current = null; }, 2000);
+    }
+
     // Force clear all state synchronously
     setActiveCallId(null)
     setConversationId(null)
@@ -227,7 +235,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setRemotePeers([])
     setIsMinimized(false)
     setIsScreenSharing(false)
-  }, [])
+  }, [activeCallId])
 
   const toggleScreenShare = useCallback(async () => {
     if (!isScreenSharing) {

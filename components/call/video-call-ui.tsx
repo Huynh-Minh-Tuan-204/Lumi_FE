@@ -167,6 +167,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   useEffect(() => {
     const fetch = async () => {
       if (!token || !callId) return
+      try {
         const meeting = await meetingsApi.getMeeting(token, callId)
         const cid = meeting.conversationId || meeting.ConversationId
         const hId = meeting.creatorId || meeting.CreatorId || meeting.hostId || meeting.HostId || meeting.creator?.id || meeting.Creator?.Id || meeting.host?.id || meeting.Host?.Id
