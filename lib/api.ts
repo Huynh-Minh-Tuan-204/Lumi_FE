@@ -168,6 +168,8 @@ export interface MessageResponse {
   MessageType?: string
   SenderName?: string
   AvatarPath?: string
+  isPinned?: boolean
+  IsPinned?: boolean
   attachments?: Array<{
     id: number
     fileName: string

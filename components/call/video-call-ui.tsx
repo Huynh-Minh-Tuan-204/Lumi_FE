@@ -308,7 +308,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
           onUserLeft: (_connId, remoteUserId, displayName) => {
             toast.info(`${displayName} đã rời cuộc họp`);
             removePeer(remoteUserId);
-            // Dynamic update of participant list handled by onMeetingMemberList if needed
+            // Manually update participant list to avoid ghosting if backend list update is slow
+            setMeetingParticipants(prev => prev.filter(p => (p.userId ?? p.UserId) !== remoteUserId));
           },
           onMeetingMemberList: (members) => {
             // Definitively solve 'Ghost Participants' issue
@@ -413,135 +414,161 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     }
   }, [lastMessage, convId]);
 
-  const allStreams = useMemo(() => [
-    { id: user?.id || 0, name: "Bạn", stream: localStreamRef.current, isLocal: true },
-    ...remotePeers.map(p => ({ id: p.userId, name: p.userName, stream: p.stream, isLocal: false }))
-  ], [user, remotePeers]);
+    const partnerPeer = remotePeers[0];
 
-  const filteredCallMessages = useMemo(() => 
-    callMessages.filter(m => new Date(m.time) >= meetingStartTime.current)
-  , [callMessages]);
-
-  return (
+    return (
     <div className={cn(
-        "flex h-screen flex-col bg-[#0a0a0a] text-white overflow-hidden relative font-sans transition-all duration-500",
-        isMinimized ? "fixed bottom-6 right-6 w-[360px] h-[240px] z-[99999] rounded-3xl border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] scale-in-center overflow-hidden" : "h-screen"
+        "flex h-screen flex-col bg-[#0a0a0a] text-white overflow-hidden relative font-sans transition-all duration-500 shadow-2xl",
+        isMinimized ? "fixed bottom-6 right-6 w-[320px] h-[180px] z-[99999] rounded-2xl border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] scale-in-center" : "h-screen"
     )}>
       <div className="absolute inset-0 bg-gradient-to-br from-blue-900/10 via-black to-blue-900/10 opacity-50 pointer-events-none" />
 
-      <header className="relative flex h-14 items-center justify-between bg-[#1A1A1A]/80 backdrop-blur-2xl px-6 border-b border-white/5 z-30 shadow-2xl">
-        <div className="flex items-center gap-4">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-500/20">L</div>
-            <div className="flex flex-col -space-y-0.5">
-               <span className="text-sm font-black tracking-tight">{participantName} Meeting</span>
-               <div className="flex items-center gap-2">
-                 <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">
-                    <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    <span className="text-[10px] font-black text-primary uppercase">ID: {callId}</span>
-                 </div>
-                 <span className="text-[10px] text-gray-500 font-bold tracking-tighter uppercase whitespace-nowrap">
-                   {formatDuration(callDuration)}
-                 </span>
-                 <Button 
+      {/* Header - Hidden when minimized or replaced with small overlay */}
+      {!isMinimized && (
+        <header className="relative flex h-14 items-center justify-between bg-[#1A1A1A]/80 backdrop-blur-2xl px-6 border-b border-white/5 z-30 shadow-2xl">
+            <div className="flex items-center gap-4">
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-xs shadow-lg shadow-blue-500/20">L</div>
+                <div className="flex flex-col -space-y-0.5">
+                <span className="text-sm font-black tracking-tight">{participantName} Meeting</span>
+                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 rounded-full border border-primary/20">
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                        <span className="text-[10px] font-black text-primary uppercase">ID: {callId}</span>
+                    </div>
+                    <span className="text-[10px] text-gray-500 font-bold tracking-tighter uppercase whitespace-nowrap">
+                    {formatDuration(callDuration)}
+                    </span>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-5 w-5 text-gray-500 hover:text-primary transition-colors"
+                        onClick={() => {
+                            navigator.clipboard.writeText(callId);
+                            toast.success("Đã sao chép mã phòng (Guid)");
+                        }}
+                    >
+                        <Send className="w-3 h-3" />
+                    </Button>
+                </div>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-5 w-5 text-gray-500 hover:text-primary transition-colors"
-                    onClick={() => {
-                        navigator.clipboard.writeText(callId);
-                        toast.success("Đã sao chép mã phòng (Guid)");
-                    }}
-                 >
-                    <Send className="w-3 h-3" />
-                 </Button>
-               </div>
+                    className="h-8 w-8 text-gray-400 hover:text-white"
+                    onClick={() => setIsMinimized(!isMinimized)}
+                >
+                    <Minimize2 className="h-4 w-4" />
+                </Button>
+                <div className="flex -space-x-2">
+                {meetingParticipants.slice(0, 3).map((p, i) => (
+                    <Avatar key={i} className="w-8 h-8 border-2 border-[#1A1A1A] ring-1 ring-white/10">
+                        <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
+                    </Avatar>
+                ))}
+                </div>
             </div>
-        </div>
-        <div className="flex items-center gap-2">
-            <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-gray-400 hover:text-white"
-                onClick={() => setIsMinimized(!isMinimized)}
-            >
-                {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
-            </Button>
-            <div className="flex -space-x-2">
-            {meetingParticipants.slice(0, 3).map((p, i) => (
-                <Avatar key={i} className="w-8 h-8 border-2 border-[#1A1A1A] ring-1 ring-white/10">
-                    <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-black uppercase">{p.fullName?.substring(0, 1)}</AvatarFallback>
-                </Avatar>
-            ))}
-            </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <main className="flex-1 flex min-h-0 relative z-10">
         <section className="flex-1 p-6 flex flex-col relative overflow-hidden">
-             <div className={cn(
-                "grid gap-4 w-full h-full",
-                allStreams.length === 1 ? "grid-cols-1" : allStreams.length === 2 ? "grid-cols-2" : "grid-cols-2 md:grid-cols-3"
-             )}>
-                {allStreams.map((p) => (
-                  <div key={p.id} className="relative rounded-3xl overflow-hidden bg-[#121212] aspect-video border border-white/5 shadow-2xl group transition-all duration-500 hover:border-primary/30">
-                    <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.isLocal ? isCameraOn : true} />
-                    <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-xl px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ring-1 ring-white/10 flex items-center gap-2">
-                        {p.name} {p.isLocal && "(Tôi)"}
-                        {p.id === hostId && (
-                           <div className="flex items-center gap-1 text-primary">
-                             <ShieldCheck className="w-3 h-3" />
-                             <span className="text-[8px] font-black tracking-[0.2em]">CHỦ PHÒNG</span>
-                           </div>
-                        )}
-                    </div>
-                  </div>
-                ))}
-             </div>
+             
+             {isMinimized ? (
+                // Minimized View - Show partner or generic placeholder
+                <div className="relative w-full h-full group">
+                   <VideoPlayer stream={partnerPeer?.stream || null} isLocal={false} isCameraOn={true} />
+                   
+                   {/* Overlay Controls for Minimized State */}
+                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
+                      <div className="flex gap-2">
+                          <Button variant="secondary" size="icon" onClick={() => setIsMuted(!isMuted)} className={cn("h-10 w-10 rounded-full bg-white/20 hover:bg-white/40 border-none", isMuted && "bg-red-500/80 hover:bg-red-600")}>
+                              {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                          </Button>
+                          <Button variant="secondary" size="icon" onClick={() => setIsCameraOn(!isCameraOn)} className={cn("h-10 w-10 rounded-full bg-white/20 hover:bg-white/40 border-none", !isCameraOn && "bg-red-500/80 hover:bg-red-600")}>
+                                {isCameraOn ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
+                          </Button>
+                          <Button variant="destructive" size="icon" onClick={async () => { if (signalRRef.current) await signalRRef.current.leaveCall(callId); onEndCall(); }} className="h-10 w-10 rounded-full">
+                              <PhoneOff className="h-4 w-4" />
+                          </Button>
+                      </div>
+                      <Button variant="secondary" size="sm" onClick={() => setIsMinimized(false)} className="rounded-full bg-primary hover:bg-primary/80 border-none text-[10px] font-black h-7">
+                         <Maximize2 className="h-3 w-3 mr-2" /> MỞ RỘNG
+                      </Button>
+                   </div>
 
-             <div className={cn(
-                "absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#1A1A1A]/95 backdrop-blur-2xl p-2 rounded-[2rem] border border-white/10 shadow-2xl",
-                isMinimized && "bottom-2 p-1 gap-1 rounded-2xl scale-75 origin-bottom"
-             )}>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={() => setIsCameraOn(!isCameraOn)} className={cn("h-14 w-14 rounded-full", !isCameraOn && "bg-primary text-white")}>
-                          {isCameraOn ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Bật/Tắt Camera</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" onClick={() => setIsMuted(!isMuted)} className={cn("h-14 w-14 rounded-full", isMuted && "bg-primary text-white")}>
-                          {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Bật/Tắt Mic</TooltipContent>
-                  </Tooltip>
-                  <div className="w-[1px] h-8 bg-white/10 mx-1" />
-                  <Button variant="ghost" size="icon" onClick={toggleScreenShare} className={cn("h-14 w-14 rounded-full", isScreenSharing && "bg-primary text-white shadow-lg shadow-primary/30")}>
-                      <Monitor className="h-6 w-6" />
-                  </Button>
-                  <div className="w-[1px] h-8 bg-white/10 mx-1" />
-                  <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showPeople && "text-primary bg-primary/10")} onClick={() => { setShowPeople(!showPeople); setShowChat(false); }}>
-                      <Users className="h-6 w-6" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showChat && "text-primary bg-primary/10")} onClick={() => { setShowChat(!showChat); setShowPeople(false); }}>
-                      <MessageSquare className="h-6 w-6" />
-                  </Button>
-                  <div className="ml-2">
-                      <Button onClick={async () => {
-                          if (signalRRef.current) await signalRRef.current.leaveCall(callId);
-                          onEndCall();
-                      }} className="h-14 px-8 rounded-3xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-red-600/20">
-                          <PhoneOff className="h-5 w-5 mr-3" /> Kết thúc
-                      </Button>
-                  </div>
-                </TooltipProvider>
-             </div>
+                   <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ring-1 ring-white/10">
+                        {partnerPeer?.userName || "Đang đợi..."}
+                   </div>
+                </div>
+             ) : (
+                // Full View - Grid
+                <>
+                <div className={cn(
+                    "grid gap-4 w-full h-full",
+                    allStreams.length === 1 ? "grid-cols-1" : allStreams.length === 2 ? "grid-cols-2" : "grid-cols-2 md:grid-cols-3"
+                )}>
+                    {allStreams.map((p) => (
+                    <div key={p.id} className="relative rounded-3xl overflow-hidden bg-[#121212] aspect-video border border-white/5 shadow-2xl group transition-all duration-500 hover:border-primary/30">
+                        <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.isLocal ? isCameraOn : true} />
+                        <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-xl px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ring-1 ring-white/10 flex items-center gap-2">
+                            {p.name} {p.isLocal && "(Tôi)"}
+                            {p.id === hostId && (
+                            <div className="flex items-center gap-1 text-primary">
+                                <ShieldCheck className="w-3 h-3" />
+                                <span className="text-[8px] font-black tracking-[0.2em]">CHỦ PHÒNG</span>
+                            </div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+                </div>
+
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-[#1A1A1A]/95 backdrop-blur-2xl p-2 rounded-[2rem] border border-white/10 shadow-2xl">
+                    <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={() => setIsCameraOn(!isCameraOn)} className={cn("h-14 w-14 rounded-full", !isCameraOn && "bg-primary text-white")}>
+                            {isCameraOn ? <Video className="h-6 w-6" /> : <VideoOff className="h-6 w-6" />}
+                        </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Bật/Tắt Camera</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={() => setIsMuted(!isMuted)} className={cn("h-14 w-14 rounded-full", isMuted && "bg-primary text-white")}>
+                            {isMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+                        </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Bật/Tắt Mic</TooltipContent>
+                    </Tooltip>
+                    <div className="w-[1px] h-8 bg-white/10 mx-1" />
+                    <Button variant="ghost" size="icon" onClick={toggleScreenShare} className={cn("h-14 w-14 rounded-full", isScreenSharing && "bg-primary text-white shadow-lg shadow-primary/30")}>
+                        <Monitor className="h-6 w-6" />
+                    </Button>
+                    <div className="w-[1px] h-8 bg-white/10 mx-1" />
+                    <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showPeople && "text-primary bg-primary/10")} onClick={() => { setShowPeople(!showPeople); setShowChat(false); }}>
+                        <Users className="h-6 w-6" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className={cn("h-14 w-14 rounded-full", showChat && "text-primary bg-primary/10")} onClick={() => { setShowChat(!showChat); setShowPeople(false); }}>
+                        <MessageSquare className="h-6 w-6" />
+                    </Button>
+                    <div className="ml-2">
+                        <Button onClick={async () => {
+                            if (signalRRef.current) await signalRRef.current.leaveCall(callId);
+                            onEndCall();
+                        }} className="h-14 px-8 rounded-3xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-red-600/20">
+                            <PhoneOff className="h-5 w-5 mr-3" /> Kết thúc
+                        </Button>
+                    </div>
+                    </TooltipProvider>
+                </div>
+                </>
+             )}
         </section>
 
-        {(showPeople || showChat) && (
+        {(showPeople || showChat) && !isMinimized && (
             <aside className="w-96 bg-[#121212]/95 border-l border-white/5 backdrop-blur-3xl flex flex-col z-20 animate-in slide-in-from-right duration-500">
                 <header className="p-6 border-b border-white/5 flex items-center justify-between">
                     <h3 className="font-black text-sm uppercase tracking-widest text-primary">{showPeople ? 'Người tham gia' : 'Trò chuyện'}</h3>
