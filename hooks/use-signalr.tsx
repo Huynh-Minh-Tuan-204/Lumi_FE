@@ -189,28 +189,39 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       .configureLogging(signalR.LogLevel.None)
       .build()
 
-    connection.on("ReceiveSecureIdentity", async (senderId: number, idPubKeyBase64: string, rsaPubKeyBase64: string, signature: string, conversationId: number) => {
+    connection.on("ReceiveSecureIdentity", async (senderId: number, idPubKeyBase64: string, rsaPubKeyBase64: string, signature: string, conversationId: number, isDirectReply: boolean = false) => {
       if (user && senderId === user.id) return;
       try {
         const peerIdPubKey = await importIdentityPublicKey(idPubKeyBase64);
-        
         const isVerified = await verifySignature(rsaPubKeyBase64, signature, peerIdPubKey);
         if (!isVerified) return;
 
+        // 1. Lưu lại Public Key của người vừa chào sân (A)
         peerIdentityKeysRef.current.set(senderId, peerIdPubKey);
         setKeyVersion(v => v + 1);
 
+        // Đảm bảo mình đã có SenderKey của mình
         if (!mySenderKeyRef.current) {
           mySenderKeyRef.current = await generateSenderKey();
           setKeyVersion(v => v + 1);
         }
 
+        // 2. Bọc SenderKey CỦA MÌNH bằng RSA của A, và gửi đích danh cho A
         const peerRSAPubKey = await importPublicKey(rsaPubKeyBase64);
         const encryptedKey = await encryptSessionKeyForPeer(mySenderKeyRef.current, peerRSAPubKey);
         
         await connection.invoke("SendSecureSenderKey", conversationId, senderId, encryptedKey);
+
+        // 3. ĐÁP LỄ: Nếu A chào sân chung, mình gửi ngược Public Key RSA của mình ĐÍCH DANH cho A
+        if (!isDirectReply && identityKeysRef.current && myRSAKeysRef.current) {
+            const myIdPubKeyB64 = await exportIdentityPublicKey(identityKeysRef.current.publicKey);
+            const myRsaPubKeyB64 = await exportPublicKey(myRSAKeysRef.current.publicKey);
+            const mySignature = await signData(myRsaPubKeyB64, identityKeysRef.current.privateKey);
+            
+            await connection.invoke("SendSecureIdentityToUser", conversationId, senderId, myIdPubKeyB64, myRsaPubKeyB64, mySignature);
+        }
       } catch (e) {
-        console.error("Handshake Secure Identity error", e);
+        console.error("Multi-threaded key distribution error", e);
       }
     });
 
@@ -611,7 +622,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         activeMeeting,
         initiateE2EEHandshake,
         onTriggeredReminder: (cb: any) => { },
-        mySenderKey: rsaKeysRef.current?.privateKey,
+        mySenderKey: mySenderKeyRef.current,
         peerSenderKeys: peerSenderKeysRef.current,
         peerIdentityKeys: peerIdentityKeysRef.current,
         identityKeys: identityKeysRef.current,

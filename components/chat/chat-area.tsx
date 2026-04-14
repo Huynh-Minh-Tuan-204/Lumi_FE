@@ -86,8 +86,6 @@ interface Message {
   content?: string
 }
 
-
-
 interface ChatAreaProps {
   conversation: any
   onBack?: () => void
@@ -100,7 +98,6 @@ interface ChatAreaProps {
   className?: string
 }
 
-// Internal component for async decryption
 function DecryptedText({ 
     message, 
     user, 
@@ -124,7 +121,6 @@ function DecryptedText({
 
     useEffect(() => {
         const decrypt = async () => {
-             // System messages are not encrypted
             if (message.messageType !== 'PLAIN' && message.messageType !== 'Text' && message.messageType !== 'PLAIN_SECURE' && message.messageType) {
                 if (message.messageType === 'System') {
                    setDecrypted(message.content || message.encryptedContent);
@@ -158,7 +154,6 @@ function DecryptedText({
                          if (message.conversationId) initiateHandshake(message.conversationId);
                     }
                 } else {
-                    // Fallback for legacy messages
                     setDecrypted(content);
                 }
             } catch (e) {
@@ -243,15 +238,12 @@ export function ChatArea({
 
   const scrollToMessage = useCallback((msgId: any) => {
     const id = typeof msgId === 'string' ? msgId : msgId.toString();
-    
     setTimeout(() => {
       const el = document.getElementById(`message-${id}`)
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' })
         el.classList.add('bg-primary/20')
         setTimeout(() => el.classList.remove('bg-primary/20'), 2000)
-      } else {
-        console.warn(`Target message-${id} not found in DOM`);
       }
     }, 100);
   }, [])
@@ -262,7 +254,6 @@ export function ChatArea({
     }
   }, [scrollToMessage])
 
-  // Sync Pinned State from SignalR
   useEffect(() => {
     if (pinnedMessages && conversation && pinnedMessages.conversationId === conversation.id) {
       setMessages(prev => prev.map(m => 
@@ -271,7 +262,6 @@ export function ChatArea({
     }
   }, [pinnedMessages, conversation?.id]);
 
-  // Sync Deleted State from SignalR
   useEffect(() => {
     if (lastDeletedMessage && conversation && lastDeletedMessage.conversationId === conversation.id) {
       setMessages(prev => prev.filter(m => m.id !== lastDeletedMessage.messageId));
@@ -284,15 +274,12 @@ export function ChatArea({
     }
   }, [conversation?.id, initiateE2EEHandshake]);
 
-
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token || !user) return
-    
     if (activeMeeting && activeMeeting.conversationId === conversation.id) {
        setShowLobby({ meetingId: activeMeeting.meetingId, type, title: activeMeeting.title })
        return
     }
-
     try {
       const title = `${type === 'voice' ? 'Cuộc gọi thoại' : 'Cuộc gọi video'} - ${conversation.name}`
       const resp = await meetingsApi.startMeeting(token, conversation.id, title, [], type)
@@ -301,9 +288,7 @@ export function ChatArea({
         sendMessage(conversation.id, `📹 Đã bắt đầu cuộc họp: ${title}\n[MEETING_GUID:${mGuid}]`, 'Text');
         setShowLobby({ meetingId: mGuid, type, title })
       }
-    } catch (error) {
-      toast.error(`Không thể bắt đầu cuộc gọi.`)
-    }
+    } catch (error) { toast.error(`Không thể bắt đầu cuộc gọi.`) }
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -331,19 +316,17 @@ export function ChatArea({
       try {
         const response: any = await conversationsApi.getMessages(token, conversation.id)
         const data = Array.isArray(response) ? response : (response.items || [])
-        const mapped = data.map((m: any) => {
-          return {
-            ...m,
-            id: m.id || m.Id,
-            conversationId: m.conversationId || conversation.id,
-            senderId: m.senderId || m.SenderId,
-            encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
-            createdAt: m.createdAt || m.CreatedAt || new Date().toISOString(),
-            isPinned: m.isPinned || m.IsPinned,
-            attachments: m.attachments || m.Attachments || [],
-            parentMessageId: m.parentMessageId || m.ParentMessageId
-          }
-        })
+        const mapped = data.map((m: any) => ({
+          ...m,
+          id: m.id || m.Id,
+          conversationId: m.conversationId || conversation.id,
+          senderId: m.senderId || m.SenderId,
+          encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
+          createdAt: m.createdAt || m.CreatedAt || new Date().toISOString(),
+          isPinned: m.isPinned || m.IsPinned,
+          attachments: m.attachments || m.Attachments || [],
+          parentMessageId: m.parentMessageId || m.ParentMessageId
+        }))
         setMessages(mapped.sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()))
         markAsRead(conversation.id)
       } catch (e) { console.error(e) }
@@ -357,12 +340,10 @@ export function ChatArea({
     if (lastMessage && conversation && lastMessage.conversationId === conversation.id) {
        setMessages(prev => {
           if (prev.some(m => m.id === lastMessage.id)) return prev;
-          
           let attachments = lastMessage.attachments || [];
           if (typeof attachments === 'string') {
             try { attachments = JSON.parse(attachments); } catch(e) { attachments = []; }
           }
-
           return [...prev, {
             id: lastMessage.id,
             conversationId: lastMessage.conversationId,
@@ -383,20 +364,6 @@ export function ChatArea({
   }, [lastMessage, conversation?.id])
 
   useEffect(() => {
-    if (activeMeeting && conversation && activeMeeting.conversationId === conversation.id) {
-       const key = `meet-notified-${activeMeeting.meetingId}`;
-       if (!sessionStorage.getItem(key)) {
-          toast.info(`🚀 ĐANG CÓ CUỘC HỌP: ${activeMeeting.title}`, {
-            description: "Mọi người đang đợi bạn, tham gia ngay!",
-            duration: 5000
-          });
-          sessionStorage.setItem(key, 'true');
-       }
-    }
-  }, [activeMeeting, conversation?.id]);
-
-
-  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
@@ -412,7 +379,6 @@ export function ChatArea({
   const messageGroups = useMemo(() => {
     const groups: any[] = [];
     let currentSystemGroup: Message[] = [];
-
     messages.forEach(m => {
       if ((m.messageType === 'System' || m.messageType === 'Announcement') && (m.encryptedContent.includes('ghim') || m.encryptedContent.includes('bỏ ghim'))) {
         currentSystemGroup.push(m);
@@ -424,11 +390,9 @@ export function ChatArea({
         groups.push({ type: 'message', data: m });
       }
     });
-
     if (currentSystemGroup.length > 0) {
       groups.push({ type: 'system-group', messages: [...currentSystemGroup] });
     }
-
     return groups;
   }, [messages]);
 
@@ -437,7 +401,6 @@ export function ChatArea({
       <div className="flex-1 h-full flex flex-col items-center justify-center p-8 bg-background relative overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-[120px] animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-[100px] animate-pulse [animation-delay:2s]" />
-        
         <div className="relative z-10 flex flex-col items-center max-w-md text-center">
            <div className="w-24 h-24 mb-8 relative">
               <div className="absolute inset-0 bg-primary/20 rounded-3xl rotate-6 blur-xl" />
@@ -446,24 +409,16 @@ export function ChatArea({
                  <MessageSquare className="h-10 w-10 text-white fill-white/10" />
               </div>
            </div>
-
            <h2 className="text-3xl font-black tracking-tight mb-4 text-foreground">
              Chào mừng đến với <span className="text-primary italic">Lumi Chat</span>
            </h2>
            <p className="text-sm text-muted-foreground leading-relaxed font-medium mb-10 opacity-70">
-             Lumi Chat là không gian làm việc số tập trung, nơi bạn có thể trao đổi, họp video và quản lý dự án một cách chuyên nghiệp. 
-             <br /><br />
-             Hãy chọn một hội thoại bên trái để bắt đầu thảo luận hoặc tạo cuộc họp mới để kết nối với đồng nghiệp.
+             Lumi Chat là không gian làm việc số tập trung, nơi bạn có thể trao đổi, họp video và quản lý dự án một cách chuyên nghiệp.
            </p>
-
            <div className="flex flex-wrap justify-center gap-4">
               <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-muted/30 border border-white/5 shadow-sm">
                  <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                  <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Toàn bộ đã sẵn sàng</span>
-              </div>
-              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-muted/30 border border-white/5 shadow-sm">
-                 <div className="h-2 w-2 rounded-full bg-blue-500" />
-                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Vui lòng chọn hội thoại</span>
               </div>
            </div>
         </div>
@@ -491,45 +446,16 @@ export function ChatArea({
         
         <div className="flex items-center gap-1">
             {conversation.type !== 'Group' && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => handleStartCall('voice')}>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => handleStartCall('voice')}>
                     <Phone className="h-5 w-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Gọi thoại</TooltipContent>
-              </Tooltip>
-            )}
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => handleStartCall('video')}>
-                  <VideoIcon className="h-5 w-5" />
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>Gọi video</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => onToggleSearch?.()}>
-                  <Search className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Tìm kiếm tin nhắn</TooltipContent>
-            </Tooltip>
-
-            {conversation.type === 'Group' && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => onShowMembers?.()}>
-                    <Users className="h-5 w-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Thành viên nhóm</TooltipContent>
-              </Tooltip>
             )}
-            
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => handleStartCall('video')}>
+                <VideoIcon className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => onToggleSearch?.()}>
+                <Search className="h-5 w-5" />
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary">
@@ -551,9 +477,7 @@ export function ChatArea({
                         toast.success(`Đã rời khỏi "${conversation.name}"`)
                         if (onRefreshConversations) onRefreshConversations()
                         if (onBack) onBack()
-                      } catch {
-                        toast.error('Không thể rời khỏi hội thoại này')
-                      }
+                      } catch { toast.error('Không thể rời khỏi hội thoại này') }
                     }}
                   >
                     <LogOut className="h-4 w-4" /> Rời khỏi hội thoại
@@ -563,105 +487,32 @@ export function ChatArea({
         </div>
       </header>
 
-      {/* Pinned Messages - Zalo Style with Toggle and Fast Unpin */}
       {latestPin && (
-         <div className="z-20 bg-background/95 backdrop-blur-md border-b flex items-center transition-all duration-300 border-l-4 border-l-primary h-12 shadow-sm relative animate-in slide-in-from-top-1 px-4 gap-3 shrink-0 group">
+         <div className="z-20 bg-background/95 backdrop-blur-md border-b flex items-center border-l-4 border-l-primary h-12 shadow-sm relative animate-in slide-in-from-top-1 px-4 gap-3 shrink-0 group">
              <div className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer" onClick={() => scrollToMessage(latestPin.id)}>
                 <Pin className="h-3.5 w-3.5 text-primary fill-primary" />
-                <div className="flex-1 min-w-0 pr-10">
-               <p className="text-[9px] font-black uppercase text-primary/60 mb-0.5 tracking-widest flex items-center gap-2">
-                  <div className="h-1 w-1 rounded-full bg-primary" /> TIN NHẮN ĐÃ GHIM
-               </p>
-               <div className="text-xs font-bold truncate opacity-90">
-                  <span className="text-primary">{latestPin.senderName}:</span>{" "}
-                  <DecryptedText 
-                      message={latestPin}
-                      user={user}
-                      mySenderKey={(useSignalR() as any).mySenderKey}
-                      peerSenderKeys={(useSignalR() as any).peerSenderKeys}
-                      peerIdentityKeys={(useSignalR() as any).peerIdentityKeys}
-                      identityKeys={(useSignalR() as any).identityKeys}
-                      initiateHandshake={initiateE2EEHandshake}
-                      onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
-                  />
-               </div>
-            </div>
+                <div className="flex-1 min-w-0">
+                   <p className="text-[9px] font-black uppercase text-primary/60 mb-0.5 tracking-widest flex items-center gap-1.5"><div className="h-1 w-1 rounded-full bg-primary" /> TIN NHẮN GHIM</p>
+                   <div className="text-xs font-bold truncate opacity-90"><span className="text-primary">{latestPin.senderName}:</span> <DecryptedText message={latestPin} user={user} mySenderKey={(useSignalR() as any).mySenderKey} peerSenderKeys={(useSignalR() as any).peerSenderKeys} peerIdentityKeys={(useSignalR() as any).peerIdentityKeys} identityKeys={(useSignalR() as any).identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} /></div>
+                </div>
              </div>
-             
-             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                 <Tooltip>
-                    <TooltipTrigger asChild>
-                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); togglePinMessage(latestPin.id); }}>
-                          <PinOff className="h-3.5 w-3.5" />
-                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Bỏ ghim nhanh</TooltipContent>
-                 </Tooltip>
-
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-muted-foreground" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}>
-                   <ChevronDown className={cn("h-4 w-4 transition-transform", isPinnedListExpanded && "rotate-180")} />
-                </Button>
-             </div>
-
-             {isPinnedListExpanded && pinnedList.length > 1 && (
-               <div className="absolute top-12 left-0 right-0 bg-background border-b shadow-xl p-2 z-10 animate-in slide-in-from-top-2">
-                  <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
-                     {pinnedList.slice(0, -1).reverse().map(p => (
-                       <div key={p.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-muted/50 group/item cursor-pointer" onClick={() => { scrollToMessage(p.id); setIsPinnedListExpanded(false); }}>
-                          <div className="text-xs truncate flex-1 pr-4">
-                             <span className="font-bold">{p.senderName}:</span>{" "}
-                             <DecryptedText 
-                               message={p}
-                               user={user}
-                               mySenderKey={(useSignalR() as any).mySenderKey}
-                               peerSenderKeys={(useSignalR() as any).peerSenderKeys}
-                               peerIdentityKeys={(useSignalR() as any).peerIdentityKeys}
-                               identityKeys={(useSignalR() as any).identityKeys}
-                               initiateHandshake={initiateE2EEHandshake}
-                               onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
-                             />
-                          </div>
-                          <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover/item:opacity-100 text-destructive" onClick={(e) => { e.stopPropagation(); togglePinMessage(p.id); }}>
-                             <X className="h-3.5 w-3.5" />
-                          </Button>
-                       </div>
-                     ))}
-                  </div>
-               </div>
-             )}
+             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}><ChevronDown className={cn("h-4 w-4 transition-transform", isPinnedListExpanded && "rotate-180")} /></Button>
          </div>
       )}
 
-      {/* Active Meeting Banner - Teams Style */}
       {activeMeeting && activeMeeting.conversationId === conversation.id && (
-        <div className="z-20 bg-primary/20 backdrop-blur-xl px-4 py-2 flex items-center justify-between border-b animate-in slide-in-from-top-1 border-primary/20 shadow-[0_4px_12px_rgba(0,0,0,0.1)]">
+        <div className="z-20 bg-primary/20 backdrop-blur-xl px-4 py-2 flex items-center justify-between border-b border-primary/20">
            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-lg bg-primary/30 flex items-center justify-center animate-pulse">
-                <VideoIcon className="h-4 w-4 text-primary" />
-              </div>
+              <div className="h-8 w-8 rounded-lg bg-primary/30 flex items-center justify-center animate-pulse"><VideoIcon className="h-4 w-4 text-primary" /></div>
               <div className="min-w-0">
-                 <p className="text-[9px] font-black uppercase tracking-[0.2em] text-primary/80">Cuộc họp đang diễn ra</p>
+                 <p className="text-[9px] font-black uppercase tracking-widest text-primary/80">Cuộc họp đang diễn ra</p>
                  <p className="text-[10px] font-bold truncate opacity-90">{activeMeeting.title}</p>
               </div>
            </div>
-           <div className="flex items-center gap-2">
-               <div className="flex -space-x-1.5 mr-2">
-                  {[1,2].map(i => (
-                    <div key={i} className="h-5 w-5 rounded-full border border-background bg-muted text-[8px] flex items-center justify-center font-bold">U</div>
-                  ))}
-               </div>
-               <Button 
-                size="sm" 
-                className="rounded-lg px-4 h-7 font-black uppercase text-[9px] tracking-widest bg-primary hover:bg-primary/80 shadow-lg shadow-primary/10 transition-all hover:scale-105"
-                onClick={() => setShowLobby({ meetingId: activeMeeting.meetingGuid, type: (activeMeeting.callType as any) || 'video', title: activeMeeting.title })}
-               >
-                  Tham gia
-               </Button>
-           </div>
+           <Button size="sm" className="rounded-lg px-4 h-7 font-black uppercase text-[9px] tracking-widest" onClick={() => setShowLobby({ meetingId: activeMeeting.meetingGuid, type: (activeMeeting.callType as any) || 'video', title: activeMeeting.title })}>Tham gia</Button>
         </div>
       )}
 
-      {/* Main Chat Area */}
       <div className="flex-1 overflow-hidden relative bg-muted/5">
         <ScrollArea className="h-full">
            <div className="p-4 flex flex-col justify-end min-h-full space-y-4 pb-10">
@@ -673,157 +524,56 @@ export function ChatArea({
                 const isOwn = m.senderId === user?.id;
                 return (
                   <div key={m.id} id={`message-${m.id}`} className={cn("flex gap-3 animate-in slide-in-from-bottom-2", isOwn ? "flex-row-reverse" : "flex-row")}>
-                          <div className={cn("max-w-[75%] space-y-1.5 flex flex-col", isOwn ? "items-end" : "items-start")}>
-                             {! isOwn && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
-                             
-                             {/* Phần IMAGE riêng - Không padding, không background */}
-                             {m.attachments && m.attachments.length > 0 && (
-                               <div className="space-y-2 w-full flex flex-col items-inherit">
-                                 {m.attachments.map((a: any, i: number) => {
-                                   const isImage = a.mimeType?.startsWith('image/');
-                                   const url = getAttachmentUrl(a.id, token!);
-                                   
-                                   if (isImage) {
-                                     return (
-                                       <div key={i} className="relative group/img max-w-sm rounded-xl overflow-hidden shadow-md">
-                                          <img 
-                                            src={url} 
-                                            alt={a.fileName} 
-                                            className="block w-full h-auto max-h-[400px] object-cover hover:scale-105 transition-transform duration-500"
-                                            onClick={() => window.open(url, '_blank')}
-                                          />
-                                          <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                             <Button variant="secondary" size="sm" className="rounded-full gap-2" onClick={() => window.open(url, '_blank')}>
-                                                <ImageIcon className="h-3.5 w-3.5" /> Xem ảnh
-                                             </Button>
-                                          </div>
+                      <div className={cn("max-w-[75%] space-y-1.5 flex flex-col", isOwn ? "items-end" : "items-start")}>
+                          {!isOwn && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
+                          
+                          {/* Attachments */}
+                          {m.attachments && m.attachments.length > 0 && (
+                            <div className="space-y-2 w-full flex flex-col items-inherit">
+                              {m.attachments.map((a: any, i: number) => {
+                                const isImage = a.mimeType?.startsWith('image/');
+                                const url = getAttachmentUrl(a.id, token!);
+                                if (isImage) {
+                                  return (
+                                    <div key={i} className="relative group/img max-w-sm rounded-xl overflow-hidden shadow-md">
+                                       <img src={url} alt={a.fileName} className="block w-full h-auto max-h-[400px] object-cover hover:scale-105 transition-transform duration-500" onClick={() => window.open(url, '_blank')} />
+                                       <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                          <Button variant="secondary" size="sm" className="rounded-full gap-2" onClick={() => window.open(url, '_blank')}><ImageIcon className="h-3.5 w-3.5" /> Xem ảnh</Button>
                                        </div>
-                                     );
-                                   }
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <a key={i} href={url} target="_blank" className={cn("flex items-center gap-3 p-3 rounded-2xl border transition-all group/file w-[280px] max-w-full shadow-sm", isOwn ? "bg-primary/10 border-primary/20" : "bg-card border-border")}>
+                                     <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
+                                     <div className="flex-1 min-w-0">
+                                        <p className="text-xs font-bold truncate">{a.fileName}</p>
+                                        <p className="text-[10px] opacity-40 uppercase font-black">{(a.fileSize / 1024).toFixed(1)} KB</p>
+                                     </div>
+                                     <Download className="h-4 w-4 opacity-0 group-hover/file:opacity-60 transition-opacity" />
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          )}
 
-                                   return (
-                                     <a key={i} href={url} target="_blank" className={cn(
-                                        "flex items-center gap-3 p-3 rounded-2xl border transition-all group/file w-[280px] max-w-full shadow-sm",
-                                        isOwn ? "bg-primary/10 border-primary/20" : "bg-card border-border"
-                                     )}>
-                                        <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
-                                           <FileText className="h-5 w-5 text-primary" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                           <p className="text-xs font-bold truncate">{a.fileName}</p>
-                                           <p className="text-[10px] opacity-40 uppercase font-black">{(a.fileSize / 1024).toFixed(1)} KB • Tải về</p>
-                                        </div>
-                                        <Download className="h-4 w-4 opacity-0 group-hover/file:opacity-60 transition-opacity" />
-                                     </a>
-                                   );
-                                 })}
-                               </div>
-                             )}
-
-                             {/* Phần TEXT bubble riêng */}
-                             {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
-                                <div className={cn(
-                                    "px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border relative group/msg transition-all duration-300", 
-                                    isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card"
-                                )}>
-                                   <DecryptedText 
-                                      message={m}
-                                      user={user}
-                                      mySenderKey={(useSignalR() as any).mySenderKey}
-                                      peerSenderKeys={(useSignalR() as any).peerSenderKeys}
-                                      peerIdentityKeys={(useSignalR() as any).peerIdentityKeys}
-                                      identityKeys={(useSignalR() as any).identityKeys}
-                                      initiateHandshake={initiateE2EEHandshake}
-                                      onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
-                                   />
-                                   
-                                   {/* Menu hành động cho Chữ */}
-                                   <div className={cn(
-                                      "absolute bottom-0 opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1",
-                                      isOwn ? "-left-20" : "-right-20"
-                                   )}>
-                                      <button onClick={() => togglePinMessage(m.id)} className={cn("p-1.5 rounded-full bg-background border shadow-sm", m.isPinned ? "text-primary" : "text-muted-foreground")}>
-                                         {m.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-                                      </button>
-                                      <DropdownMenu>
-                                         <DropdownMenuTrigger asChild>
-                                            <button className="p-1.5 rounded-full bg-background border shadow-sm text-muted-foreground"><MoreVertical className="h-3 w-3" /></button>
-                                         </DropdownMenuTrigger>
-                                         <DropdownMenuContent align={isOwn ? "end" : "start"} className="w-48 p-1 rounded-xl shadow-2xl">
-                                            <DropdownMenuItem onClick={() => setReplyingTo(m)} className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"><Reply className="h-3.5 w-3.5" /> Trả lời</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(m.encryptedContent); toast.success('Đã sao chép'); }} className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"><Send className="h-3.5 w-3.5" /> Sao chép</DropdownMenuItem>
-                                         </DropdownMenuContent>
-                                      </DropdownMenu>
-                                   </div>
+                          {/* Text Content */}
+                          {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
+                             <div className={cn("px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border relative group/msg transition-all duration-300", isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card")}>
+                                <DecryptedText message={m} user={user} mySenderKey={(useSignalR() as any).mySenderKey} peerSenderKeys={(useSignalR() as any).peerSenderKeys} peerIdentityKeys={(useSignalR() as any).peerIdentityKeys} identityKeys={(useSignalR() as any).identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} />
+                                <div className={cn("absolute bottom-0 opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1", isOwn ? "-left-20" : "-right-20")}>
+                                   <button onClick={() => togglePinMessage(m.id)} className={cn("p-1.5 rounded-full bg-background border shadow-sm", m.isPinned ? "text-primary" : "text-muted-foreground")}>{m.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}</button>
+                                   <DropdownMenu>
+                                      <DropdownMenuTrigger asChild><button className="p-1.5 rounded-full bg-background border shadow-sm text-muted-foreground"><MoreVertical className="h-3 w-3" /></button></DropdownMenuTrigger>
+                                      <DropdownMenuContent align={isOwn ? "end" : "start"} className="w-48 p-1 rounded-xl shadow-2xl">
+                                         <DropdownMenuItem onClick={() => setReplyingTo(m)} className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"><Reply className="h-3.5 w-3.5" /> Trả lời</DropdownMenuItem>
+                                         <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(m.encryptedContent); toast.success('Đã sao chép'); }} className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"><Send className="h-3.5 w-3.5" /> Sao chép</DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                   </DropdownMenu>
                                 </div>
-                             )}
-                            
-                            {/* Nút Pin nhanh và Menu hành động */}
-                             <div className={cn(
-                                "absolute bottom-0 opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1",
-                                isOwn ? "-left-20" : "-right-20"
-                             )}>
-                                <button 
-                                  onClick={() => togglePinMessage(m.id)}
-                                  className={cn(
-                                    "p-1.5 rounded-full bg-background border shadow-sm hover:scale-110 transition-all",
-                                    m.isPinned ? "text-primary border-primary/20" : "text-muted-foreground"
-                                  )}
-                                >
-                                   {m.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-                                </button>
-
-                                <DropdownMenu>
-                                   <DropdownMenuTrigger asChild>
-                                      <button className="p-1.5 rounded-full bg-background border shadow-sm hover:scale-110 transition-all text-muted-foreground">
-                                         <MoreVertical className="h-3 w-3" />
-                                      </button>
-                                   </DropdownMenuTrigger>
-                                   <DropdownMenuContent align={isOwn ? "end" : "start"} className="w-48 p-1 rounded-xl shadow-2xl">
-                                      <DropdownMenuItem onClick={() => setReplyingTo(m)} className="p-2 gap-2 text-xs font-bold uppercase tracking-wider">
-                                         <Reply className="h-3.5 w-3.5" /> Trả lời
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem 
-                                        onClick={async () => {
-                                           if (confirm('Chia sẻ tin nhắn này?')) {
-                                              toast.success('Đã sao chép nội dung để chia sẻ');
-                                              navigator.clipboard.writeText(m.encryptedContent);
-                                           }
-                                        }} 
-                                        className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"
-                                      >
-                                         <Send className="h-3.5 w-3.5" /> Chia sẻ
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem 
-                                        onClick={async () => {
-                                           setMessages(prev => prev.filter(msg => msg.id !== m.id));
-                                           try { await hideMessageForMe(m.id); } catch(e) {}
-                                        }}
-                                        className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"
-                                      >
-                                         <X className="h-3.5 w-3.5" /> Xóa phía tôi
-                                      </DropdownMenuItem>
-                                      {isOwn && (
-                                        <DropdownMenuItem 
-                                          onClick={async () => {
-                                             if (confirm('Thu hồi tin nhắn này với mọi người?')) {
-                                                try {
-                                                   await conversationsApi.deleteMessage(token!, m.id);
-                                                   toast.success('Đã thu hồi tin nhắn');
-                                                } catch (e) { toast.error('Lỗi khi thu hồi'); }
-                                             }
-                                          }}
-                                          className="p-2 gap-2 text-xs font-bold uppercase tracking-wider text-destructive"
-                                        >
-                                           <Trash2 className="h-3.5 w-3.5" /> Thu hồi
-                                        </DropdownMenuItem>
-                                      )}
-                                   </DropdownMenuContent>
-                                </DropdownMenu>
                              </div>
-                          </div>
-                         <span className="text-[9px] opacity-20 font-black px-1 uppercase tracking-widest">{formatMessageTime(m.createdAt)}</span>
+                          )}
+                          <span className="text-[9px] opacity-20 font-black px-1 uppercase tracking-widest">{formatMessageTime(m.createdAt)}</span>
                       </div>
                   </div>
                 )
@@ -833,8 +583,7 @@ export function ChatArea({
         </ScrollArea>
       </div>
 
-      {/* Input Section */}
-      <div className="bg-card border-t pt-2 pb-5 px-5 space-y-3 shadow-[0_-8px_30px_rgba(0,0,0,0.1)] shrink-0 z-40 relative">
+      <div className="bg-card border-t pt-2 pb-5 px-5 space-y-3 shrink-0 z-40 relative">
         {replyingTo && (
           <div className="absolute -top-[52px] left-0 right-0 bg-background/95 backdrop-blur-md border-t border-primary/20 p-2 px-6 flex items-center justify-between animate-in slide-in-from-bottom-2 shadow-2xl">
              <div className="flex items-center gap-3 border-l-2 border-primary pl-3 min-w-0">
@@ -844,60 +593,36 @@ export function ChatArea({
                    <p className="text-xs truncate opacity-70 italic">{replyingTo.encryptedContent}</p>
                 </div>
              </div>
-             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full hover:bg-destructive/10 hover:text-destructive" onClick={() => setReplyingTo(null)}>
-                <X className="h-3.5 w-3.5" />
-             </Button>
+             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => setReplyingTo(null)}><X className="h-3.5 w-3.5" /></Button>
           </div>
         )}
-
         <div className="flex items-center gap-2 opacity-60">
-            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-5 w-5" /></Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all" onClick={() => fileInputRef.current?.click()}><Paperclip className="h-5 w-5" /></Button>
-            
-            <input 
-              type="file" 
-              ref={imageInputRef} 
-              className="hidden" 
-              accept="image/*" 
-              onChange={handleFileUpload} 
-            />
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              onChange={handleFileUpload} 
-            />
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={() => fileInputRef.current?.click()}><Paperclip className="h-5 w-5" /></Button>
+            <input type="file" ref={imageInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+            <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
         </div>
-
-        <div className="flex items-end gap-3 bg-muted/30 p-2 rounded-2xl border border-primary/5 focus-within:border-primary/20 focus-within:bg-background transition-all">
+        <div className="flex items-end gap-3 bg-muted/30 p-2 rounded-2xl border border-primary/5 focus-within:border-primary/20 transition-all">
             <textarea
               value={newMessage}
-              onChange={(e) => {
-                setNewMessage(e.target.value)
-                if(conversation) sendTyping(conversation.id)
-              }}
+              onChange={(e) => { setNewMessage(e.target.value); if(conversation) sendTyping(conversation.id); }}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
               placeholder="Nhập tin nhắn..."
-              className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2.5 px-3 resize-none max-h-40 min-h-[45px] scrollbar-none outline-none font-medium leading-relaxed"
+              className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2.5 px-3 resize-none max-h-40 min-h-[45px] outline-none font-medium leading-relaxed"
               rows={1}
             />
-            <div className="flex items-center gap-2 pb-1.5 pr-1.5">
-               <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl text-muted-foreground hover:text-primary"><Smile className="h-5 w-5" /></Button>
-               {!newMessage.trim() ? (
-                   <Button variant="ghost" size="icon" className="h-10 w-10 text-primary/30 hover:text-primary"><ThumbsUp className="h-6 w-6" /></Button>
-               ) : (
-                   <Button 
-                    size="icon" 
-                    className="h-10 w-10 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
-                    onClick={handleSendMessage}
-                   >
-                      <Send className="h-5 w-5" />
-                   </Button>
-               )}
-            </div>
+            <Button size="icon" className="h-10 w-10 bg-primary text-white rounded-xl shadow-lg" onClick={handleSendMessage}><Send className="h-5 w-5" /></Button>
         </div>
       </div>
     </div>
+    {showLobby && (
+      <CallLobby 
+        meetingId={showLobby.meetingId}
+        type={showLobby.type}
+        title={showLobby.title}
+        onClose={() => setShowLobby(null)}
+      />
+    )}
     </TooltipProvider>
   )
 }
