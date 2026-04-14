@@ -318,6 +318,15 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                 fullName: m.displayName,
                 connectionId: m.connectionId
             })));
+
+            // Update peer names if they are already connected
+            members.forEach(m => {
+              const peer = peersRef.current.get(m.userId);
+              if (peer && (peer.userName === "User" || peer.userName !== m.displayName)) {
+                peer.userName = m.displayName;
+              }
+            });
+            updatePeerUI();
           },
           onReceiveOffer: async (offer, fromUserId) => {
             let peer = peersRef.current.get(fromUserId);
