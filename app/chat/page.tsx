@@ -312,6 +312,7 @@ export default function ChatPage() {
           user={user}
           onlineUsers={onlineUsers}
           unreadCounts={{}}
+          onRefreshConversations={loadConversations}
         />
       </div>
 

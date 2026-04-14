@@ -56,6 +56,7 @@ interface ChatSidebarProps {
   onlineUsers: Set<number>
   unreadCounts: Record<number, number>
   isMobile?: boolean
+  onRefreshConversations?: () => void
 }
 
 export function ChatSidebar({
@@ -68,6 +69,7 @@ export function ChatSidebar({
   onlineUsers,
   unreadCounts,
   isMobile = false,
+  onRefreshConversations,
 }: ChatSidebarProps) {
   const { token } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
@@ -207,8 +209,8 @@ export function ChatSidebar({
         </div>
       </div>
 
-      <ScrollArea className="flex-1 bg-sidebar/30">
-          <div className="p-2 space-y-6">
+      <div className="flex-1 overflow-y-auto bg-sidebar/30 scroll-smooth" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}>
+          <div className="p-2 space-y-4">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-20 opacity-20 gap-3">
                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -219,7 +221,7 @@ export function ChatSidebar({
                 <div className="space-y-1">
                    <button 
                     onClick={() => setIsChatsExpanded(!isChatsExpanded)}
-                    className="w-full flex items-center justify-between px-2 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors sticky top-0 bg-sidebar/95 backdrop-blur-sm z-20 mb-1"
+                    className="w-full flex items-center justify-between px-2 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors sticky top-0 bg-sidebar/95 backdrop-blur-sm z-10 mb-1 rounded-lg"
                    >
                       <span className="flex items-center gap-2">
                         <MessageSquare className="h-3 w-3 text-primary/60" /> Trò chuyện ({directChats.length})
@@ -247,7 +249,7 @@ export function ChatSidebar({
                    <div className="space-y-1">
                     <button 
                       onClick={() => setIsRoomsExpanded(!isRoomsExpanded)}
-                      className="w-full flex items-center justify-between px-2 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors group sticky top-0 bg-sidebar/95 backdrop-blur-sm z-20 mb-1"
+                      className="w-full flex items-center justify-between px-2 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors group sticky top-0 bg-sidebar/95 backdrop-blur-sm z-10 mb-1 rounded-lg"
                     >
                        <span className="flex items-center gap-2">
                           <Video className="h-3 w-3 text-primary/60" /> Phòng họp ({meetingRooms.length})
@@ -267,10 +269,20 @@ export function ChatSidebar({
                                  onDelete={async () => {
                                     if (confirm('Bạn có chắc muốn xóa cuộc họp này?')) {
                                         try {
+                                          // Use endMeeting with the conversation's meeting
+                                          // First try deleting by conversation ID directly
                                           await meetingsApi.deleteMeeting(token!, c.id);
                                           toast.success('Đã xóa cuộc họp');
-                                          window.location.reload();
-                                        } catch(e) { toast.error('Lỗi khi xóa'); }
+                                          if (onRefreshConversations) onRefreshConversations();
+                                          else window.location.reload();
+                                        } catch(e: any) {
+                                          // Fallback: try ending it by conversationId 
+                                          try {
+                                            await meetingsApi.endMeeting(token!, c.id);
+                                            toast.success('Đã kết thúc cuộc họp');
+                                            if (onRefreshConversations) onRefreshConversations();
+                                          } catch { toast.error('Không thể xóa cuộc họp này'); }
+                                        }
                                     }
                                  }}
                                />
@@ -282,7 +294,7 @@ export function ChatSidebar({
               </div>
             )}
           </div>
-      </ScrollArea>
+      </div>
       
       {showLobby && (
         <CallLobby 
