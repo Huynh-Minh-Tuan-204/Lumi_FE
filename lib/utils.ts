@@ -1,8 +1,8 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
-export function getAvatarUrl(path?: string) {
-  if (!path) return '';
+export function getAvatarUrl(path?: any) {
+  if (!path || typeof path !== 'string') return '';
   if (path.startsWith('http')) return path;
   
   const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api';

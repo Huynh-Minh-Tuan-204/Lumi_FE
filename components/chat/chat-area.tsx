@@ -66,6 +66,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { CallLobby } from '@/components/chat/call-lobby'
 import { SystemMessageGroup } from '@/components/chat/system-message-group'
+import { decryptMessagePro } from '@/lib/crypto-utils'
 
 interface Message {
   id: number
@@ -94,6 +95,100 @@ interface ChatAreaProps {
   onRefreshConversations?: () => void
   isMobile?: boolean
   className?: string
+}
+
+// Internal component for async decryption
+function DecryptedText({ 
+    message, 
+    user, 
+    mySenderKey, 
+    peerSenderKeys, 
+    peerIdentityKeys, 
+    identityKeys,
+    initiateHandshake,
+    onJoinMeeting
+}: { 
+    message: Message, 
+    user: any, 
+    mySenderKey: any, 
+    peerSenderKeys: Map<number, any>, 
+    peerIdentityKeys: Map<number, any>,
+    identityKeys: any,
+    initiateHandshake: (cid: number) => Promise<void>,
+    onJoinMeeting: (meetingId: string) => void
+}) {
+    const [decrypted, setDecrypted] = useState<string>("⌛ [Đang giải mã...]");
+
+    useEffect(() => {
+        const decrypt = async () => {
+             // System messages are not encrypted
+            if (message.messageType !== 'PLAIN' && message.messageType !== 'Text' && message.messageType !== 'PLAIN_SECURE' && message.messageType) {
+                if (message.messageType === 'System') {
+                   setDecrypted(message.content);
+                } else {
+                   setDecrypted(message.encryptedContent || message.content);
+                }
+                return;
+            }
+
+            const senderId = message.senderId;
+            const content = message.encryptedContent;
+            const iv = message.iv;
+            const sig = message.signature || (message as any).sig;
+
+            if (!content || content === "[Attachment]") {
+                setDecrypted("");
+                return;
+            }
+
+            try {
+                const isOwn = user && senderId === user.id;
+                const senderKey = isOwn ? mySenderKey : peerSenderKeys.get(senderId);
+                const senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);
+
+                if (senderKey && senderIdPubKey && iv && sig) {
+                    const result = await decryptMessagePro(content, iv, sig, senderKey, senderIdPubKey);
+                    setDecrypted(result);
+                } else {
+                    setDecrypted("⏳ [Mã hóa đầu cuối]");
+                    if (message.conversationId) initiateHandshake(message.conversationId);
+                }
+            } catch (e) {
+                console.error("Decryption component error", e);
+                setDecrypted("[Lỗi giải mã]");
+            }
+        };
+
+        decrypt();
+    }, [message.id, message.encryptedContent, mySenderKey, peerSenderKeys?.size, peerIdentityKeys?.size]);
+
+    if (decrypted.includes('[MEETING_GUID:')) {
+        return (
+            <div className="bg-primary/10 rounded-xl p-4 border border-primary/20 flex flex-col gap-3">
+               <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                     <VideoIcon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                     <p className="font-black text-xs text-primary uppercase tracking-widest">Cuộc họp video</p>
+                     <p className="text-[11px] font-bold opacity-70">{decrypted.split('\n')[0].replace('📹 ', '')}</p>
+                  </div>
+               </div>
+               <Button 
+                  size="sm" 
+                  className="w-full rounded-lg h-8 font-black uppercase text-[10px] tracking-widest bg-primary hover:bg-primary/80"
+                  onClick={() => {
+                     const match = decrypted.match(/\[MEETING_GUID:([^\]]+)\]/);
+                     if (match) onJoinMeeting(match[1]);
+                  }}
+               >
+                  Tham gia ngay
+               </Button>
+            </div>
+        );
+    }
+
+    return <p className="font-medium leading-relaxed">{decrypted}</p>;
 }
 
 export function ChatArea({ 
@@ -599,33 +694,19 @@ export function ChatArea({
                                  })}
                               </div>
                             )}
-                              {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
+
+                             {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
                                 <div className="space-y-3">
-                                   {m.encryptedContent.includes('[MEETING_GUID:') ? (
-                                      <div className="bg-primary/10 rounded-xl p-4 border border-primary/20 flex flex-col gap-3">
-                                         <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
-                                               <VideoIcon className="h-5 w-5 text-primary" />
-                                            </div>
-                                            <div>
-                                               <p className="font-black text-xs text-primary uppercase tracking-widest">Cuộc họp video</p>
-                                               <p className="text-[11px] font-bold opacity-70">{m.encryptedContent.split('\n')[0].replace('📹 ', '')}</p>
-                                            </div>
-                                         </div>
-                                         <Button 
-                                            size="sm" 
-                                            className="w-full rounded-lg h-8 font-black uppercase text-[10px] tracking-widest bg-primary hover:bg-primary/80"
-                                            onClick={() => {
-                                               const match = m.encryptedContent.match(/\[MEETING_GUID:([^\]]+)\]/);
-                                               if (match) setShowLobby({ meetingId: match[1], type: 'video', title: 'Tham gia cuộc họp' });
-                                            }}
-                                         >
-                                            Tham gia ngay
-                                         </Button>
-                                      </div>
-                                   ) : (
-                                      <p className="font-medium leading-relaxed">{m.encryptedContent}</p>
-                                   )}
+                                   <DecryptedText 
+                                      message={m}
+                                      user={user}
+                                      mySenderKey={(useSignalR() as any).mySenderKey}
+                                      peerSenderKeys={(useSignalR() as any).peerSenderKeys}
+                                      peerIdentityKeys={(useSignalR() as any).peerIdentityKeys}
+                                      identityKeys={(useSignalR() as any).identityKeys}
+                                      initiateHandshake={initiateE2EEHandshake}
+                                      onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
+                                   />
                                 </div>
                               )}
                             

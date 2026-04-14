@@ -609,6 +609,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         activeMeeting,
         initiateE2EEHandshake,
         onTriggeredReminder: (cb: any) => { },
+        // EXPORT REFS FOR CHAT AREA DECRYPTION
+        mySenderKey: mySenderKeyRef.current,
+        peerSenderKeys: peerSenderKeysRef.current,
+        peerIdentityKeys: peerIdentityKeysRef.current,
+        identityKeys: identityKeysRef.current
       }}
     >
       {!mounted ? <div style={{ visibility: 'hidden' }}>{children}</div> : children}
