@@ -5,9 +5,7 @@ import {
   cn, 
   getAvatarUrl,
   getAttachmentUrl,
-  formatMessageTime,
-  formatToVNTime,
-  formatToVNDate
+  formatMessageTime
 } from '@/lib/utils'
 import {
   Avatar,
@@ -17,8 +15,6 @@ import {
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
-  Check, 
-  CheckCheck, 
   MoreVertical, 
   Send, 
   Smile, 
@@ -26,23 +22,14 @@ import {
   Image as ImageIcon, 
   Users, 
   LogOut, 
-  ChevronRight, 
   ChevronDown, 
-  Hash, 
   Reply, 
-  ThumbsUp, 
-  Search, 
-  Activity, 
   FileText, 
   Download, 
-  Trash2, 
   Pin, 
   PinOff,
-  Plus,
-  Phone,
   Video as VideoIcon,
   Activity as ActivityIcon,
-  Calendar as CalendarIcon,
   X,
   MessageSquare
 } from 'lucide-react'
@@ -76,26 +63,11 @@ interface Message {
   encryptedContent: string
   messageType: string
   createdAt: string
-  readBy?: number[]
-  stickerUrl?: string
   isPinned?: boolean
   attachments?: any[]
   parentMessageId?: number
   iv?: string
   signature?: string
-  content?: string
-}
-
-interface ChatAreaProps {
-  conversation: any
-  onBack?: () => void
-  onShowMembers?: () => void
-  onToggleBoard?: () => void
-  onToggleSearch?: () => void
-  onToggleCalendar?: () => void
-  onRefreshConversations?: () => void
-  isMobile?: boolean
-  className?: string
 }
 
 function DecryptedText({ 
@@ -122,14 +94,9 @@ function DecryptedText({
     useEffect(() => {
         const decrypt = async () => {
             if (message.messageType !== 'PLAIN' && message.messageType !== 'Text' && message.messageType !== 'PLAIN_SECURE' && message.messageType) {
-                if (message.messageType === 'System') {
-                   setDecrypted(message.content || message.encryptedContent);
-                } else {
-                   setDecrypted(message.encryptedContent || message.content);
-                }
+                setDecrypted(message.content || message.encryptedContent || "");
                 return;
             }
-
             const senderId = message.senderId;
             const content = message.encryptedContent;
             const iv = message.iv;
@@ -139,57 +106,42 @@ function DecryptedText({
                 setDecrypted("");
                 return;
             }
-
             try {
                 const isOwn = user && senderId === user.id;
                 const senderKey = isOwn ? mySenderKey : peerSenderKeys.get(senderId);
                 const senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);
 
-                if (iv && sig) {
-                    if (senderKey && senderIdPubKey) {
-                         const result = await decryptMessagePro(content, iv, sig, senderKey, senderIdPubKey);
-                         setDecrypted(result);
-                    } else {
-                         setDecrypted("⏳ [Mã hóa đầu cuối]");
-                         if (message.conversationId) initiateHandshake(message.conversationId);
-                    }
-                } else {
+                if (iv && sig && senderKey && senderIdPubKey) {
+                    const result = await decryptMessagePro(content, iv, sig, senderKey, senderIdPubKey);
+                    setDecrypted(result);
+                } else if (!iv || !sig) {
                     setDecrypted(content);
+                } else {
+                    setDecrypted("⏳ [Mã hóa đầu cuối]");
+                    if (message.conversationId) initiateHandshake(message.conversationId);
                 }
-            } catch (e) {
-                setDecrypted(content || "[Lỗi giải mã]");
-            }
+            } catch (e) { setDecrypted(content || "[Lỗi giải mã]"); }
         };
-
         decrypt();
-    }, [message.id, message.encryptedContent, mySenderKey, peerSenderKeys?.size, peerIdentityKeys?.size]);
+    }, [message.id, message.encryptedContent, mySenderKey, peerSenderKeys.size, peerIdentityKeys.size]);
 
     if (decrypted.includes('[MEETING_GUID:')) {
         return (
             <div className="bg-primary/10 rounded-xl p-4 border border-primary/20 flex flex-col gap-3">
                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
-                     <VideoIcon className="h-5 w-5 text-primary" />
-                  </div>
+                  <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center"><VideoIcon className="h-5 w-5 text-primary" /></div>
                   <div>
-                     <p className="font-black text-xs text-primary uppercase tracking-widest">Cuộc họp video</p>
-                     <p className="text-[11px] font-bold opacity-70">{decrypted.split('\n')[0].replace('📹 ', '')}</p>
+                     <p className="font-black text-xs text-primary uppercase tracking-widest leading-none mb-1">Cuộc họp video</p>
+                     <p className="text-[11px] font-bold opacity-70 truncate">{decrypted.split('\n')[0].replace('📹 ', '')}</p>
                   </div>
                </div>
-               <Button 
-                  size="sm" 
-                  className="w-full rounded-lg h-8 font-black uppercase text-[10px] tracking-widest bg-primary hover:bg-primary/80"
-                  onClick={() => {
-                     const match = decrypted.match(/\[MEETING_GUID:([^\]]+)\]/);
-                     if (match) onJoinMeeting(match[1]);
-                  }}
-               >
-                  Tham gia ngay
-               </Button>
+               <Button size="sm" className="w-full rounded-lg h-8 font-black uppercase text-[10px] tracking-widest" onClick={() => {
+                   const match = decrypted.match(/\[MEETING_GUID:([^\]]+)\]/);
+                   if (match) onJoinMeeting(match[1]);
+               }}>Tham gia ngay</Button>
             </div>
         );
     }
-
     return <p className="font-medium leading-relaxed">{decrypted}</p>;
 }
 
@@ -199,26 +151,16 @@ export function ChatArea({
   onShowMembers, 
   onToggleBoard, 
   onToggleSearch, 
-  onToggleCalendar,
   onRefreshConversations, 
   isMobile = false, 
   className 
  }: ChatAreaProps) {
   const { token, user } = useAuth()
   const { 
-    isConnected, 
-    sendMessage, 
-    lastMessage, 
-    markAsRead, 
-    sendTyping, 
-    typingUsers, 
-    togglePinMessage, 
-    lastDeletedMessage, 
-    pinnedMessages, 
-    activeMeeting, 
-    initiateE2EEHandshake,
-    hideMessageForMe,
-    sendReminder
+    sendMessage, lastMessage, markAsRead, sendTyping, typingUsers, 
+    togglePinMessage, lastDeletedMessage, pinnedMessages, activeMeeting, 
+    initiateE2EEHandshake, hideMessageForMe, mySenderKey, peerSenderKeys, 
+    peerIdentityKeys, identityKeys, keyVersion
   } = useSignalR()
 
   const [messages, setMessages] = useState<Message[]>([])
@@ -228,16 +170,14 @@ export function ChatArea({
   const [showLobby, setShowLobby] = useState<{ meetingId: any, type: 'voice' | 'video', title: string } | null>(null)
   
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const scrollRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
-  const router = useRouter()
 
   const pinnedList = useMemo(() => messages.filter(m => m.isPinned), [messages])
   const latestPin = pinnedList[pinnedList.length - 1]
 
   const scrollToMessage = useCallback((msgId: any) => {
-    const id = typeof msgId === 'string' ? msgId : msgId.toString();
+    const id = msgId.toString();
     setTimeout(() => {
       const el = document.getElementById(`message-${id}`)
       if (el) {
@@ -249,33 +189,23 @@ export function ChatArea({
   }, [])
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).scrollToMsg = scrollToMessage
-    }
-  }, [scrollToMessage])
-
-  useEffect(() => {
     if (pinnedMessages && conversation && pinnedMessages.conversationId === conversation.id) {
-      setMessages(prev => prev.map(m => 
-        m.id === pinnedMessages.messageId ? { ...m, isPinned: pinnedMessages.isPinned } : m
-      ));
+      setMessages(p => p.map(m => m.id === pinnedMessages.messageId ? { ...m, isPinned: pinnedMessages.isPinned } : m));
     }
   }, [pinnedMessages, conversation?.id]);
 
   useEffect(() => {
     if (lastDeletedMessage && conversation && lastDeletedMessage.conversationId === conversation.id) {
-      setMessages(prev => prev.filter(m => m.id !== lastDeletedMessage.messageId));
+      setMessages(p => p.filter(m => m.id !== lastDeletedMessage.messageId));
     }
   }, [lastDeletedMessage, conversation?.id]);
 
   useEffect(() => {
-    if (conversation?.id && typeof initiateE2EEHandshake === 'function') {
-       initiateE2EEHandshake(conversation.id).catch(e => console.error("E2EE error", e));
-    }
+    if (conversation?.id) initiateE2EEHandshake(conversation.id).catch(() => {});
   }, [conversation?.id, initiateE2EEHandshake]);
 
   const handleStartCall = async (type: 'voice' | 'video') => {
-    if (!conversation || !token || !user) return
+    if (!conversation || !token) return
     if (activeMeeting && activeMeeting.conversationId === conversation.id) {
        setShowLobby({ meetingId: activeMeeting.meetingId, type, title: activeMeeting.title })
        return
@@ -283,97 +213,70 @@ export function ChatArea({
     try {
       const title = `${type === 'voice' ? 'Cuộc gọi thoại' : 'Cuộc gọi video'} - ${conversation.name}`
       const resp = await meetingsApi.startMeeting(token, conversation.id, title, [], type)
-      if (resp && (resp.meetingGuid || resp.id)) {
-        const mGuid = resp.meetingGuid || resp.id;
-        sendMessage(conversation.id, `📹 Đã bắt đầu cuộc họp: ${title}\n[MEETING_GUID:${mGuid}]`, 'Text');
+      const mGuid = resp?.meetingGuid || resp?.id;
+      if (mGuid) {
+        sendMessage(conversation.id, `📹 Cuộc họp: ${title}\n[MEETING_GUID:${mGuid}]`, 'Text');
         setShowLobby({ meetingId: mGuid, type, title })
       }
-    } catch (error) { toast.error(`Không thể bắt đầu cuộc gọi.`) }
+    } catch { toast.error(`Không thể bắt đầu cuộc gọi.`) }
   }
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !conversation || !token) return
     try {
-      toast.info('Đang tải tệp lên...')
+      toast.info('Đang tải lên...')
       await attachmentsApi.upload(token, file, conversation.id)
+      const news = await conversationsApi.getMessages(token, conversation.id)
+      setMessages(news.map((m: any) => ({
+        ...m, id: m.id || m.Id, conversationId: m.conversationId || conversation.id,
+        isPinned: m.isPinned || m.IsPinned, encryptedContent: m.encryptedContent || m.content || ""
+      })))
       toast.success('Thành công!')
-      const updatedMessages = await conversationsApi.getMessages(token, conversation.id)
-      const mappedHistory = updatedMessages.map((m: any) => ({
-        ...m,
-        id: m.id || m.Id,
-        conversationId: m.conversationId || conversation.id,
-        isPinned: m.isPinned || m.IsPinned,
-        encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
-      }))
-      setMessages(mappedHistory)
-    } catch (error) { toast.error('Thất bại.') }
+    } catch { toast.error('Thất bại.') }
   }
 
   useEffect(() => {
-    const loadMessages = async () => {
+    const load = async () => {
       if (!conversation || !token) return
       try {
-        const response: any = await conversationsApi.getMessages(token, conversation.id)
-        const data = Array.isArray(response) ? response : (response.items || [])
-        const mapped = data.map((m: any) => ({
-          ...m,
-          id: m.id || m.Id,
-          conversationId: m.conversationId || conversation.id,
-          senderId: m.senderId || m.SenderId,
-          encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || m.message || "",
+        const res: any = await conversationsApi.getMessages(token, conversation.id)
+        const data = Array.isArray(res) ? res : (res.items || [])
+        setMessages(data.map((m: any) => ({
+          ...m, id: m.id || m.Id, senderId: m.senderId || m.SenderId,
+          encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || "",
           createdAt: m.createdAt || m.CreatedAt || new Date().toISOString(),
-          isPinned: m.isPinned || m.IsPinned,
-          attachments: m.attachments || m.Attachments || [],
-          parentMessageId: m.parentMessageId || m.ParentMessageId
-        }))
-        setMessages(mapped.sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()))
+          isPinned: m.isPinned || m.IsPinned, attachments: m.attachments || m.Attachments || []
+        })).sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()))
         markAsRead(conversation.id)
-      } catch (e) { console.error(e) }
+      } catch {}
     }
-    loadMessages()
-    setReplyingTo(null)
-    setIsPinnedListExpanded(false)
-  }, [conversation?.id, token])
+    load(); setReplyingTo(null); setIsPinnedListExpanded(false);
+  }, [conversation?.id, token]);
 
   useEffect(() => {
     if (lastMessage && conversation && lastMessage.conversationId === conversation.id) {
        setMessages(prev => {
           if (prev.some(m => m.id === lastMessage.id)) return prev;
-          let attachments = lastMessage.attachments || [];
-          if (typeof attachments === 'string') {
-            try { attachments = JSON.parse(attachments); } catch(e) { attachments = []; }
-          }
           return [...prev, {
-            id: lastMessage.id,
-            conversationId: lastMessage.conversationId,
-            senderId: lastMessage.senderId,
-            senderName: lastMessage.senderName || lastMessage.sender,
-            encryptedContent: lastMessage.content || lastMessage.message || "",
-            messageType: lastMessage.messageType || 'Text',
-            createdAt: lastMessage.createdAt || lastMessage.time?.toISOString() || new Date().toISOString(),
-            attachments: attachments,
-            isPinned: lastMessage.isPinned,
-            parentMessageId: lastMessage.parentMessageId,
-            iv: lastMessage.iv,
-            sig: lastMessage.sig
+            id: lastMessage.id, conversationId: lastMessage.conversationId, senderId: lastMessage.senderId,
+            senderName: lastMessage.senderName || lastMessage.sender, encryptedContent: lastMessage.content || lastMessage.message || "",
+            messageType: lastMessage.messageType || 'Text', createdAt: lastMessage.createdAt || new Date().toISOString(),
+            attachments: lastMessage.attachments || [], isPinned: lastMessage.isPinned, iv: lastMessage.iv, sig: lastMessage.sig
           }];
        });
        markAsRead(conversation.id);
     }
-  }, [lastMessage, conversation?.id])
+  }, [lastMessage, conversation?.id]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages]);
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !conversation) return
     try {
       await sendMessage(conversation.id, newMessage, '', replyingTo?.id)
-      setNewMessage('')
-      setReplyingTo(null)
-    } catch (e) { toast.error('Gửi thất bại') }
+      setNewMessage(''); setReplyingTo(null);
+    } catch { toast.error('Gửi thất bại') }
   }
 
   const messageGroups = useMemo(() => {
@@ -390,9 +293,7 @@ export function ChatArea({
         groups.push({ type: 'message', data: m });
       }
     });
-    if (currentSystemGroup.length > 0) {
-      groups.push({ type: 'system-group', messages: [...currentSystemGroup] });
-    }
+    if (currentSystemGroup.length > 0) groups.push({ type: 'system-group', messages: [...currentSystemGroup] });
     return groups;
   }, [messages]);
 
@@ -400,27 +301,10 @@ export function ChatArea({
     return (
       <div className="flex-1 h-full flex flex-col items-center justify-center p-8 bg-background relative overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-[100px] animate-pulse [animation-delay:2s]" />
         <div className="relative z-10 flex flex-col items-center max-w-md text-center">
-           <div className="w-24 h-24 mb-8 relative">
-              <div className="absolute inset-0 bg-primary/20 rounded-3xl rotate-6 blur-xl" />
-              <div className="absolute inset-0 bg-primary/20 rounded-3xl -rotate-6" />
-              <div className="relative h-full w-full bg-primary rounded-3xl flex items-center justify-center shadow-2xl shadow-primary/40 border border-white/20">
-                 <MessageSquare className="h-10 w-10 text-white fill-white/10" />
-              </div>
-           </div>
-           <h2 className="text-3xl font-black tracking-tight mb-4 text-foreground">
-             Chào mừng đến với <span className="text-primary italic">Lumi Chat</span>
-           </h2>
-           <p className="text-sm text-muted-foreground leading-relaxed font-medium mb-10 opacity-70">
-             Lumi Chat là không gian làm việc số tập trung, nơi bạn có thể trao đổi, họp video và quản lý dự án một cách chuyên nghiệp.
-           </p>
-           <div className="flex flex-wrap justify-center gap-4">
-              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-muted/30 border border-white/5 shadow-sm">
-                 <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Toàn bộ đã sẵn sàng</span>
-              </div>
-           </div>
+           <div className="w-20 h-20 mb-8 bg-primary rounded-3xl flex items-center justify-center shadow-2xl"><MessageSquare className="h-10 w-10 text-white" /></div>
+           <h2 className="text-3xl font-black mb-4">Chào mừng đến với <span className="text-primary italic">Lumi Chat</span></h2>
+           <p className="text-sm text-muted-foreground font-medium mb-10 opacity-70">Lumi Chat là không gian làm việc số tập trung, an toàn và bảo mật.</p>
         </div>
       </div>
     )
@@ -429,87 +313,58 @@ export function ChatArea({
   return (
     <TooltipProvider>
     <div className={cn('flex flex-col bg-background h-full overflow-hidden relative', className)}>
-      <header className="flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-md z-30 border-b shadow-sm shrink-0">
+      <header className="flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-md z-30 border-b shrink-0">
         <div className="flex items-center gap-3">
-          <Avatar className="h-11 w-11 border-2 border-primary/10">
+          <Avatar className="h-10 w-10 border-2 border-primary/10">
             <AvatarImage src={getAvatarUrl(conversation.avatarPath)} className="object-cover" />
-            <AvatarFallback className="bg-primary/5 text-primary text-xs font-black">{conversation.name?.[0]}</AvatarFallback>
+            <AvatarFallback>{conversation.name?.[0]}</AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <h2 className="font-black text-sm truncate uppercase tracking-tight">{conversation.name}</h2>
-            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-60 flex items-center gap-1.5">
-               <div className="h-1.5 w-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-               {conversation.type === 'GlobalMeeting' ? `ID: ${conversation.id}` : conversation.type === 'Group' ? 'Hội nhóm' : 'Liên lạc'}
-            </p>
+            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest opacity-60 flex items-center gap-1.5"><div className="h-1.5 w-1.5 rounded-full bg-green-500" /> {conversation.type === 'Group' ? 'Hội nhóm' : 'Liên lạc'}</p>
           </div>
         </div>
-        
         <div className="flex items-center gap-1">
-            {conversation.type !== 'Group' && (
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => handleStartCall('voice')}>
-                    <Phone className="h-5 w-5" />
-                </Button>
-            )}
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => handleStartCall('video')}>
-                <VideoIcon className="h-5 w-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary" onClick={() => onToggleSearch?.()}>
-                <Search className="h-5 w-5" />
-            </Button>
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleStartCall('video')}><VideoIcon className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => onToggleSearch?.()}><Search className="h-5 w-5" /></Button>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-primary">
-                  <MoreVertical className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 p-1 rounded-2xl shadow-2xl">
-                 <DropdownMenuItem onClick={onToggleBoard} className="p-2.5 rounded-xl text-xs font-black uppercase tracking-widest gap-3">
-                    <ActivityIcon className="h-4 w-4 text-primary" /> Bảng tin nhóm
-                 </DropdownMenuItem>
+              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-9 w-9"><MoreVertical className="h-5 w-5" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 p-1 rounded-xl">
+                 <DropdownMenuItem onClick={onToggleBoard} className="p-2 gap-3 text-xs font-black uppercase"><ActivityIcon className="h-4 w-4" /> Bảng tin nhóm</DropdownMenuItem>
                  <DropdownMenuSeparator />
-                 <DropdownMenuItem
-                    className="text-destructive p-2.5 rounded-xl text-xs font-black uppercase tracking-widest gap-3 focus:bg-destructive/10 focus:text-destructive cursor-pointer"
-                    onClick={async () => {
-                      if (!conversation || !user) return
-                      if (!confirm(`Bạn có chắc muốn rời khỏi "${conversation.name}"?`)) return
-                      try {
-                        await conversationsApi.leaveConversation(token!, conversation.id)
-                        toast.success(`Đã rời khỏi "${conversation.name}"`)
-                        if (onRefreshConversations) onRefreshConversations()
-                        if (onBack) onBack()
-                      } catch { toast.error('Không thể rời khỏi hội thoại này') }
-                    }}
-                  >
-                    <LogOut className="h-4 w-4" /> Rời khỏi hội thoại
-                 </DropdownMenuItem>
+                 <DropdownMenuItem className="text-destructive p-2 gap-3 text-xs font-black uppercase cursor-pointer" onClick={async () => {
+                      if (!confirm(`Rời khỏi "${conversation.name}"?`)) return
+                      try { await conversationsApi.leaveConversation(token!, conversation.id); toast.success(`Đã rời khỏi`); if (onRefreshConversations) onRefreshConversations(); if (onBack) onBack(); } 
+                      catch { toast.error('Thất bại') }
+                 }}><LogOut className="h-4 w-4" /> Rời khỏi hội thoại</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
         </div>
       </header>
 
       {latestPin && (
-         <div className="z-20 bg-background/95 backdrop-blur-md border-b flex items-center border-l-4 border-l-primary h-12 shadow-sm relative animate-in slide-in-from-top-1 px-4 gap-3 shrink-0 group">
+         <div className="z-20 bg-background/95 border-b flex items-center border-l-4 border-l-primary h-12 px-4 gap-3 shrink-0 group">
              <div className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer" onClick={() => scrollToMessage(latestPin.id)}>
                 <Pin className="h-3.5 w-3.5 text-primary fill-primary" />
                 <div className="flex-1 min-w-0">
-                   <p className="text-[9px] font-black uppercase text-primary/60 mb-0.5 tracking-widest flex items-center gap-1.5"><div className="h-1 w-1 rounded-full bg-primary" /> TIN NHẮN GHIM</p>
-                   <div className="text-xs font-bold truncate opacity-90"><span className="text-primary">{latestPin.senderName}:</span> <DecryptedText message={latestPin} user={user} mySenderKey={(useSignalR() as any).mySenderKey} peerSenderKeys={(useSignalR() as any).peerSenderKeys} peerIdentityKeys={(useSignalR() as any).peerIdentityKeys} identityKeys={(useSignalR() as any).identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} /></div>
+                   <p className="text-[9px] font-black uppercase text-primary/60 mb-0.5 tracking-widest">TIN NHẮN GHIM</p>
+                   <div className="text-xs font-bold truncate opacity-90"><span className="text-primary">{latestPin.senderName}:</span> <DecryptedText message={latestPin} user={user} mySenderKey={mySenderKey} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} /></div>
                 </div>
              </div>
-             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}><ChevronDown className={cn("h-4 w-4 transition-transform", isPinnedListExpanded && "rotate-180")} /></Button>
+             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}><ChevronDown className={cn("h-4 w-4 transition-transform", isPinnedListExpanded && "rotate-180")} /></Button>
          </div>
       )}
 
       {activeMeeting && activeMeeting.conversationId === conversation.id && (
-        <div className="z-20 bg-primary/20 backdrop-blur-xl px-4 py-2 flex items-center justify-between border-b border-primary/20">
+        <div className="z-20 bg-primary/20 px-4 py-2 flex items-center justify-between border-b border-primary/20">
            <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-lg bg-primary/30 flex items-center justify-center animate-pulse"><VideoIcon className="h-4 w-4 text-primary" /></div>
               <div className="min-w-0">
-                 <p className="text-[9px] font-black uppercase tracking-widest text-primary/80">Cuộc họp đang diễn ra</p>
-                 <p className="text-[10px] font-bold truncate opacity-90">{activeMeeting.title}</p>
+                 <p className="text-[9px] font-black uppercase tracking-widest text-primary/80 leading-none">Cuộc họp đang diễn ra</p>
+                 <p className="text-[10px] font-bold truncate opacity-90 mt-1">{activeMeeting.title}</p>
               </div>
            </div>
-           <Button size="sm" className="rounded-lg px-4 h-7 font-black uppercase text-[9px] tracking-widest" onClick={() => setShowLobby({ meetingId: activeMeeting.meetingGuid, type: (activeMeeting.callType as any) || 'video', title: activeMeeting.title })}>Tham gia</Button>
+           <Button size="sm" className="rounded-lg h-7 text-[9px] font-black uppercase" onClick={() => setShowLobby({ meetingId: activeMeeting.meetingId, type: activeMeeting.callType as any, title: activeMeeting.title })}>Tham gia</Button>
         </div>
       )}
 
@@ -517,57 +372,42 @@ export function ChatArea({
         <ScrollArea className="h-full">
            <div className="p-4 flex flex-col justify-end min-h-full space-y-4 pb-10">
               {messageGroups.map((group, idx) => {
-                if (group.type === 'system-group') {
-                  return <SystemMessageGroup key={`sys-${idx}`} messages={group.messages} onScrollTo={scrollToMessage} />;
-                }
-                const m = group.data;
-                const isOwn = m.senderId === user?.id;
+                if (group.type === 'system-group') return <SystemMessageGroup key={`sys-${idx}`} messages={group.messages} onScrollTo={scrollToMessage} />;
+                const m = group.data; const isOwn = m.senderId === user?.id;
                 return (
                   <div key={m.id} id={`message-${m.id}`} className={cn("flex gap-3 animate-in slide-in-from-bottom-2", isOwn ? "flex-row-reverse" : "flex-row")}>
                       <div className={cn("max-w-[75%] space-y-1.5 flex flex-col", isOwn ? "items-end" : "items-start")}>
                           {!isOwn && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
-                          
-                          {/* Attachments */}
                           {m.attachments && m.attachments.length > 0 && (
                             <div className="space-y-2 w-full flex flex-col items-inherit">
                               {m.attachments.map((a: any, i: number) => {
-                                const isImage = a.mimeType?.startsWith('image/');
-                                const url = getAttachmentUrl(a.id, token!);
-                                if (isImage) {
-                                  return (
-                                    <div key={i} className="relative group/img max-w-sm rounded-xl overflow-hidden shadow-md">
-                                       <img src={url} alt={a.fileName} className="block w-full h-auto max-h-[400px] object-cover hover:scale-105 transition-transform duration-500" onClick={() => window.open(url, '_blank')} />
-                                       <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                                          <Button variant="secondary" size="sm" className="rounded-full gap-2" onClick={() => window.open(url, '_blank')}><ImageIcon className="h-3.5 w-3.5" /> Xem ảnh</Button>
-                                       </div>
-                                    </div>
-                                  );
-                                }
+                                const isImg = a.mimeType?.startsWith('image/'); const url = getAttachmentUrl(a.id, token!);
+                                if (isImg) return (
+                                  <div key={i} className="relative group/img max-w-sm rounded-xl overflow-hidden shadow-md">
+                                     <img src={url} alt={a.fileName} className="block w-full h-auto max-h-[400px] object-cover hover:scale-105 transition-transform duration-500" onClick={() => window.open(url, '_blank')} />
+                                     <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity"><Button variant="secondary" size="sm" className="rounded-full gap-2" onClick={() => window.open(url, '_blank')}><ImageIcon className="h-3.5 w-3.5" /> Xem ảnh</Button></div>
+                                  </div>
+                                );
                                 return (
-                                  <a key={i} href={url} target="_blank" className={cn("flex items-center gap-3 p-3 rounded-2xl border transition-all group/file w-[280px] max-w-full shadow-sm", isOwn ? "bg-primary/10 border-primary/20" : "bg-card border-border")}>
+                                  <a key={i} href={url} target="_blank" className={cn("flex items-center gap-3 p-3 rounded-2xl border w-[280px] max-w-full shadow-sm", isOwn ? "bg-primary/10 border-primary/20" : "bg-card border-border")}>
                                      <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
-                                     <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-bold truncate">{a.fileName}</p>
-                                        <p className="text-[10px] opacity-40 uppercase font-black">{(a.fileSize / 1024).toFixed(1)} KB</p>
-                                     </div>
-                                     <Download className="h-4 w-4 opacity-0 group-hover/file:opacity-60 transition-opacity" />
+                                     <div className="flex-1 min-w-0"><p className="text-xs font-bold truncate">{a.fileName}</p><p className="text-[10px] opacity-40 uppercase font-black">{(a.fileSize / 1024).toFixed(1)} KB</p></div>
+                                     <Download className="h-4 w-4 opacity-40" />
                                   </a>
                                 );
                               })}
                             </div>
                           )}
-
-                          {/* Text Content */}
                           {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
                              <div className={cn("px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border relative group/msg transition-all duration-300", isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card")}>
-                                <DecryptedText message={m} user={user} mySenderKey={(useSignalR() as any).mySenderKey} peerSenderKeys={(useSignalR() as any).peerSenderKeys} peerIdentityKeys={(useSignalR() as any).peerIdentityKeys} identityKeys={(useSignalR() as any).identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} />
-                                <div className={cn("absolute bottom-0 opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1", isOwn ? "-left-20" : "-right-20")}>
-                                   <button onClick={() => togglePinMessage(m.id)} className={cn("p-1.5 rounded-full bg-background border shadow-sm", m.isPinned ? "text-primary" : "text-muted-foreground")}>{m.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}</button>
+                                <DecryptedText message={m} user={user} mySenderKey={mySenderKey} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} />
+                                <div className={cn("absolute bottom-0 opacity-0 group-hover/msg:opacity-100 flex items-center gap-1 transition-opacity", isOwn ? "-left-20" : "-right-20")}>
+                                   <button onClick={() => togglePinMessage(m.id)} className={cn("p-1.5 rounded-full bg-background border", m.isPinned ? "text-primary" : "text-muted-foreground")}>{m.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}</button>
                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild><button className="p-1.5 rounded-full bg-background border shadow-sm text-muted-foreground"><MoreVertical className="h-3 w-3" /></button></DropdownMenuTrigger>
-                                      <DropdownMenuContent align={isOwn ? "end" : "start"} className="w-48 p-1 rounded-xl shadow-2xl">
-                                         <DropdownMenuItem onClick={() => setReplyingTo(m)} className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"><Reply className="h-3.5 w-3.5" /> Trả lời</DropdownMenuItem>
-                                         <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(m.encryptedContent); toast.success('Đã sao chép'); }} className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"><Send className="h-3.5 w-3.5" /> Sao chép</DropdownMenuItem>
+                                      <DropdownMenuTrigger asChild><button className="p-1.5 rounded-full bg-background border text-muted-foreground"><MoreVertical className="h-3 w-3" /></button></DropdownMenuTrigger>
+                                      <DropdownMenuContent align={isOwn ? "end" : "start"} className="w-48 p-1 rounded-xl">
+                                         <DropdownMenuItem onClick={() => setReplyingTo(m)} className="p-2 gap-2 text-xs font-black uppercase"><Reply className="h-3.5 w-3.5" /> Trả lời</DropdownMenuItem>
+                                         <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(m.encryptedContent); toast.success('Đã sao chép'); }} className="p-2 gap-2 text-xs font-black uppercase"><MoreVertical className="h-3.5 w-3.5" /> Sao chép</DropdownMenuItem>
                                       </DropdownMenuContent>
                                    </DropdownMenu>
                                 </div>
@@ -585,13 +425,10 @@ export function ChatArea({
 
       <div className="bg-card border-t pt-2 pb-5 px-5 space-y-3 shrink-0 z-40 relative">
         {replyingTo && (
-          <div className="absolute -top-[52px] left-0 right-0 bg-background/95 backdrop-blur-md border-t border-primary/20 p-2 px-6 flex items-center justify-between animate-in slide-in-from-bottom-2 shadow-2xl">
+          <div className="absolute -top-[52px] left-0 right-0 bg-background/95 border-t border-primary/20 p-2 px-6 flex items-center justify-between shadow-2xl">
              <div className="flex items-center gap-3 border-l-2 border-primary pl-3 min-w-0">
                 <Reply className="h-3 w-3 text-primary opacity-50" />
-                <div className="min-w-0">
-                   <p className="text-[9px] font-black uppercase text-primary tracking-tighter">Đang trả lời {replyingTo.senderName}</p>
-                   <p className="text-xs truncate opacity-70 italic">{replyingTo.encryptedContent}</p>
-                </div>
+                <div className="min-w-0"><p className="text-[9px] font-black uppercase text-primary">Đang trả lời {replyingTo.senderName}</p><p className="text-xs truncate opacity-70 italic">{replyingTo.encryptedContent}</p></div>
              </div>
              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => setReplyingTo(null)}><X className="h-3.5 w-3.5" /></Button>
           </div>
@@ -608,7 +445,7 @@ export function ChatArea({
               onChange={(e) => { setNewMessage(e.target.value); if(conversation) sendTyping(conversation.id); }}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
               placeholder="Nhập tin nhắn..."
-              className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2.5 px-3 resize-none max-h-40 min-h-[45px] outline-none font-medium leading-relaxed"
+              className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2 px-3 resize-none max-h-40 min-h-[45px] outline-none font-medium leading-relaxed"
               rows={1}
             />
             <Button size="icon" className="h-10 w-10 bg-primary text-white rounded-xl shadow-lg" onClick={handleSendMessage}><Send className="h-5 w-5" /></Button>
@@ -616,12 +453,7 @@ export function ChatArea({
       </div>
     </div>
     {showLobby && (
-      <CallLobby 
-        meetingId={showLobby.meetingId}
-        type={showLobby.type}
-        title={showLobby.title}
-        onClose={() => setShowLobby(null)}
-      />
+      <CallLobby meetingId={showLobby.meetingId} type={showLobby.type} title={showLobby.title} onClose={() => setShowLobby(null)} />
     )}
     </TooltipProvider>
   )

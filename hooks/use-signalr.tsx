@@ -62,6 +62,13 @@ export interface SignalRHookReturn {
   lastUserLeft: number | null
   activeMeeting: { meetingId: string; conversationId: number; title: string; callType: string; hostName: string } | null
   initiateE2EEHandshake: (conversationId: number) => Promise<void>
+  hideMessageForMe: (messageId: number) => Promise<void>
+  mySenderKey: CryptoKey | null
+  peerSenderKeys: Map<number, CryptoKey>
+  peerIdentityKeys: Map<number, CryptoKey>
+  identityKeys: CryptoKeyPair | null
+  keyVersion: number
+  lastLeftConversationId: number | null
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
