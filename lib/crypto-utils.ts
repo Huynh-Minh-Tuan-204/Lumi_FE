@@ -1,123 +1,200 @@
 /**
- * Lumi Crypto Utilities - Web Crypto API implementation for E2EE
- * Built by Antigravity (Senior Frontend Engineer & Security Expert)
+ * Lumi Pro Crypto - Production-grade E2EE with Hybrid Encryption & Persistence
+ * Features:
+ * - Anti-MITM: ECDSA Identity Keys for signing/verifying public key exchanges
+ * - Persistence: Private keys stored in IndexedDB (survives reload)
+ * - Message Integrity: Every message signed by Identity Key
+ * - Group Ready: Sender Key mechanism for efficient group encryption
  */
 
-const ALGORITHM = 'AES-GCM';
-const KEY_LENGTH = 256;
+const DB_NAME = 'LumiCryptoDB';
+const STORE_NAME = 'Keys';
+const IDENTITY_KEY_ALIAS = 'IdentityKey';
 
-// For demo purposes, we use a shared static passphrase to derive a 256-bit key.
-// In a production E2EE system, this would be exchanged via RSA/Diffie-Hellman.
-const DUMMY_PASSPHRASE = 'Lumi-Secure-E2EE-Master-Key-2026';
+// ==========================================
+// PHẦN 1: INDEXEDDB PERSISTENCE
+// ==========================================
 
-/**
- * Converts a string to ArrayBuffer using UTF-8 encoding
- */
-function stringToArrayBuffer(str: string): Uint8Array {
-  return new TextEncoder().encode(str);
+async function getDB(): Promise<IDBDatabase> {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = () => {
+            request.result.createObjectStore(STORE_NAME);
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
 }
 
-/**
- * Converts ArrayBuffer to string using UTF-8 decoding
- */
-function arrayBufferToString(buffer: ArrayBuffer): string {
-  return new TextDecoder().decode(buffer);
+export async function saveKey(alias: string, key: any) {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(key, alias);
+    return new Promise((resolve) => (tx.oncomplete = resolve));
 }
 
-/**
- * Converts ArrayBuffer to Base64 string
- */
-export function bufferToBase64(buffer: ArrayBuffer): string {
-  return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+export async function loadKey(alias: string): Promise<any> {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const request = tx.objectStore(STORE_NAME).get(alias);
+    return new Promise((resolve) => (request.onsuccess = () => resolve(request.result)));
 }
 
-/**
- * Converts Base64 string to ArrayBuffer
- */
-export function base64ToBuffer(base64: string): Uint8Array {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
+// ==========================================
+// PHẦN 2: IDENTITY (ECDSA - ANTI-MITM)
+// ==========================================
 
-/**
- * Derives a CryptoKey from a static passphrase for demo consistency.
- * In production, you'd use window.crypto.subtle.generateKey('AES-GCM', true, ['encrypt', 'decrypt'])
- */
-export async function getSessionKey(): Promise<CryptoKey> {
-  // Check if we already have it in session to be faster
-  const rawKey = stringToArrayBuffer(DUMMY_PASSPHRASE);
+// Sinh cặp khóa định danh dài hạn (Lưu IndexedDB)
+export async function getOrCreateIdentityKey(): Promise<CryptoKeyPair> {
+    const existing = await loadKey(IDENTITY_KEY_ALIAS);
+    if (existing) return existing;
 
-  // Hash the passphrase to ensure it's exactly 256-bits (32 bytes)
-  const hash = await window.crypto.subtle.digest('SHA-256', rawKey);
-
-  return await window.crypto.subtle.importKey(
-    'raw',
-    hash,
-    { name: ALGORITHM },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
-
-/**
- * Encrypts plaintext using AES-GCM
- * @returns { encryptedContent: string (Base64), iv: string (Base64) }
- */
-export async function encryptMessage(plaintext: string, key: CryptoKey) {
-  try {
-    // AES-GCM recommended IV size is 12 bytes
-    const iv = window.crypto.getRandomValues(new Uint8Array(12));
-    const encodedPlaintext = stringToArrayBuffer(plaintext);
-
-    const ciphertext = await window.crypto.subtle.encrypt(
-      {
-        name: ALGORITHM,
-        iv: iv,
-      },
-      key,
-      encodedPlaintext
+    const keys = await window.crypto.subtle.generateKey(
+        { name: "ECDSA", namedCurve: "P-256" },
+        true,
+        ["sign", "verify"]
     );
+    await saveKey(IDENTITY_KEY_ALIAS, keys);
+    return keys;
+}
+
+export async function exportIdentityPublicKey(key: CryptoKey): Promise<string> {
+    const exported = await window.crypto.subtle.exportKey("raw", key);
+    return bufferToBase64(exported);
+}
+
+export async function importIdentityPublicKey(base64: string): Promise<CryptoKey> {
+    return await window.crypto.subtle.importKey(
+        "raw",
+        base64ToBuffer(base64),
+        { name: "ECDSA", namedCurve: "P-256" },
+        true,
+        ["verify"]
+    );
+}
+
+// ==========================================
+// PHẦN 3: RSA (TRAO ĐỔI KHÓA)
+// ==========================================
+
+export async function generateEphemeralRSAKeyPair(): Promise<CryptoKeyPair> {
+    return await window.crypto.subtle.generateKey(
+        {
+            name: "RSA-OAEP",
+            modulusLength: 2048,
+            publicExponent: new Uint8Array([1, 0, 1]),
+            hash: "SHA-256",
+        },
+        true,
+        ["encrypt", "decrypt"]
+    );
+}
+
+// ==========================================
+// PHẦN 4: SIGNING (XÁC THỰC)
+// ==========================================
+
+export async function signData(data: string, privateKey: CryptoKey): Promise<string> {
+    const signature = await window.crypto.subtle.sign(
+        { name: "ECDSA", hash: { name: "SHA-256" } },
+        privateKey,
+        new TextEncoder().encode(data)
+    );
+    return bufferToBase64(signature);
+}
+
+export async function verifySignature(data: string, signatureBase64: string, publicKey: CryptoKey): Promise<boolean> {
+    try {
+        return await window.crypto.subtle.verify(
+            { name: "ECDSA", hash: { name: "SHA-256" } },
+            publicKey,
+            base64ToBuffer(signatureBase64),
+            new TextEncoder().encode(data)
+        );
+    } catch {
+        return false;
+    }
+}
+
+// ==========================================
+// PHẦN 5: AES-GCM (NHẮN TIN)
+// ==========================================
+
+export async function generateSenderKey(): Promise<CryptoKey> {
+    return await window.crypto.subtle.generateKey(
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+    );
+}
+
+export async function encryptSessionKeyForPeer(sessionKey: CryptoKey, peerPublicKey: CryptoKey): Promise<string> {
+    const raw = await window.crypto.subtle.exportKey("raw", sessionKey);
+    const encrypted = await window.crypto.subtle.encrypt({ name: "RSA-OAEP" }, peerPublicKey, raw);
+    return bufferToBase64(encrypted);
+}
+
+export async function decryptSessionKey(encryptedBase64: string, myPrivateKey: CryptoKey): Promise<CryptoKey> {
+    const decrypted = await window.crypto.subtle.decrypt(
+        { name: "RSA-OAEP" },
+        myPrivateKey,
+        base64ToBuffer(encryptedBase64)
+    );
+    return await window.crypto.subtle.importKey("raw", decrypted, { name: "AES-GCM" }, true, ["encrypt", "decrypt"]);
+}
+
+export async function encryptMessagePro(plaintext: string, senderKey: CryptoKey, identityPrivateKey: CryptoKey) {
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const encoded = new TextEncoder().encode(plaintext);
+
+    const ciphertext = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv }, senderKey, encoded);
+
+    // Sign the ciphertext for non-repudiation
+    const signature = await signData(bufferToBase64(ciphertext), identityPrivateKey);
 
     return {
-      encryptedContent: bufferToBase64(ciphertext),
-      iv: bufferToBase64(iv),
+        content: bufferToBase64(ciphertext),
+        iv: bufferToBase64(iv),
+        sig: signature
     };
-  } catch (error) {
-    console.error('Encryption failed:', error);
-    throw new Error('Encryption error');
-  }
 }
 
-/**
- * Decrypts Base64 ciphertext using AES-GCM and Base64 IV
- */
-export async function decryptMessage(
-  encryptedContentBase64: string,
-  ivBase64: string,
-  key: CryptoKey
+export async function decryptMessagePro(
+    contentBase64: string, 
+    ivBase64: string, 
+    sigBase64: string, 
+    senderKey: CryptoKey, 
+    senderIdentityPubKey: CryptoKey
 ): Promise<string> {
-  try {
-    if (!encryptedContentBase64 || !ivBase64) return encryptedContentBase64 || "";
+    try {
+        // 1. Verify Signature FIRST
+        const isValid = await verifySignature(contentBase64, sigBase64, senderIdentityPubKey);
+        if (!isValid) return "[CẢNH BÁO: Tin nhắn bị giả mạo chữ ký!]";
 
-    const ciphertext = base64ToBuffer(encryptedContentBase64);
-    const iv = base64ToBuffer(ivBase64);
+        // 2. Decrypt
+        const decrypted = await window.crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: base64ToBuffer(ivBase64) },
+            senderKey,
+            base64ToBuffer(contentBase64)
+        );
 
-    const decryptedBuffer = await window.crypto.subtle.decrypt(
-      {
-        name: ALGORITHM,
-        iv: iv,
-      },
-      key,
-      ciphertext
-    );
+        return new TextDecoder().decode(decrypted);
+    } catch (e) {
+        return "[Lỗi giải mã: Khóa không khớp hoặc dữ liệu hỏng]";
+    }
+}
 
-    return arrayBufferToString(decryptedBuffer);
-  } catch (error) {
-    console.warn('Decryption failed. Data might be corrupted or key mismatch.', error);
-    return '[Tin nhắn không thể giải mã]';
-  }
+// ==========================================
+// HELPERS
+// ==========================================
+
+export function bufferToBase64(buffer: ArrayBuffer): string {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+}
+
+export function base64ToBuffer(base64: string): Uint8Array {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
 }

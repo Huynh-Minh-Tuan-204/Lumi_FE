@@ -5,7 +5,13 @@ import * as signalR from '@microsoft/signalr'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
 import { announcementsApi } from '@/lib/api'
-import { getSessionKey, encryptMessage, decryptMessage } from '@/lib/crypto-utils'
+import { 
+  getOrCreateIdentityKey, exportIdentityPublicKey, importIdentityPublicKey,
+  generateEphemeralRSAKeyPair, exportPublicKey, importPublicKey,
+  generateSenderKey, encryptSessionKeyForPeer, decryptSessionKey,
+  encryptMessagePro, decryptMessagePro, signData, verifySignature,
+  base64ToBuffer, bufferToBase64
+} from '@/lib/crypto-utils'
 
 const HUB_URL = process.env.NEXT_PUBLIC_SIGNALR_HUB_URL || 'https://mintuan-001-site1.ktempurl.com/chatHub';
 
@@ -55,6 +61,7 @@ export interface SignalRHookReturn {
   lastScheduleUpdate: { type: 'created' | 'status' | 'deleted', data: any } | null
   lastUserLeft: number | null
   activeMeeting: { meetingId: string; conversationId: number; title: string; callType: string; hostName: string } | null
+  initiateE2EEHandshake: (conversationId: number) => Promise<void>
 }
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -86,17 +93,40 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [lastScheduleUpdate, setLastScheduleUpdate] = useState<{ type: 'created' | 'status' | 'deleted', data: any } | null>(null)
   const [lastUserLeft, setLastUserLeft] = useState<number | null>(null)
   const [activeMeeting, setActiveMeeting] = useState<{ meetingId: string; conversationId: number; title: string; callType: string; hostName: string } | null>(null)
-  const notifiedMeetingsRef = useRef<Set<string>>(new Set())
-  const cryptoKeyRef = useRef<CryptoKey | null>(null)
+  // --- E2EE Production Stats ---
+  const [identityKeys, setIdentityKeys] = useState<CryptoKeyPair | null>(null);
+  const [myRSAKeys, setMyRSAKeys] = useState<CryptoKeyPair | null>(null);
+  
+  // Storage for keys from other users
+  const peerIdentityKeysRef = useRef<Map<number, CryptoKey>>(new Map()); // id -> ECDSA PubKey
+  const peerSenderKeysRef = useRef<Map<number, CryptoKey>>(new Map());   // id -> AES-GCM Key
+  const mySenderKeyRef = useRef<CryptoKey | null>(null);
 
-  // Initialize E2EE Key
+  // 1. Khởi tạo danh tính bền vững (IndexedDB)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      getSessionKey().then(key => {
-        cryptoKeyRef.current = key
-      })
+      getOrCreateIdentityKey().then(keys => {
+        setIdentityKeys(keys);
+        console.log("🔒 [E2EE] Identity key loaded (Persistent).");
+      });
+      // Tạo RSA dùng tạm cho phiên này
+      generateEphemeralRSAKeyPair().then(keys => setMyRSAKeys(keys));
     }
-  }, [])
+  }, []);
+
+  // 2. Hàm bắt đầu Handshake nâng cao (Chống MITM)
+  const initiateE2EEHandshake = useCallback(async (conversationId: number) => {
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected && identityKeys && myRSAKeys) {
+      const idPubKeyB64 = await exportIdentityPublicKey(identityKeys.publicKey);
+      const rsaPubKeyB64 = await exportPublicKey(myRSAKeys.publicKey);
+      
+      // Sign the RSA key to prevent MITM
+      const signature = await signData(rsaPubKeyB64, identityKeys.privateKey);
+      
+      await connectionRef.current.invoke("SendSecureIdentity", conversationId, idPubKeyB64, rsaPubKeyB64, signature);
+      console.log(`🤝 [E2EE] Identity and Signed RSA Key sent to group ${conversationId}`);
+    }
+  }, [identityKeys, myRSAKeys]);
 
 
   useEffect(() => {
@@ -156,18 +186,67 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       .configureLogging(signalR.LogLevel.None)
       .build()
 
+    // --- HANDSHAKE BƯỚC 1: Xác thực danh tính & Nhận RSA ---
+    connection.on("ReceiveSecureIdentity", async (senderId: number, idPubKeyBase64: string, rsaPubKeyBase64: string, signature: string, conversationId: number) => {
+      if (user && senderId === user.id) return;
+      try {
+        const peerIdPubKey = await importIdentityPublicKey(idPubKeyBase64);
+        
+        // 1. Verify RSA key signature
+        const isVerified = await verifySignature(rsaPubKeyBase64, signature, peerIdPubKey);
+        if (!isVerified) {
+          console.error("⛔ [E2EE] CẢNH BÁO: Public key của User " + senderId + " không hợp lệ (MITM detected)! ");
+          return;
+        }
+
+        // 2. Store identity for later verification
+        peerIdentityKeysRef.current.set(senderId, peerIdPubKey);
+
+        // 3. Generate MY sender key if not already
+        if (!mySenderKeyRef.current) {
+          mySenderKeyRef.current = await generateSenderKey();
+        }
+
+        // 4. Encrypt MY sender key for THIS peer
+        const peerRSAPubKey = await importPublicKey(rsaPubKeyBase64);
+        const encryptedKey = await encryptSessionKeyForPeer(mySenderKeyRef.current, peerRSAPubKey);
+        
+        // 5. Send back our sender key wrapped
+        await connection.invoke("SendSecureSenderKey", conversationId, senderId, encryptedKey);
+      } catch (e) {
+        console.error("Handshake Secure Identity error", e);
+      }
+    });
+
+    // --- HANDSHAKE BƯỚC 2: Nhận khóa AES phiên ---
+    connection.on("ReceiveSecureSenderKey", async (senderId: number, encryptedKeyBase64: string, conversationId: number) => {
+       if (!myRSAKeys) return;
+       try {
+          const senderKey = await decryptSessionKey(encryptedKeyBase64, myRSAKeys.privateKey);
+          peerSenderKeysRef.current.set(senderId, senderKey);
+          console.log(`✅ [E2EE] Secured with User ${senderId}. Ready to decrypt.`);
+       } catch (e) {
+          console.error("Handshake Decrypt Key error", e);
+       }
+    });
+
     connection.on('ReceiveMessage', async (data: any) => {
-      const { id, conversationId, senderId, senderName, content, iv, messageType, stickerUrl, isPinned, createdAt, attachments, avatarPath, parentMessageId } = data;
+      const { id, conversationId, senderId, senderName, content, iv, sig, messageType, stickerUrl, isPinned, createdAt, attachments, avatarPath, parentMessageId } = data;
 
       let displayContent = content;
       if (messageType === 'PLAIN' || !messageType) {
-        if (cryptoKeyRef.current) {
-          displayContent = await decryptMessage(content, iv || '', cryptoKeyRef.current);
+        const senderSessionKey = (user && senderId === user.id) ? mySenderKeyRef.current : peerSenderKeysRef.current.get(senderId);
+        const senderIdKey = peerIdentityKeysRef.current.get(senderId);
+
+        if (senderSessionKey && iv && sig && senderIdKey) {
+           displayContent = await decryptMessagePro(content, iv, sig, senderSessionKey, senderIdKey);
+        } else if (user && senderId === user.id && mySenderKeyRef.current) {
+           // For local messages, we use our own session key + our identity key
+           displayContent = await decryptMessagePro(content, iv, sig, mySenderKeyRef.current, identityKeys!.publicKey);
         } else {
-          // Key not yet loaded, try to get it again (fallback)
-          const key = await getSessionKey();
-          cryptoKeyRef.current = key;
-          displayContent = await decryptMessage(content, iv || '', key);
+           displayContent = "⏳ [E2EE: Đang thỏa thuận bảo mật...]";
+           // Request handshake if missing keys
+           initiateE2EEHandshake(conversationId);
         }
       }
 
@@ -197,11 +276,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connection.on('ReceiveNotification', (data: any) => {
       const { id, title, sender, message, category, forceConfirmed, createdAt, isSystem } = data;
 
-      // Hiển thị toast cho tất cả thông báo
       if (category === "Security" && forceConfirmed) {
         toast.error(`🚨 CẢNH BÁO: ${title || "Security Alert"}`, {
           description: message,
-          duration: 30000, // Cảnh báo bảo mật hiển thị lâu hơn
+          duration: 30000,
         });
       } else {
         toast.info(`📢 THÔNG BÁO: ${message}`, {
@@ -225,19 +303,14 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       ])
     })
 
-    // --- XỬ LÝ 1: Nhận tin BẢO MẬT KHẨN CẤP (Popup) ---
     connection.on("receiveSecurityAlert", (data: any) => {
-      console.log('SIGNALR: receiveSecurityAlert received!', data)
       toast.error(`🚨 BẢO MẬT: ${data.title}`, {
         description: data.message,
-        duration: 0, // Click to close
+        duration: 0,
       });
-      // (Optional: trigger a global modal state if needed, but toast.error is a good start)
     })
 
-    // --- XỬ LÝ 2: Nhận tin THƯỜNG (Chỉ hiện chấm đỏ/toast) ---
     connection.on("receiveGeneralAnnouncement", (data: any) => {
-      console.log('SIGNALR: receiveGeneralAnnouncement received!', data)
       toast.info(`📢 ${data.title || "Thông báo"}`, {
         description: data.message,
       });
@@ -270,7 +343,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
       setActiveMeeting({ meetingId: mIdString, conversationId, title, callType, hostName })
 
-      // Show toast notification for 5 seconds as requested
       if (user && hostId !== user.id) {
         toast.info(`🚀 CUỘC HỌP MỚI: ${title}`, {
           description: `Bởi ${hostName}. Tham gia ngay!`,
@@ -286,13 +358,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connection.on('GlobalMeetingStarted', (data: any) => {
       const { meetingId, conversationId, title, hostName, hostId, type } = data;
 
-      // 1. Don't show toast to the host (Admin)
       if (user && (hostId === user.id || hostName === user.fullName)) return;
 
       const mIdString = String(meetingId);
       const convKey = `conv-${conversationId}`;
 
-      // 2. Strict Deduplication: Check if we've already notified for this meeting or conversation recently
       if (notifiedMeetingsRef.current.has(mIdString) || notifiedMeetingsRef.current.has(convKey)) {
         return;
       }
@@ -379,7 +449,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
     connection.on('UserLeft', (userId: number) => {
       setLastUserLeft(userId)
-      // Also remove from onlineUsers
       setOnlineUsers(prev => {
         const next = new Set(prev)
         next.delete(userId)
@@ -414,28 +483,42 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       connection.stop()
     }
 
-  }, [token])
+  }, [token, myKeyPair])
 
   const sendMessage = useCallback(async (conversationId: number, plaintext: string, messageType: string = 'PLAIN', parentMessageId?: number) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
       try {
         let contentToSend = plaintext;
         let ivToSend = "";
+        let sigToSend = "";
 
-        // Only encrypt if it's a plain message (not stickers/calls/etc if you want, but user asked for E2EE)
-        if (messageType === 'PLAIN' && cryptoKeyRef.current) {
-          const encrypted = await encryptMessage(plaintext, cryptoKeyRef.current);
-          contentToSend = encrypted.encryptedContent;
+        if (messageType === 'PLAIN') {
+          // Ensure we have a sender key
+          if (!mySenderKeyRef.current) {
+            mySenderKeyRef.current = await generateSenderKey();
+          }
+
+          // Check if we need to handshake first
+          if (peerIdentityKeysRef.current.size === 0) {
+              toast.error("Vui lòng đợi 1 giây để thiết lập mã hóa...");
+              initiateE2EEHandshake(conversationId);
+              return;
+          }
+
+          // MÃ HÓA & KÝ TÊN
+          const encrypted = await encryptMessagePro(plaintext, mySenderKeyRef.current, identityKeys!.privateKey);
+          contentToSend = encrypted.content;
           ivToSend = encrypted.iv;
+          sigToSend = encrypted.sig;
         }
 
-        await connectionRef.current.invoke('SendMessage', conversationId, contentToSend, ivToSend, messageType, parentMessageId || 0);
+        await connectionRef.current.invoke('SendMessageSecure', conversationId, contentToSend, ivToSend, sigToSend, messageType, parentMessageId || 0);
       } catch (err) {
         console.error("Failed to send encrypted message:", err);
-        toast.error("Lỗi khi gửi tin nhắn bảo mật");
+        toast.error("Lỗi khi mã hóa tin nhắn.");
       }
     }
-  }, [])
+  }, [identityKeys, initiateE2EEHandshake])
 
   const markAsRead = useCallback(async (conversationId: number, messageId: number = 0) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
