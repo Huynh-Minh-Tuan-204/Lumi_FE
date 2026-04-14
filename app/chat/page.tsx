@@ -22,8 +22,10 @@ import {
   Settings, 
   User as UserIcon,
   MessageSquare,
-  X 
+  X,
+  LayoutDashboard
 } from 'lucide-react'
+import Link from 'next/link'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -66,6 +68,26 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
   return (
     <div className="w-[64px] bg-[#0a0a0a] flex flex-col items-center py-6 gap-6 shrink-0 z-[60] shadow-2xl h-full border-r border-white/5">
        <div className="flex flex-col gap-6 items-center flex-1 w-full">
+          {user?.role === 'Admin' && (
+             <TooltipProvider>
+               <Tooltip>
+                 <TooltipTrigger asChild>
+                   <Button 
+                     variant="ghost" 
+                     size="icon" 
+                     asChild
+                     className="h-12 w-12 rounded-xl text-primary/60 hover:bg-primary/5 hover:text-primary transition-all mb-2"
+                   >
+                     <Link href="/dashboard">
+                        <LayoutDashboard className="h-6 w-6" />
+                     </Link>
+                   </Button>
+                 </TooltipTrigger>
+                 <TooltipContent side="right">Bảng quản trị</TooltipContent>
+               </Tooltip>
+             </TooltipProvider>
+          )}
+
           <div className="h-10 w-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 mb-2 active:scale-95 transition-transform cursor-pointer">
              <MessageSquare className="h-5 w-5 text-primary-foreground" />
           </div>

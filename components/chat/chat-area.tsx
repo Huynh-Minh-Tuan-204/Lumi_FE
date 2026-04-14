@@ -272,7 +272,45 @@ export function ChatArea({
     return groups;
   }, [messages]);
 
-  if (!conversation) return null
+  if (!conversation) {
+    return (
+      <div className="flex-1 h-full flex flex-col items-center justify-center p-8 bg-background relative overflow-hidden">
+        {/* Decorative Background Elements */}
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-[120px] animate-pulse" />
+        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-[100px] animate-pulse [animation-delay:2s]" />
+        
+        <div className="relative z-10 flex flex-col items-center max-w-md text-center">
+           <div className="w-24 h-24 mb-8 relative">
+              <div className="absolute inset-0 bg-primary/20 rounded-3xl rotate-6 blur-xl" />
+              <div className="absolute inset-0 bg-primary/20 rounded-3xl -rotate-6" />
+              <div className="relative h-full w-full bg-primary rounded-3xl flex items-center justify-center shadow-2xl shadow-primary/40 border border-white/20">
+                 <MessageSquare className="h-10 w-10 text-white fill-white/10" />
+              </div>
+           </div>
+
+           <h2 className="text-3xl font-black tracking-tight mb-4 text-foreground">
+             Chào mừng đến với <span className="text-primary italic">Lumi Chat</span>
+           </h2>
+           <p className="text-sm text-muted-foreground leading-relaxed font-medium mb-10 opacity-70">
+             Lumi Chat là không gian làm việc số tập trung, nơi bạn có thể trao đổi, họp video và quản lý dự án một cách chuyên nghiệp. 
+             <br /><br />
+             Hãy chọn một hội thoại bên trái để bắt đầu thảo luận hoặc tạo cuộc họp mới để kết nối với đồng nghiệp.
+           </p>
+
+           <div className="flex flex-wrap justify-center gap-4">
+              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-muted/30 border border-white/5 shadow-sm">
+                 <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Toàn bộ đã sẵn sàng</span>
+              </div>
+              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-muted/30 border border-white/5 shadow-sm">
+                 <div className="h-2 w-2 rounded-full bg-blue-500" />
+                 <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Vui lòng chọn hội thoại</span>
+              </div>
+           </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <TooltipProvider>
