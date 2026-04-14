@@ -378,6 +378,12 @@ export const conversationsApi = {
       token,
     }),
 
+  leaveConversation: (token: string, id: number) =>
+    request<any>(`/Conversations/${id}/leave`, {
+      method: 'POST',
+      token,
+    }),
+
   renameConversation: (token: string, id: number, name: string) =>
     request<{ message: string; name: string }>(`/Conversations/${id}/name`, {
       method: 'PUT',

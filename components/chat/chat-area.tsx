@@ -383,7 +383,21 @@ export function ChatArea({
                     <ActivityIcon className="h-4 w-4 text-primary" /> Bảng tin nhóm
                  </DropdownMenuItem>
                  <DropdownMenuSeparator />
-                 <DropdownMenuItem className="text-destructive p-2.5 rounded-xl text-xs font-black uppercase tracking-widest gap-3">
+                 <DropdownMenuItem
+                    className="text-destructive p-2.5 rounded-xl text-xs font-black uppercase tracking-widest gap-3 focus:bg-destructive/10 focus:text-destructive cursor-pointer"
+                    onClick={async () => {
+                      if (!conversation || !user) return
+                      if (!confirm(`Bạn có chắc muốn rời khỏi "${conversation.name}"?`)) return
+                      try {
+                        await conversationsApi.leaveConversation(token!, conversation.id)
+                        toast.success(`Đã rời khỏi "${conversation.name}"`)
+                        if (onRefreshConversations) onRefreshConversations()
+                        if (onBack) onBack()
+                      } catch {
+                        toast.error('Không thể rời khỏi hội thoại này')
+                      }
+                    }}
+                  >
                     <LogOut className="h-4 w-4" /> Rời khỏi hội thoại
                  </DropdownMenuItem>
               </DropdownMenuContent>
