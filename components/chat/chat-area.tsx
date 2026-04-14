@@ -32,7 +32,9 @@ import {
   Video as VideoIcon,
   Activity as ActivityIcon,
   X,
-  MessageSquare
+  MessageSquare,
+  PhoneCall,
+  Maximize2
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -50,6 +52,7 @@ import {
 import { useAuth } from '@/lib/auth-context'
 import { conversationsApi, meetingsApi, attachmentsApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
+import { useCall } from '@/hooks/use-call'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { CallLobby } from '@/components/chat/call-lobby'
@@ -180,6 +183,15 @@ export function ChatArea({
     identityKeys, 
     keyVersion 
   } = signalRData
+
+  const {
+    activeCallId,
+    localStream,
+    remotePeers,
+    isMinimized,
+    setIsMinimized,
+    endCall
+  } = useCall()
 
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
@@ -484,6 +496,38 @@ export function ChatArea({
         }}
         onCancel={() => setShowLobby(null)} 
       />
+    )}
+
+    {/* Floating Call Overlay when Minimized */}
+    {activeCallId && isMinimized && (
+      <div className="fixed bottom-6 right-6 w-64 md:w-80 bg-[#1A1A1A] rounded-[2rem] overflow-hidden border border-primary/30 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[99999] animate-in slide-in-from-bottom-5">
+         <div className="relative aspect-video bg-black flex items-center justify-center">
+            <video 
+              autoPlay playsInline muted 
+              ref={(v) => { if(v && localStream) v.srcObject = localStream; }}
+              className="w-full h-full object-cover scale-x-[-1]" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+            <div className="absolute bottom-4 left-4 flex flex-col -space-y-1">
+               <span className="text-[10px] font-black text-primary uppercase tracking-widest">Đang gọi</span>
+               <span className="text-xs font-bold text-white truncate max-w-[150px]">{conversation.name}</span>
+            </div>
+            <div className="absolute top-4 right-4 flex gap-2">
+               <Button onClick={() => setIsMinimized(false)} size="icon" className="h-8 w-8 rounded-full bg-primary text-white shadow-lg"><Maximize2 className="h-4 w-4" /></Button>
+               <Button onClick={() => router.push(`/call/${activeCallId}`)} size="icon" className="h-8 w-8 rounded-full bg-white/10 text-white backdrop-blur-md"><PhoneCall className="h-4 w-4" /></Button>
+            </div>
+         </div>
+         <div className="px-4 py-3 flex justify-between items-center bg-[#1A1A1A]">
+            <div className="flex -space-x-2">
+               <Avatar className="h-6 w-6 border-2 border-[#1A1A1A]"><AvatarImage src={getAvatarUrl(user?.id)} /><AvatarFallback className="text-[8px] font-black">Me</AvatarFallback></Avatar>
+               {remotePeers.slice(0, 2).map(p => (
+                   <Avatar key={p.userId} className="h-6 w-6 border-2 border-[#1A1A1A] text-white"><AvatarImage src={getAvatarUrl(p.userId)} /><AvatarFallback className="text-[8px] font-black">{p.userName[0]}</AvatarFallback></Avatar>
+               ))}
+               {remotePeers.length > 2 && <div className="h-6 w-6 rounded-full border-2 border-[#1A1A1A] bg-primary/20 text-[8px] flex items-center justify-center font-black">+{remotePeers.length - 2}</div>}
+            </div>
+            <Button onClick={() => endCall()} variant="destructive" size="sm" className="h-8 rounded-xl px-4 font-black uppercase text-[9px] tracking-widest">Kết thúc</Button>
+         </div>
+      </div>
     )}
     </TooltipProvider>
   )
