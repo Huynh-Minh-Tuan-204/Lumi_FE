@@ -11,6 +11,7 @@ import { useSignalR, ChatMessage } from '@/hooks/use-signalr'
 import { useCall } from '@/hooks/use-call'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
+import { decryptMessagePro } from '@/lib/crypto-utils'
 
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, MoreHorizontal, Users, MessageSquare, X, Send, Smile, ShieldCheck, Minimize2, Maximize2 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -67,6 +68,66 @@ function formatDuration(seconds: number) {
       </div>
     )
   }
+
+// Internal component for async decryption
+function DecryptedText({ 
+    message, 
+    user, 
+    mySenderKey, 
+    peerSenderKeys, 
+    peerIdentityKeys, 
+    identityKeys,
+    initiateHandshake
+}: { 
+    message: any, 
+    user: any, 
+    mySenderKey: any, 
+    peerSenderKeys: Map<number, any>, 
+    peerIdentityKeys: Map<number, any>,
+    identityKeys: any,
+    initiateHandshake: (cid: number) => Promise<void>
+}) {
+    const [decrypted, setDecrypted] = useState<string>("⌛ [Đang giải mã...]");
+
+    useEffect(() => {
+        const decrypt = async () => {
+            if (message.messageType !== 'PLAIN' && message.messageType !== 'Text' && message.messageType !== 'PLAIN_SECURE' && message.messageType) {
+                setDecrypted(message.message || message.encryptedContent || "");
+                return;
+            }
+
+            const senderId = message.senderId;
+            const content = message.message || message.encryptedContent;
+            const iv = message.iv;
+            const sig = message.signature || message.sig;
+
+            if (!content || content === "[Attachment]") {
+                setDecrypted("");
+                return;
+            }
+
+            try {
+                const isOwn = user && senderId === user.id;
+                const senderKey = isOwn ? mySenderKey : peerSenderKeys?.get(senderId);
+                const senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderId);
+
+                if (senderKey && senderIdPubKey && iv && sig) {
+                    const result = await decryptMessagePro(content, iv, sig, senderKey, senderIdPubKey);
+                    setDecrypted(result);
+                } else {
+                    setDecrypted("⏳ [Mã hóa đầu cuối]");
+                    if (message.conversationId) initiateHandshake(message.conversationId);
+                }
+            } catch (e) {
+                setDecrypted("[Lỗi giải mã]");
+            }
+        };
+
+        decrypt();
+    }, [message.id, message.message, message.encryptedContent, mySenderKey, peerSenderKeys?.size, peerIdentityKeys?.size]);
+
+    return <span>{decrypted}</span>;
+}
 
 
 export function VideoCallUI({ callId, callType, participantName, onEndCall, initialMic = true, initialCam = true }: VideoCallUIProps) {
@@ -338,7 +399,15 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                                     <div key={msg.id} className={cn("flex flex-col gap-2", msg.senderId === user?.id ? "items-end" : "items-start")}>
                                         <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">{msg.sender}</p>
                                         <div className={cn("px-4 py-2 text-sm rounded-2xl max-w-[90%] break-words", msg.senderId === user?.id ? "bg-primary text-white rounded-tr-none shadow-lg shadow-primary/20" : "bg-white/5 border border-white/10 shadow-inner rounded-tl-none")}>
-                                            {msg.message}
+                                            <DecryptedText 
+                                                message={msg}
+                                                user={user}
+                                                mySenderKey={(useSignalR() as any).mySenderKey}
+                                                peerSenderKeys={(useSignalR() as any).peerSenderKeys}
+                                                peerIdentityKeys={(useSignalR() as any).peerIdentityKeys}
+                                                identityKeys={(useSignalR() as any).identityKeys}
+                                                initiateHandshake={(useSignalR() as any).initiateE2EEHandshake}
+                                            />
                                         </div>
                                     </div>
                                 ))}

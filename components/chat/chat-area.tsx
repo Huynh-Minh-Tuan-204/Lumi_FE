@@ -567,14 +567,24 @@ export function ChatArea({
          <div className="z-20 bg-background/95 backdrop-blur-md border-b flex items-center transition-all duration-300 border-l-4 border-l-primary h-12 shadow-sm relative animate-in slide-in-from-top-1 px-4 gap-3 shrink-0 group">
              <div className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer" onClick={() => scrollToMessage(latestPin.id)}>
                 <Pin className="h-3.5 w-3.5 text-primary fill-primary" />
-                <div className="min-w-0">
-                   <p className="text-[9px] font-black uppercase text-primary tracking-tighter opacity-70">
-                      Tin nhắn đã ghim {pinnedList.length > 1 && `(+${pinnedList.length - 1})`}
-                   </p>
-                   <p className="text-xs truncate opacity-90 font-bold">
-                       {latestPin.senderName}: {latestPin.encryptedContent}
-                   </p>
-                </div>
+                <div className="flex-1 min-w-0 pr-10">
+               <p className="text-[9px] font-black uppercase text-primary/60 mb-0.5 tracking-widest flex items-center gap-2">
+                  <div className="h-1 w-1 rounded-full bg-primary" /> TIN NHẮN ĐÃ GHIM
+               </p>
+               <div className="text-xs font-bold truncate opacity-90">
+                  <span className="text-primary">{latestPin.senderName}:</span>{" "}
+                  <DecryptedText 
+                      message={latestPin}
+                      user={user}
+                      mySenderKey={(useSignalR() as any).mySenderKey}
+                      peerSenderKeys={(useSignalR() as any).peerSenderKeys}
+                      peerIdentityKeys={(useSignalR() as any).peerIdentityKeys}
+                      identityKeys={(useSignalR() as any).identityKeys}
+                      initiateHandshake={initiateE2EEHandshake}
+                      onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
+                  />
+               </div>
+            </div>
              </div>
              
              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -597,9 +607,19 @@ export function ChatArea({
                   <div className="max-h-48 overflow-y-auto space-y-1 pr-1">
                      {pinnedList.slice(0, -1).reverse().map(p => (
                        <div key={p.id} className="flex items-center justify-between p-2 rounded-xl hover:bg-muted/50 group/item cursor-pointer" onClick={() => { scrollToMessage(p.id); setIsPinnedListExpanded(false); }}>
-                          <p className="text-xs truncate flex-1 pr-4">
-                             <span className="font-bold">{p.senderName}:</span> {p.encryptedContent}
-                          </p>
+                          <div className="text-xs truncate flex-1 pr-4">
+                             <span className="font-bold">{p.senderName}:</span>{" "}
+                             <DecryptedText 
+                               message={p}
+                               user={user}
+                               mySenderKey={(useSignalR() as any).mySenderKey}
+                               peerSenderKeys={(useSignalR() as any).peerSenderKeys}
+                               peerIdentityKeys={(useSignalR() as any).peerIdentityKeys}
+                               identityKeys={(useSignalR() as any).identityKeys}
+                               initiateHandshake={initiateE2EEHandshake}
+                               onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
+                             />
+                          </div>
                           <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover/item:opacity-100 text-destructive" onClick={(e) => { e.stopPropagation(); togglePinMessage(p.id); }}>
                              <X className="h-3 w-3" />
                           </Button>
