@@ -480,7 +480,7 @@ export function ChatArea({
         onJoin={(mic, cam) => {
            // Đã có biến router được định nghĩa ở đầu ChatArea
            setShowLobby(null);
-           router.push(`/meeting/${showLobby.meetingId}?mic=${mic}&cam=${cam}`);
+           router.push(`/call/${showLobby.meetingId}?mic=${mic}&cam=${cam}`);
         }}
         onCancel={() => setShowLobby(null)} 
       />
