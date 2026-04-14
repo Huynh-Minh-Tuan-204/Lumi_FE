@@ -678,10 +678,11 @@ export function ChatArea({
                          <div className={cn(
                              "rounded-2xl shadow-sm text-sm break-words border relative group/msg overflow-hidden transition-all duration-300", 
                              isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card",
-                             (m.attachments && m.attachments.length > 0 && (!m.encryptedContent || m.encryptedContent.trim() === "[Attachment]" || m.encryptedContent.trim() === "")) ? "p-0" : "p-0"
+                             (m.attachments && m.attachments.length > 0 && (!m.encryptedContent || m.encryptedContent.trim() === "[Attachment]" || m.encryptedContent.trim() === "")) ? "p-2" : "p-0"
                           )}>
-                                 <div className={cn("space-y-1 w-full", (m.encryptedContent && m.encryptedContent.trim() !== "[Attachment]" && m.encryptedContent.trim() !== "") && "p-2 pb-0")}>
-                                  {m.attachments.map((a: any, i: number) => {
+                             {m.attachments && m.attachments.length > 0 && (
+                               <div className={cn("space-y-1 w-full", (m.encryptedContent && m.encryptedContent.trim() !== "[Attachment]" && m.encryptedContent.trim() !== "") && "p-2 pb-0")}>
+                                 {m.attachments.map((a: any, i: number) => {
                                    const isImage = a.mimeType?.startsWith('image/');
                                    const url = getAttachmentUrl(a.id, token!);
                                    
@@ -691,7 +692,7 @@ export function ChatArea({
                                           <img 
                                             src={url} 
                                             alt={a.fileName} 
-                                            className="w-full h-full object-cover block hover:scale-105 transition-transform duration-500"
+                                            className="block w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                                             onClick={() => window.open(url, '_blank')}
                                           />
                                           <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
