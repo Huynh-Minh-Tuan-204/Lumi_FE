@@ -52,9 +52,7 @@ export function MembersSidebar({
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
 
-  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false)
-  const [newMemberId, setNewMemberId] = useState('')
-  const [isAddingMember, setIsAddingMember] = useState(false)
+
 
 
   const loadMembers = async () => {
@@ -91,22 +89,7 @@ export function MembersSidebar({
     }
   }, [lastUserUpdate])
 
-  const handleAddMember = async () => {
-    if (!token || !newMemberId.trim()) return
-    setIsAddingMember(true)
-    try {
-      await conversationsApi.addMember(token, conversationId, parseInt(newMemberId, 10))
-      toast.success('Đã thêm thành viên thành công')
-      setIsAddMemberOpen(false)
-      setNewMemberId('')
-      loadMembers() // Reload members
-    } catch (error) {
-      console.error('Failed to add member:', error)
-      toast.error('Thêm thành viên thất bại')
-    } finally {
-      setIsAddingMember(false)
-    }
-  }
+
 
   const handleRemoveMember = async (userId: number) => {
     if (!token) return
@@ -160,50 +143,14 @@ export function MembersSidebar({
             {members.length} thành viên
           </p>
         </div>
-        {canManageMembers && (
-          <Dialog open={isAddMemberOpen} onOpenChange={setIsAddMemberOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="icon">
-                <UserPlus className="h-4 w-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-106.25">
-              <DialogHeader>
-                <DialogTitle>Thêm thành viên</DialogTitle>
-                <DialogDescription>
-                  Nhập ID người dùng của thành viên bạn muốn thêm vào nhóm.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="userId" className="text-right">
-                    ID người dùng
-                  </Label>
-                  <Input
-                    id="userId"
-                    value={newMemberId}
-                    onChange={(e) => setNewMemberId(e.target.value)}
-                    className="col-span-3"
-                    placeholder="Nhập ID người dùng..."
-                    type="number"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={handleAddMember} disabled={isAddingMember || !newMemberId.trim()}>
-                  {isAddingMember ? 'Đang thêm...' : 'Thêm thành viên'}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
+
       </div>
 
       {/* Group Assets Section */}
       {canManageMembers && (
         <div className="p-4 border-b space-y-3 bg-muted/30">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tài nguyên nhóm</h3>
-          <div className="flex gap-2">
+          <div className="flex">
             <div className="flex-1">
               <Label htmlFor="avatar-upload" className="cursor-pointer">
                 <div className="flex flex-col items-center gap-2 p-3 border-2 border-dashed rounded-lg hover:bg-muted transition-colors">
@@ -222,30 +169,6 @@ export function MembersSidebar({
                         toast.success('Đã cập nhật ảnh đại diện nhóm thành công!')
                       } catch (error) {
                         toast.error('Cập nhật ảnh đại diện thất bại')
-                      }
-                    }
-                  }}
-                />
-              </Label>
-            </div>
-            <div className="flex-1">
-              <Label htmlFor="bg-upload" className="cursor-pointer">
-                <div className="flex flex-col items-center gap-2 p-3 border-2 border-dashed rounded-lg hover:bg-muted transition-colors">
-                  <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-center">Cập nhật Ảnh nền</span>
-                </div>
-                <Input 
-                  id="bg-upload" 
-                  type="file" 
-                  accept="image/*" 
-                  className="hidden" 
-                  onChange={async (e) => {
-                    if (e.target.files?.[0] && token) {
-                      try {
-                        await conversationsApi.uploadGroupBackground(token, conversationId, e.target.files[0])
-                        toast.success('Đã cập nhật ảnh nền nhóm thành công!')
-                      } catch (error) {
-                        toast.error('Cập nhật ảnh nền thất bại')
                       }
                     }
                   }}

@@ -2,15 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
-import { adminApi, conversationsApi, meetingsApi } from '@/lib/api'
+import { adminApi, conversationsApi } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Users, MessageSquare, Activity, Bell, UserPlus, Hash, Video, Plus, ArrowRight } from 'lucide-react'
+import { Users, MessageSquare, Activity, Bell, UserPlus } from 'lucide-react'
 import Link from 'next/link'
-import { toast } from 'sonner'
-import { CallLobby } from '@/components/chat/call-lobby'
+
 
 interface Stats {
   totalUsers: number
@@ -21,9 +19,6 @@ interface Stats {
 
 export default function DashboardPage() {
   const { token, user } = useAuth()
-  const [meetingCode, setMeetingCode] = useState('')
-  const [showLobby, setShowLobby] = useState<{ meetingId: string; type: 'voice' | 'video'; title: string; conversationId: number } | null>(null)
-
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
     activeUsers: 0,
@@ -78,20 +73,7 @@ export default function DashboardPage() {
 
 
 
-  const handleJoinMeeting = async () => {
-    if (!token || !meetingCode.trim()) return;
-    try {
-      const resp = await meetingsApi.getMeeting(token, meetingCode.trim());
-      setShowLobby({
-        meetingId: resp.meetingGuid,
-        type: 'video',
-        title: resp.title,
-        conversationId: resp.conversationId
-      });
-    } catch (e) {
-      toast.error("Mã phòng không hợp lệ hoặc đã kết thúc.");
-    }
-  }
+
 
   const getInitials = (name: string) =>
     name
@@ -125,32 +107,6 @@ export default function DashboardPage() {
           </Button>
         )}
       </div>
-
-      {/* Meeting Hub - Quick Create Removed - Only Join Left */}
-      <div className="max-w-xl mx-auto w-full">
-         <Card className="border-2 border-primary/10 shadow-lg">
-            <CardHeader>
-               <CardTitle className="flex items-center gap-2">
-                  <Hash className="h-5 w-5 text-primary" /> Tham gia bằng mã
-               </CardTitle>
-               <CardDescription>Nhập đúng mã phòng (phân biệt hoa thường) để tham gia.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-               <div className="flex gap-2">
-                  <Input 
-                    placeholder="Mã phòng (vd: a1b2c-d3e4f-g5h6i)" 
-                    value={meetingCode}
-                    onChange={(e) => setMeetingCode(e.target.value)}
-                    className="h-12 border-primary/20 focus-visible:ring-primary rounded-xl font-bold font-mono"
-                  />
-                  <Button onClick={handleJoinMeeting} className="h-12 w-12 rounded-xl p-0" variant="default">
-                     <ArrowRight className="h-5 w-5" />
-                  </Button>
-               </div>
-            </CardContent>
-         </Card>
-      </div>
-
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
@@ -252,24 +208,7 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {showLobby && (
-        <CallLobby 
-          meetingId={showLobby.meetingId}
-          type={showLobby.type}
-          title={showLobby.title}
-          conversationId={showLobby.conversationId}
-          onJoin={(mic, cam) => {
-            const path = `/call/${showLobby.meetingId}?type=${showLobby.type}&mic=${mic}&cam=${cam}`;
-            import('next/navigation').then(({ useRouter }) => {
-                // If router is already available from hook
-            });
-            // Better to use current router instance from component
-            router.push(path);
-            setShowLobby(null);
-          }}
-          onCancel={() => setShowLobby(null)}
-        />
-      )}
+
     </div>
   )
 }
