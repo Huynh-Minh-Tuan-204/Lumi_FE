@@ -8,41 +8,21 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useAuth } from '@/lib/auth-context'
 import { meetingsApi, conversationsApi } from '@/lib/api'
 import { CallSignalR } from '@/lib/call-signalr'
+import { useSignalR, ChatMessage } from '@/hooks/use-signalr'
+import { useCall } from '@/hooks/use-call'
+import { toast } from 'sonner'
+import { useRouter } from 'next/navigation'
+
 import { Mic, MicOff, Video, VideoOff, PhoneOff, Monitor, MoreHorizontal, Users, MessageSquare, X, Send, Smile, ShieldCheck, Minimize2, Maximize2 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { useSignalR, ChatMessage } from '@/hooks/use-signalr'
-import { toast } from 'sonner'
 
 interface VideoCallUIProps {
-  callId: string // This is the MeetingGuid (string)
+  callId: string 
   callType: 'video' | 'voice'
   participantName: string
   onEndCall: () => void
   initialMic?: boolean
   initialCam?: boolean
-}
-
-interface UserPeer {
-  userId: number
-  userName: string
-  stream: MediaStream | null
-}
-
-interface PeerState {
-  userId: number
-  userName: string
-  stream: MediaStream | null
-  connection: RTCPeerConnection
-  isPolite: boolean
-  makingOffer: boolean
-  ignoreOffer: boolean
-}
-
-const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-  ],
 }
 
 export function VideoCallUI({ callId, callType, participantName, onEndCall, initialMic = true, initialCam = true }: VideoCallUIProps) {
@@ -171,8 +151,12 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       setConvId(meeting.conversationId ?? meeting.ConversationId)
       setHostId(meeting.createdBy ?? meeting.CreatedBy)
       
-      const startAt = meeting.createdAt || meeting.startTime || meeting.CreatedAt || meeting.StartTime;
-      if (startAt) setMeetingStartTimeState(new Date(startAt));
+      const startAtRaw = meeting.createdAt || meeting.startTime || meeting.CreatedAt || meeting.StartTime;
+      if (startAtRaw) {
+          // Add 1 second buffer to be safe
+          const startAtDate = new Date(startAtRaw);
+          setMeetingStartTimeState(new Date(startAtDate.getTime() - 1000));
+      }
       
       // Now fetch messages (should not be 403 anymore as backend JoinCall adds us)
       try {
@@ -203,205 +187,12 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     return () => ac.abort()
   }, [fetchMeetingData])
 
-  const createPeerConnection = useCallback((targetUserId: number, targetUserName: string, isPolite: boolean) => {
-    const pc = new RTCPeerConnection(RTC_CONFIG);
-    const peerState: PeerState = {
-      userId: targetUserId,
-      userName: targetUserName,
-      stream: null,
-      connection: pc,
-      isPolite,
-      makingOffer: false,
-      ignoreOffer: false
-    };
-
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => {
-        pc.addTrack(track, localStreamRef.current!);
-      });
-    }
-
-    pc.onicecandidate = ({ candidate }) => {
-      if (candidate && signalRRef.current?.isConnected) {
-        signalRRef.current.sendIceCandidate(callId, targetUserId, candidate.toJSON());
-      }
-    };
-
-    pc.ontrack = ({ streams }) => {
-      if (streams[0]) {
-        peerState.stream = streams[0];
-        updatePeerUI();
-      }
-    };
-
-    pc.onnegotiationneeded = async () => {
-      try {
-        peerState.makingOffer = true;
-        await pc.setLocalDescription();
-        if (signalRRef.current?.isConnected) {
-          await signalRRef.current.sendOffer(callId, targetUserId, pc.localDescription!);
-        }
-      } catch (err) {
-        console.error(`WebRTC: Negotiation error with ${targetUserName}`, err);
-      } finally {
-        peerState.makingOffer = false;
-      }
-    };
-
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-        removePeer(targetUserId);
-      }
-    };
-
-    peersRef.current.set(targetUserId, peerState);
-    updatePeerUI();
-    return peerState;
-  }, [callId, removePeer, updatePeerUI]);
-
   useEffect(() => {
-    if (!token || !user) return;
-    let active = true;
+    if (callId && token) {
+        joinCall(callId, callType)
+    }
+  }, [callId, token, callType, joinCall])
 
-    const startCall = async () => {
-      try {
-        let stream: MediaStream;
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-            video: callType === 'video'
-          });
-        } catch (innerErr: any) {
-          // If camera is not found or failed, try audio only
-          if (callType === 'video' && (innerErr.name === 'NotFoundError' || innerErr.name === 'DevicesNotFoundError')) {
-            console.warn("Camera not found, trying audio only...");
-            toast.warning("Không tìm thấy camera. Bạn sẽ tham gia bằng âm thanh.");
-            stream = await navigator.mediaDevices.getUserMedia({
-              audio: true,
-              video: false
-            });
-            setIsCameraOn(false);
-          } else {
-            throw innerErr;
-          }
-        }
-
-        if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
-        
-        localStreamRef.current = stream;
-        
-        if (!initialMic) {
-            stream.getAudioTracks().forEach(t => t.enabled = false);
-        }
-        
-        if (callType === 'video' && !initialCam) {
-            stream.getVideoTracks().forEach(t => t.enabled = false);
-        }
-
-        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-
-        const signalR = new CallSignalR({
-          onUserJoined: async (_connId, remoteUserId, displayName) => {
-            if (remoteUserId === user.id) return;
-            toast.info(`${displayName} đã tham gia cuộc họp`);
-            const isPolite = user.id > remoteUserId;
-            if (!peersRef.current.has(remoteUserId)) {
-              createPeerConnection(remoteUserId, displayName, isPolite);
-            }
-          },
-          onUserLeft: (_connId, remoteUserId, displayName) => {
-            toast.info(`${displayName} đã rời cuộc họp`);
-            removePeer(remoteUserId);
-            // Manually update participant list to avoid ghosting if backend list update is slow
-            setMeetingParticipants(prev => prev.filter(p => (p.userId ?? p.UserId) !== remoteUserId));
-          },
-          onMeetingMemberList: (members) => {
-            // Definitively solve 'Ghost Participants' issue
-            console.log("Receiving definitive meeting member list:", members);
-             setMeetingParticipants(members.map((m: any) => ({
-                 userId: m.userId ?? m.UserId,
-                 fullName: m.displayName ?? m.DisplayName ?? m.fullName ?? m.FullName ?? "User",
-                 connectionId: m.connectionId ?? m.ConnectionId
-             })));
-
-            // Update peer names if they are already connected
-            members.forEach((m: any) => {
-              const mid = m.userId ?? m.UserId;
-              const mname = m.displayName ?? m.DisplayName ?? m.fullName ?? m.FullName ?? "User";
-              const peer = peersRef.current.get(mid);
-              if (peer && (peer.userName === "User" || peer.userName !== mname)) {
-                peer.userName = mname;
-              }
-            });
-            updatePeerUI();
-          },
-          onReceiveOffer: async (offer, fromUserId) => {
-            let peer = peersRef.current.get(fromUserId);
-            if (!peer) {
-              const name = meetingParticipants.find(p => p.userId === fromUserId)?.fullName || "User";
-              peer = createPeerConnection(fromUserId, name, user.id > fromUserId);
-            }
-            const pc = peer.connection;
-            const offerCollision = offer.type === "offer" && (peer.makingOffer || pc.signalingState !== "stable");
-            peer.ignoreOffer = !peer.isPolite && offerCollision;
-            if (peer.ignoreOffer) return;
-            if (offerCollision) {
-              await Promise.all([
-                pc.setLocalDescription({ type: "rollback" }),
-                pc.setRemoteDescription(offer)
-              ]);
-            } else {
-              await pc.setRemoteDescription(offer);
-            }
-            if (offer.type === "offer") {
-              await pc.setLocalDescription();
-              await signalR.sendAnswer(callId, fromUserId, pc.localDescription!);
-            }
-          },
-          onReceiveAnswer: async (answer, fromUserId) => {
-            const peer = peersRef.current.get(fromUserId);
-            if (peer) await peer.connection.setRemoteDescription(answer);
-          },
-          onReceiveIceCandidate: async (candidate, fromUserId) => {
-            const peer = peersRef.current.get(fromUserId);
-            if (peer && !peer.ignoreOffer) {
-              await peer.connection.addIceCandidate(candidate).catch(() => {});
-            }
-          },
-          onIncomingJoinRequest: (req: any) => {
-            setWaitingList(prev => [...prev.filter(p => p.UserId !== req.UserId), req]);
-            toast.info(`${req.FullName} đang đợi ở phòng chờ`, {
-                action: {
-                    label: "Xem",
-                    onClick: () => { setShowPeople(true); setShowChat(false); }
-                }
-            });
-          },
-        });
-
-        signalRRef.current = signalR;
-        await signalR.connect(token);
-        await signalR.joinCall(callId);
-      } catch (err: any) {
-        if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-             setError("Không tìm thấy thiết bị thu âm hoặc hình ảnh.");
-        } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-             setError("Bạn đã chặn quyền truy cập Camera/Microphone.");
-        } else {
-             setError("Không thể khởi tạo cuộc họp.");
-        }
-        console.error(err);
-      }
-    };
-    startCall();
-    return () => {
-      active = false;
-      localStreamRef.current?.getTracks().forEach(t => { t.stop(); t.enabled = false; });
-      peersRef.current.forEach(p => p.connection.close());
-      peersRef.current.clear();
-      signalRRef.current?.disconnect();
-    };
-  }, [callId, token, user, callType, createPeerConnection, removePeer, initialMic, initialCam]);
 
   // Sync Local Stream States
   useEffect(() => {

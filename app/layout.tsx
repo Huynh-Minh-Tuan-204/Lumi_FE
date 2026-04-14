@@ -3,8 +3,10 @@ import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/lib/auth-context'
 import { SignalRProvider } from '@/hooks/use-signalr'
+import { CallProvider } from '@/hooks/use-call'
 import { IdleTimeout } from '@/components/auth/idle-timeout'
 import { IncomingCallOverlay } from '@/components/call/incoming-call-overlay'
+import { GlobalCallOverlay } from '@/components/call/global-call-overlay'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
@@ -42,10 +44,13 @@ export default function RootLayout({
           <AuthProvider>
             <SecurityGuard>
               <SignalRProvider>
-                <IdleTimeout />
-                <IncomingCallOverlay />
-                {children}
-                <Toaster />
+                <CallProvider>
+                  <IdleTimeout />
+                  <IncomingCallOverlay />
+                <GlobalCallOverlay />
+                  {children}
+                  <Toaster />
+                </CallProvider>
               </SignalRProvider>
             </SecurityGuard>
           </AuthProvider>
