@@ -203,13 +203,24 @@ export async function decryptMessagePro(
 // HELPERS
 // ==========================================
 
-export function bufferToBase64(buffer: ArrayBuffer): string {
-    return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+export function bufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
+    const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
 }
 
-export function base64ToBuffer(base64: string): Uint8Array {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
+export function base64ToBuffer(base64: string): ArrayBuffer {
+    if (!base64 || typeof base64 !== 'string') return new ArrayBuffer(0);
+    try {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes.buffer;
+    } catch (e) {
+        console.error("Base64 decoding failed", e);
+        return new ArrayBuffer(0);
+    }
 }

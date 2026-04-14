@@ -108,7 +108,22 @@ export function ChatArea({
   className 
  }: ChatAreaProps) {
   const { token, user } = useAuth()
-  const { isConnected, sendMessage, lastMessage, markAsRead, sendTyping, typingUsers, togglePinMessage, lastDeletedMessage, pinnedMessages, activeMeeting, initiateE2EEHandshake } = useSignalR()
+  const { 
+    isConnected, 
+    sendMessage, 
+    lastMessage, 
+    markAsRead, 
+    sendTyping, 
+    typingUsers, 
+    togglePinMessage, 
+    lastDeletedMessage, 
+    pinnedMessages, 
+    activeMeeting, 
+    initiateE2EEHandshake,
+    hideMessageForMe,
+    sendReminder
+  } = useSignalR()
+
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isPinnedListExpanded, setIsPinnedListExpanded] = useState(false)
@@ -164,8 +179,8 @@ export function ChatArea({
   }, [lastDeletedMessage, conversation?.id]);
 
   useEffect(() => {
-    if (conversation?.id) {
-       initiateE2EEHandshake(conversation.id);
+    if (conversation?.id && typeof initiateE2EEHandshake === 'function') {
+       initiateE2EEHandshake(conversation.id).catch(e => console.error("E2EE error", e));
     }
   }, [conversation?.id, initiateE2EEHandshake]);
 
