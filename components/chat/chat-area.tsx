@@ -81,6 +81,9 @@ interface Message {
   isPinned?: boolean
   attachments?: any[]
   parentMessageId?: number
+  iv?: string
+  signature?: string
+  content?: string
 }
 
 
@@ -108,7 +111,7 @@ function DecryptedText({
     initiateHandshake,
     onJoinMeeting
 }: { 
-    message: Message, 
+    message: any, 
     user: any, 
     mySenderKey: any, 
     peerSenderKeys: Map<number, any>, 
@@ -124,7 +127,7 @@ function DecryptedText({
              // System messages are not encrypted
             if (message.messageType !== 'PLAIN' && message.messageType !== 'Text' && message.messageType !== 'PLAIN_SECURE' && message.messageType) {
                 if (message.messageType === 'System') {
-                   setDecrypted(message.content);
+                   setDecrypted(message.content || message.encryptedContent);
                 } else {
                    setDecrypted(message.encryptedContent || message.content);
                 }
@@ -241,7 +244,6 @@ export function ChatArea({
   const scrollToMessage = useCallback((msgId: any) => {
     const id = typeof msgId === 'string' ? msgId : msgId.toString();
     
-    // Thêm delay nhỏ để chắc chắn React đã render xong nếu mới vừa nhận tin nhắn
     setTimeout(() => {
       const el = document.getElementById(`message-${id}`)
       if (el) {
@@ -250,7 +252,6 @@ export function ChatArea({
         setTimeout(() => el.classList.remove('bg-primary/20'), 2000)
       } else {
         console.warn(`Target message-${id} not found in DOM`);
-        toast.error('Không tìm thấy tin nhắn hoặc tin nhắn ở quá xa lịch sử');
       }
     }, 100);
   }, [])
@@ -287,7 +288,6 @@ export function ChatArea({
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token || !user) return
     
-    // Nếu có cuộc họp đang diễn ra trong nhóm, dùng lại mã đó
     if (activeMeeting && activeMeeting.conversationId === conversation.id) {
        setShowLobby({ meetingId: activeMeeting.meetingId, type, title: activeMeeting.title })
        return
@@ -298,7 +298,6 @@ export function ChatArea({
       const resp = await meetingsApi.startMeeting(token, conversation.id, title, [], type)
       if (resp && (resp.meetingGuid || resp.id)) {
         const mGuid = resp.meetingGuid || resp.id;
-        // Gửi tin nhắn thông báo vào nhóm để lưu lịch sử và cho phép người khác tham gia
         sendMessage(conversation.id, `📹 Đã bắt đầu cuộc họp: ${title}\n[MEETING_GUID:${mGuid}]`, 'Text');
         setShowLobby({ meetingId: mGuid, type, title })
       }
@@ -359,7 +358,6 @@ export function ChatArea({
        setMessages(prev => {
           if (prev.some(m => m.id === lastMessage.id)) return prev;
           
-          // Ensure attachments is always an array
           let attachments = lastMessage.attachments || [];
           if (typeof attachments === 'string') {
             try { attachments = JSON.parse(attachments); } catch(e) { attachments = []; }
@@ -375,14 +373,15 @@ export function ChatArea({
             createdAt: lastMessage.createdAt || lastMessage.time?.toISOString() || new Date().toISOString(),
             attachments: attachments,
             isPinned: lastMessage.isPinned,
-            parentMessageId: lastMessage.parentMessageId
+            parentMessageId: lastMessage.parentMessageId,
+            iv: lastMessage.iv,
+            sig: lastMessage.sig
           }];
        });
        markAsRead(conversation.id);
     }
   }, [lastMessage, conversation?.id])
 
-  // Hiển thị thông báo khi phát hiện cuộc họp đang diễn ra (dành cho người mới online lại)
   useEffect(() => {
     if (activeMeeting && conversation && activeMeeting.conversationId === conversation.id) {
        const key = `meet-notified-${activeMeeting.meetingId}`;
@@ -410,7 +409,6 @@ export function ChatArea({
     } catch (e) { toast.error('Gửi thất bại') }
   }
 
-  // Chia nhóm tin nhắn (Text/Attachment vs System)
   const messageGroups = useMemo(() => {
     const groups: any[] = [];
     let currentSystemGroup: Message[] = [];
@@ -437,7 +435,6 @@ export function ChatArea({
   if (!conversation) {
     return (
       <div className="flex-1 h-full flex flex-col items-center justify-center p-8 bg-background relative overflow-hidden">
-        {/* Decorative Background Elements */}
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-[120px] animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-[100px] animate-pulse [animation-delay:2s]" />
         
@@ -625,7 +622,7 @@ export function ChatArea({
                              />
                           </div>
                           <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover/item:opacity-100 text-destructive" onClick={(e) => { e.stopPropagation(); togglePinMessage(p.id); }}>
-                             <X className="h-3 w-3" />
+                             <X className="h-3.5 w-3.5" />
                           </Button>
                        </div>
                      ))}
@@ -678,9 +675,13 @@ export function ChatArea({
                   <div key={m.id} id={`message-${m.id}`} className={cn("flex gap-3 animate-in slide-in-from-bottom-2", isOwn ? "flex-row-reverse" : "flex-row")}>
                       <div className={cn("max-w-[75%] space-y-1", isOwn ? "items-end" : "items-start")}>
                          {! isOwn && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
-                         <div className={cn("px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border relative group/msg", isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card")}>
-                            {m.attachments && m.attachments.length > 0 && (
-                              <div className="mb-2 space-y-2">
+                         <div className={cn(
+                             "rounded-2xl shadow-sm text-sm break-words border relative group/msg overflow-hidden transition-all duration-300", 
+                             isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card",
+                             m.encryptedContent?.trim() === "[Attachment]" ? "p-1" : "p-0"
+                          )}>
+                             {m.attachments && m.attachments.length > 0 && (
+                               <div className={cn("space-y-1", m.encryptedContent?.trim() !== "[Attachment]" && "p-2 pb-0")}>
                                  {m.attachments.map((a: any, i: number) => {
                                    const isImage = a.mimeType?.startsWith('image/');
                                    const url = getAttachmentUrl(a.id, token!);
@@ -720,7 +721,7 @@ export function ChatArea({
                             )}
 
                              {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
-                                <div className="space-y-3">
+                                <div className="px-4 py-2.5 space-y-3">
                                    <DecryptedText 
                                       message={m}
                                       user={user}
@@ -732,7 +733,7 @@ export function ChatArea({
                                       onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
                                    />
                                 </div>
-                              )}
+                             )}
                             
                             {/* Nút Pin nhanh và Menu hành động */}
                              <div className={cn(
@@ -829,6 +830,20 @@ export function ChatArea({
         <div className="flex items-center gap-2 opacity-60">
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-5 w-5" /></Button>
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary/10 hover:text-primary transition-all" onClick={() => fileInputRef.current?.click()}><Paperclip className="h-5 w-5" /></Button>
+            
+            <input 
+              type="file" 
+              ref={imageInputRef} 
+              className="hidden" 
+              accept="image/*" 
+              onChange={handleFileUpload} 
+            />
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              onChange={handleFileUpload} 
+            />
         </div>
 
         <div className="flex items-end gap-3 bg-muted/30 p-2 rounded-2xl border border-primary/5 focus-within:border-primary/20 focus-within:bg-background transition-all">
@@ -848,28 +863,17 @@ export function ChatArea({
                {!newMessage.trim() ? (
                    <Button variant="ghost" size="icon" className="h-10 w-10 text-primary/30 hover:text-primary"><ThumbsUp className="h-6 w-6" /></Button>
                ) : (
-                   <Button onClick={handleSendMessage} size="icon" className="h-10 w-10 bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/30"><Send className="h-5 w-5" /></Button>
+                   <Button 
+                    size="icon" 
+                    className="h-10 w-10 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                    onClick={handleSendMessage}
+                   >
+                      <Send className="h-5 w-5" />
+                   </Button>
                )}
             </div>
         </div>
       </div>
-
-      {showLobby && (
-        <CallLobby 
-          meetingId={showLobby.meetingId}
-          type={showLobby.type}
-          title={showLobby.title}
-          conversationId={conversation.id}
-          onJoin={(mic, cam) => {
-            router.push(`/call/${showLobby.meetingId}?type=${showLobby.type}&mic=${mic}&cam=${cam}`)
-            setShowLobby(null)
-          }}
-          onCancel={() => setShowLobby(null)}
-        />
-      )}
-
-      <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
-      <input type="file" accept="image/*" ref={imageInputRef} className="hidden" onChange={handleFileUpload} />
     </div>
     </TooltipProvider>
   )
