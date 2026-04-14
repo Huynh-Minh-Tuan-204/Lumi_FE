@@ -37,32 +37,36 @@ function formatDuration(seconds: number) {
 }
 
 // Fixed Attachment Renderer inside Call Chat
-function CallChatAttachment({ message }: { message: any }) {
+function CallChatAttachment({ message, token }: { message: any, token?: string }) {
     if (!message.attachments || message.attachments.length === 0) return null;
     const att = message.attachments[0];
-    const isImage = att.contentType?.startsWith('image/') || att.fileName?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    const isImage = att.contentType?.startsWith('image/') || (typeof att.fileName === 'string' && att.fileName.match(/\.(jpg|jpeg|png|gif|webp)$/i));
     
     if (isImage) {
         return (
             <div className="mt-2 rounded-lg overflow-hidden border border-white/10">
-                <img src={getAttachmentUrl(att.id || att.Id)} alt="attachment" className="max-w-full h-auto object-cover" />
+                <img src={getAttachmentUrl(att.id || att.Id, token)} alt="attachment" className="max-w-full h-auto object-cover" />
             </div>
         );
     }
     return (
         <div className="mt-2 p-2 bg-white/5 rounded-lg flex items-center gap-2 border border-white/10">
-            <FileText className="h-4 w-4 text-blue-400" />
-            <span className="text-[10px] truncate flex-1">{att.fileName}</span>
-            <a href={getAttachmentUrl(att.id || att.Id)} download className="text-primary hover:text-primary/80"><Download className="h-3 w-3" /></a>
+            <div className="p-1.5 bg-blue-500/10 rounded-lg">
+                <FileText className="h-4 w-4 text-blue-400" />
+            </div>
+            <span className="text-[10px] truncate flex-1 font-bold">{att.fileName}</span>
+            <a href={getAttachmentUrl(att.id || att.Id, token)} target="_blank" rel="noopener noreferrer" className="p-1.5 hover:bg-white/10 rounded-md transition-colors">
+                <Download className="h-3.5 w-3.5 text-primary" />
+            </a>
         </div>
     );
 }
 
 function DecryptedText({ 
-    message, user, mySenderKey, peerSenderKeys, peerIdentityKeys, identityKeys, initiateHandshake 
+    message, user, mySenderKey, peerSenderKeys, peerIdentityKeys, identityKeys, initiateHandshake, token 
 }: { 
     message: any, user: any, mySenderKey: any, peerSenderKeys: Map<number, any>, 
-    peerIdentityKeys: Map<number, any>, identityKeys: any, initiateHandshake: (cid: number) => Promise<void> 
+    peerIdentityKeys: Map<number, any>, identityKeys: any, initiateHandshake: (cid: number) => Promise<void>, token?: string
 }) {
     const [decrypted, setDecrypted] = useState<string>("⌛ [Đang giải mã...]");
     useEffect(() => {
@@ -97,7 +101,7 @@ function DecryptedText({
     return (
         <div className="flex flex-col">
             <span className="leading-relaxed">{decrypted}</span>
-            <CallChatAttachment message={message} />
+            <CallChatAttachment message={message} token={token} />
         </div>
     );
 }
@@ -172,10 +176,12 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
           time: new Date(d.createdAt), iv: d.iv, sig: d.signature || d.sig, 
           messageType: d.messageType, attachments: d.attachments || d.Attachments || []
         })))
+        // Auto-handshake for E2EE messages
+        if (initiateE2EEHandshake) initiateE2EEHandshake(cid);
       } catch (e) { console.error(e) }
     }
     fetch()
-  }, [callId, token, setConversationId])
+  }, [callId, token, setConversationId, initiateE2EEHandshake])
 
   useEffect(() => { if (callId && token) joinCall(callId, callType); }, [callId, token, callType, joinCall])
 
@@ -323,7 +329,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                                             <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">{msg.sender}</p>
                                         </div>
                                         <div className={cn("px-4 py-2.5 text-xs rounded-2xl max-w-[85%] break-words shadow-sm", msg.senderId === user?.id ? "bg-primary text-white rounded-tr-none" : "bg-white/5 border border-white/10 rounded-tl-none")}>
-                                            <DecryptedText message={msg} user={user} mySenderKey={mySenderKey} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} />
+                                            <DecryptedText message={msg} user={user} mySenderKey={mySenderKey} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} token={token} />
                                         </div>
                                     </div>
                                 ))}
@@ -344,12 +350,6 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         )}
       </main>
 
-      {/* Picture-in-Picture Self Video if Sidebar is Open or in simple mode */}
-      {sidebarType && isCameraOn && (
-          <div className="absolute top-20 right-[400px] z-50 animate-in fade-in zoom-in duration-500 pointer-events-none">
-             <VideoPlayer stream={localStream} isLocal={true} isCameraOn={isCameraOn} userAvatar={getAvatarUrl(user?.id)} userName="Bạn" isMuted={isMuted} isSmall={true} />
-          </div>
-      )}
     </div>
   )
 }
