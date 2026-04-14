@@ -215,7 +215,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-white/40 hover:text-white" onClick={() => setIsMinimized(true)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-white/40 hover:text-white" onClick={() => { setIsMinimized(true); router.push('/chat'); }}>
                             <Minimize2 className="h-4 w-4" />
                         </Button>
                     </TooltipTrigger>
@@ -270,7 +270,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
 
                     <div className="w-px h-10 bg-white/10 mx-1" />
                     
-                    <Button onClick={() => { endCall(); onEndCall(); }} className="h-14 px-8 rounded-full bg-red-600 hover:bg-red-700 text-white font-black uppercase text-xs tracking-[0.1em] shadow-xl shadow-red-600/30 transition-transform active:scale-95">
+                    <Button onClick={() => { endCall(); onEndCall(); }} className="h-14 px-8 rounded-full bg-red-600 hover:bg-red-700 text-white font-black uppercase text-xs tracking-[0.1em] shadow-xl shadow-red-600/30 transition-transform active:scale-95 z-50">
                         <PhoneOff className="h-5 w-5 mr-3" /> Kết thúc
                     </Button>
                 </TooltipProvider>
@@ -332,8 +332,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                         </ScrollArea>
                         <div className="p-6 border-t border-white/5 bg-black/20">
                             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus-within:border-primary/50 transition-all">
-                                <input className="flex-1 bg-transparent py-2 text-xs outline-none font-bold placeholder:text-white/20 placeholder:font-medium" placeholder="Viết tin nhắn công khai..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (sendMessage(convId!, chatInput, 'PLAIN'), setChatInput(''))} />
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10 rounded-full" onClick={() => { sendMessage(convId!, chatInput, 'PLAIN'); setChatInput(''); }}>
+                                <input className="flex-1 bg-transparent py-2 text-xs outline-none font-bold placeholder:text-white/20 placeholder:font-medium" placeholder="Viết tin nhắn công khai..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && chatInput.trim() && convId && (sendMessage(convId, chatInput, 'PLAIN'), setChatInput(''))} />
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10 rounded-full" onClick={() => { if(chatInput.trim() && convId) { sendMessage(convId, chatInput, 'PLAIN'); setChatInput(''); } }}>
                                     <Send className="h-4 w-4" />
                                 </Button>
                             </div>
