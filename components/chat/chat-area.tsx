@@ -673,26 +673,23 @@ export function ChatArea({
                 const isOwn = m.senderId === user?.id;
                 return (
                   <div key={m.id} id={`message-${m.id}`} className={cn("flex gap-3 animate-in slide-in-from-bottom-2", isOwn ? "flex-row-reverse" : "flex-row")}>
-                      <div className={cn("max-w-[75%] space-y-1", isOwn ? "items-end" : "items-start")}>
-                         {! isOwn && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
-                         <div className={cn(
-                             "rounded-2xl shadow-sm text-sm break-words border relative group/msg overflow-hidden transition-all duration-300", 
-                             isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card",
-                             (m.attachments && m.attachments.length > 0 && (!m.encryptedContent || m.encryptedContent.trim() === "[Attachment]" || m.encryptedContent.trim() === "")) ? "p-2" : "p-0"
-                          )}>
+                          <div className={cn("max-w-[75%] space-y-1.5 flex flex-col", isOwn ? "items-end" : "items-start")}>
+                             {! isOwn && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
+                             
+                             {/* Phần IMAGE riêng - Không padding, không background */}
                              {m.attachments && m.attachments.length > 0 && (
-                               <div className={cn("space-y-1 w-full", (m.encryptedContent && m.encryptedContent.trim() !== "[Attachment]" && m.encryptedContent.trim() !== "") && "p-2 pb-0")}>
+                               <div className="space-y-2 w-full flex flex-col items-inherit">
                                  {m.attachments.map((a: any, i: number) => {
                                    const isImage = a.mimeType?.startsWith('image/');
                                    const url = getAttachmentUrl(a.id, token!);
                                    
                                    if (isImage) {
                                      return (
-                                       <div key={i} className="relative group/img max-w-sm rounded-xl overflow-hidden">
+                                       <div key={i} className="relative group/img max-w-sm rounded-xl overflow-hidden shadow-md">
                                           <img 
                                             src={url} 
                                             alt={a.fileName} 
-                                            className="block w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                                            className="block w-full h-auto max-h-[400px] object-cover hover:scale-105 transition-transform duration-500"
                                             onClick={() => window.open(url, '_blank')}
                                           />
                                           <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
@@ -705,7 +702,10 @@ export function ChatArea({
                                    }
 
                                    return (
-                                     <a key={i} href={url} target="_blank" className="flex items-center gap-3 p-2 bg-black/5 hover:bg-black/10 rounded-xl border border-black/5 transition-all group/file w-[280px] max-w-full">
+                                     <a key={i} href={url} target="_blank" className={cn(
+                                        "flex items-center gap-3 p-3 rounded-2xl border transition-all group/file w-[280px] max-w-full shadow-sm",
+                                        isOwn ? "bg-primary/10 border-primary/20" : "bg-card border-border"
+                                     )}>
                                         <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
                                            <FileText className="h-5 w-5 text-primary" />
                                         </div>
@@ -717,11 +717,15 @@ export function ChatArea({
                                      </a>
                                    );
                                  })}
-                              </div>
-                            )}
+                               </div>
+                             )}
 
+                             {/* Phần TEXT bubble riêng */}
                              {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
-                                <div className="px-4 py-2.5 space-y-3">
+                                <div className={cn(
+                                    "px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border relative group/msg transition-all duration-300", 
+                                    isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card"
+                                )}>
                                    <DecryptedText 
                                       message={m}
                                       user={user}
@@ -732,6 +736,25 @@ export function ChatArea({
                                       initiateHandshake={initiateE2EEHandshake}
                                       onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
                                    />
+                                   
+                                   {/* Menu hành động cho Chữ */}
+                                   <div className={cn(
+                                      "absolute bottom-0 opacity-0 group-hover/msg:opacity-100 transition-opacity flex items-center gap-1",
+                                      isOwn ? "-left-20" : "-right-20"
+                                   )}>
+                                      <button onClick={() => togglePinMessage(m.id)} className={cn("p-1.5 rounded-full bg-background border shadow-sm", m.isPinned ? "text-primary" : "text-muted-foreground")}>
+                                         {m.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+                                      </button>
+                                      <DropdownMenu>
+                                         <DropdownMenuTrigger asChild>
+                                            <button className="p-1.5 rounded-full bg-background border shadow-sm text-muted-foreground"><MoreVertical className="h-3 w-3" /></button>
+                                         </DropdownMenuTrigger>
+                                         <DropdownMenuContent align={isOwn ? "end" : "start"} className="w-48 p-1 rounded-xl shadow-2xl">
+                                            <DropdownMenuItem onClick={() => setReplyingTo(m)} className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"><Reply className="h-3.5 w-3.5" /> Trả lời</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => { navigator.clipboard.writeText(m.encryptedContent); toast.success('Đã sao chép'); }} className="p-2 gap-2 text-xs font-bold uppercase tracking-wider"><Send className="h-3.5 w-3.5" /> Sao chép</DropdownMenuItem>
+                                         </DropdownMenuContent>
+                                      </DropdownMenu>
+                                   </div>
                                 </div>
                              )}
                             
