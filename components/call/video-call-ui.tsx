@@ -414,7 +414,18 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     }
   }, [lastMessage, convId]);
 
-    const partnerPeer = remotePeers[0];
+
+  const allStreams = useMemo(() => [
+    { id: user?.id || 0, name: "Bạn", stream: localStreamRef.current, isLocal: true },
+    ...remotePeers.map(p => ({ id: p.userId, name: p.userName, stream: p.stream, isLocal: false }))
+  ], [user, remotePeers]);
+
+  const filteredCallMessages = useMemo(() => 
+    callMessages
+  , [callMessages]);
+
+  const partnerPeer = remotePeers[0];
+
 
     return (
     <div className={cn(
