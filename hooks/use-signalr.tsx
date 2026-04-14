@@ -237,12 +237,25 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     })
 
     connection.on('MeetingStarted', (data: any) => {
-      const { meetingId, conversationId, title, callType, hostName } = data
+      const { meetingId, conversationId, title, callType, hostName, hostId } = data
       const mIdString = String(meetingId);
+      
       if (notifiedMeetingsRef.current.has(mIdString)) return;
       notifiedMeetingsRef.current.add(mIdString);
 
       setActiveMeeting({ meetingId: mIdString, conversationId, title, callType, hostName })
+
+      // Show toast notification for 5 seconds as requested
+      if (user && hostId !== user.id) {
+          toast.info(`🚀 CUỘC HỌP MỚI: ${title}`, {
+            description: `Bởi ${hostName}. Tham gia ngay!`,
+            duration: 5000,
+            action: {
+              label: "THAM GIA",
+              onClick: () => window.location.href = `/call/${mIdString}?type=${callType || 'video'}`
+            }
+          });
+      }
     })
 
     connection.on('GlobalMeetingStarted', (data: any) => {
@@ -272,7 +285,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
              window.location.href = `/call/${mIdString}?type=${type || 'video'}`;
           }
         },
-        duration: 20000
+        duration: 5000
       });
     })
 

@@ -63,6 +63,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   const [convId, setConvId] = useState<number | null>(null)
   const [chatInput, setChatInput] = useState('')
   const [callMessages, setCallMessages] = useState<ChatMessage[]>([])
+  const [meetingStartTimeState, setMeetingStartTimeState] = useState<Date | null>(null)
   const [waitingList, setWaitingList] = useState<any[]>([])
   const [isMinimized, setIsMinimized] = useState(false)
 
@@ -169,6 +170,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
 
       setConvId(meeting.conversationId ?? meeting.ConversationId)
       setHostId(meeting.createdBy ?? meeting.CreatedBy)
+      
+      const startAt = meeting.createdAt || meeting.startTime || meeting.CreatedAt || meeting.StartTime;
+      if (startAt) setMeetingStartTimeState(new Date(startAt));
       
       // Now fetch messages (should not be 403 anymore as backend JoinCall adds us)
       try {
@@ -412,6 +416,24 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       setCallMessages(prev => [...prev, lastMessage]);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
+  }, [lastMessage, conversation?.id]);
+
+  // Hiển thị thông báo khi phát hiện cuộc họp đang diễn ra (dành cho người mới online lại)
+  useEffect(() => {
+    if (activeMeeting && conversation && activeMeeting.conversationId === conversation.id) {
+       const key = `meet-notified-${activeMeeting.meetingId}`;
+       if (!sessionStorage.getItem(key)) {
+          toast.info(`🚀 ĐANG CÓ CUỘC HỌP: ${activeMeeting.title}`, {
+            description: "Mọi người đang đợi bạn, tham gia ngay!",
+            duration: 4000
+          });
+          sessionStorage.setItem(key, 'true');
+       }
+    }
+  }, [activeMeeting, conversation?.id]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [lastMessage, convId]);
 
 
@@ -421,8 +443,10 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   ], [user, remotePeers]);
 
   const filteredCallMessages = useMemo(() => 
-    callMessages
-  , [callMessages]);
+    meetingStartTimeState 
+      ? callMessages.filter(m => new Date(m.time) >= meetingStartTimeState)
+      : callMessages
+  , [callMessages, meetingStartTimeState]);
 
   const partnerPeer = remotePeers[0];
 
@@ -517,13 +541,13 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                 // Full View - Grid
                 <>
                 <div className={cn(
-                    "grid gap-4 w-full h-full",
+                    "grid gap-4 w-full h-full p-2 place-items-center",
                     allStreams.length === 1 ? "grid-cols-1" : allStreams.length === 2 ? "grid-cols-2" : "grid-cols-2 md:grid-cols-3"
                 )}>
                     {allStreams.map((p) => (
-                    <div key={p.id} className="relative rounded-3xl overflow-hidden bg-[#121212] aspect-video border border-white/5 shadow-2xl group transition-all duration-500 hover:border-primary/30">
+                    <div key={p.id} className="relative rounded-3xl overflow-hidden bg-[#121212] w-full h-full border border-white/5 shadow-2xl group transition-all duration-500 hover:border-primary/30 flex items-center justify-center">
                         <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.isLocal ? isCameraOn : true} />
-                        <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-xl px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ring-1 ring-white/10 flex items-center gap-2">
+                        <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-xl px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ring-1 ring-white/10 flex items-center gap-2 z-20">
                             {p.name} {p.isLocal && "(Tôi)"}
                             {p.id === hostId && (
                             <div className="flex items-center gap-1 text-primary">
@@ -681,10 +705,20 @@ function VideoPlayer({ stream, isLocal, isCameraOn }: { stream: MediaStream | nu
   }, [stream]);
 
   return (
-    <div className="relative w-full h-full bg-black flex items-center justify-center">
-        <video ref={ref} autoPlay playsInline muted={isLocal} className={cn("h-full w-full object-cover transition-opacity duration-1000", isLocal && "scale-x-[-1]", !isCameraOn ? "opacity-0" : "opacity-100")} />
+    <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
+        <video 
+          ref={ref} 
+          autoPlay 
+          playsInline 
+          muted={isLocal} 
+          className={cn(
+            "max-h-full max-w-full object-contain transition-opacity duration-1000", 
+            isLocal && "scale-x-[-1]", 
+            !isCameraOn ? "opacity-0" : "opacity-100"
+          )} 
+        />
         {!isCameraOn && (
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center bg-[#121212]">
                 <Avatar className="h-24 w-24 ring-4 ring-primary/20 shadow-2xl">
                     <AvatarFallback className="bg-gradient-to-br from-primary/80 to-primary text-3xl font-black text-white">L</AvatarFallback>
                 </Avatar>

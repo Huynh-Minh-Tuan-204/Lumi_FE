@@ -236,6 +236,21 @@ export function ChatArea({
     }
   }, [lastMessage, conversation?.id])
 
+  // Hiển thị thông báo khi phát hiện cuộc họp đang diễn ra (dành cho người mới online lại)
+  useEffect(() => {
+    if (activeMeeting && conversation && activeMeeting.conversationId === conversation.id) {
+       const key = `meet-notified-${activeMeeting.meetingId}`;
+       if (!sessionStorage.getItem(key)) {
+          toast.info(`🚀 ĐANG CÓ CUỘC HỌP: ${activeMeeting.title}`, {
+            description: "Mọi người đang đợi bạn, tham gia ngay!",
+            duration: 5000
+          });
+          sessionStorage.setItem(key, 'true');
+       }
+    }
+  }, [activeMeeting, conversation?.id]);
+
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
