@@ -678,17 +678,16 @@ export function ChatArea({
                          <div className={cn(
                              "rounded-2xl shadow-sm text-sm break-words border relative group/msg overflow-hidden transition-all duration-300", 
                              isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card",
-                             (m.attachments && m.attachments.length > 0 && (!m.encryptedContent || m.encryptedContent.trim() === "[Attachment]" || m.encryptedContent.trim() === "")) ? "p-0.5" : "p-0"
+                             (m.attachments && m.attachments.length > 0 && (!m.encryptedContent || m.encryptedContent.trim() === "[Attachment]" || m.encryptedContent.trim() === "")) ? "p-0" : "p-0"
                           )}>
-                             {m.attachments && m.attachments.length > 0 && (
-                               <div className={cn("space-y-1", (m.encryptedContent && m.encryptedContent.trim() !== "[Attachment]" && m.encryptedContent.trim() !== "") && "p-2 pb-0")}>
-                                 {m.attachments.map((a: any, i: number) => {
+                                 <div className={cn("space-y-1 w-full", (m.encryptedContent && m.encryptedContent.trim() !== "[Attachment]" && m.encryptedContent.trim() !== "") && "p-2 pb-0")}>
+                                  {m.attachments.map((a: any, i: number) => {
                                    const isImage = a.mimeType?.startsWith('image/');
                                    const url = getAttachmentUrl(a.id, token!);
                                    
                                    if (isImage) {
                                      return (
-                                       <div key={i} className="relative group/img cursor-pointer max-w-sm rounded-xl overflow-hidden border shadow-sm">
+                                       <div key={i} className="relative group/img cursor-pointer w-full max-w-sm overflow-hidden shadow-sm">
                                           <img 
                                             src={url} 
                                             alt={a.fileName} 
@@ -705,7 +704,7 @@ export function ChatArea({
                                    }
 
                                    return (
-                                     <a key={i} href={url} target="_blank" className="flex items-center gap-3 p-3 bg-black/5 hover:bg-black/10 rounded-xl border border-black/5 transition-all group/file">
+                                     <a key={i} href={url} target="_blank" className="flex items-center gap-3 p-2 bg-black/5 hover:bg-black/10 rounded-xl border border-black/5 transition-all group/file w-[280px] max-w-full">
                                         <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
                                            <FileText className="h-5 w-5 text-primary" />
                                         </div>
