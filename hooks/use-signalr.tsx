@@ -82,6 +82,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false)
   const [isReconnecting, setIsReconnecting] = useState(false)
   const [lastMessage, setLastMessage] = useState<ChatMessage | null>(null)
+  const [lastLeftConversationId, setLastLeftConversationId] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<ChatMessage[]>([])
   const [lastReadUpdate, setLastReadUpdate] = useState<{ conversationId: number, userId: number } | null>(null)
   const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set())
@@ -225,41 +226,57 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     });
 
     connection.on('ReceiveMessage', async (data: any) => {
-      const { id, conversationId, senderId, senderName, content, iv, sig, messageType, stickerUrl, isPinned, createdAt, attachments, avatarPath, parentMessageId } = data;
+      let { id, conversationId, senderId, senderName, content, iv, sig, messageType, stickerUrl, isPinned, createdAt, attachments, avatarPath, parentMessageId } = data;
 
-      let displayContent = content;
-      if (messageType === 'PLAIN' || !messageType) {
-        const senderSessionKey = (user && senderId === user.id) ? mySenderKeyRef.current : peerSenderKeysRef.current.get(senderId);
-        const senderIdKey = peerIdentityKeysRef.current.get(senderId);
+      // 1. Xử lý tách chuỗi gộp (nếu IV chứa cả Sig từ DB)
+      if (iv && typeof iv === 'string' && iv.includes('|') && !sig) {
+          const parts = iv.split('|');
+          iv = parts[0];
+          sig = parts[1];
+      }
 
-        if (senderSessionKey && iv && sig && senderIdKey) {
-           displayContent = await decryptMessagePro(content, iv, sig, senderSessionKey, senderIdKey);
-        } else if (user && senderId === user.id && mySenderKeyRef.current && identityKeysRef.current) {
-           displayContent = await decryptMessagePro(content, iv, sig, mySenderKeyRef.current, identityKeysRef.current.publicKey);
-        } else {
-           displayContent = "⏳ [E2EE: Đang thỏa thuận bảo mật...]";
-           initiateE2EEHandshake(conversationId);
+      let displayContent = content; // Mặc định là content gốc
+      
+      // 2. Logic giải mã thông minh
+      if (messageType === 'PLAIN' || !messageType || messageType === 'Text') {
+        // KIỂM TRA A: Nếu không có IV -> Đây là tin nhắn cũ (Legacy), hiển thị bình thường
+        if (!iv || (typeof iv === 'string' && iv.trim() === "")) {
+             displayContent = content; 
+        } 
+        // KIỂM TRA B: Có IV -> Tin nhắn E2EE, tiến hành giải mã
+        else {
+            const senderSessionKey = (user && senderId === user.id) ? mySenderKeyRef.current : peerSenderKeysRef.current.get(senderId);
+            const senderIdKey = (user && senderId === user.id) ? identityKeysRef.current?.publicKey : peerIdentityKeysRef.current.get(senderId);
+
+            if (senderSessionKey && iv && sig && senderIdKey) {
+               // Đủ chìa khóa -> Giải mã!
+               try {
+                  displayContent = await decryptMessagePro(content, iv, sig, senderSessionKey, senderIdKey);
+               } catch (e) { displayContent = content || "[Lỗi giải mã]"; }
+            } else if (user && senderId === user.id && mySenderKeyRef.current && identityKeysRef.current) {
+               // Fallback: Đủ chìa khóa của bản thân -> Giải mã!
+               try {
+                  displayContent = await decryptMessagePro(content, iv, sig, mySenderKeyRef.current, identityKeysRef.current.publicKey);
+               } catch (e) { displayContent = content; }
+            } else {
+               // Thiếu chìa khóa do F5 hoặc chưa bắt tay -> Hiện thông báo chờ
+               displayContent = "⏳ [Tin nhắn bảo mật]";
+               // Xin lại chìa khóa (Handshake) để chuẩn bị cho các tin nhắn sau
+               if (conversationId) initiateE2EEHandshake(conversationId);
+            }
         }
       }
 
       setLastMessage({
-        id,
-        conversationId,
-        senderId,
-        sender: senderName,
-        message: displayContent,
-        iv,
-        messageType,
-        stickerUrl,
-        isPinned,
-        time: new Date(createdAt),
-        attachments: attachments || [],
-        isSystem: false,
-        avatarPath: avatarPath,
-        parentMessageId: parentMessageId
-      }
-      )
-    })
+        id, conversationId, senderId, sender: senderName, message: displayContent,
+        iv, messageType, stickerUrl, isPinned, time: new Date(createdAt),
+        attachments: attachments || [], isSystem: false, avatarPath, parentMessageId
+      });
+    });
+
+    connection.on('UserLeftConversation', (conversationId: number) => {
+      setLastLeftConversationId(conversationId);
+    });
 
     connection.on('InitialOnlineUsers', (userIds: number[]) => {
       setOnlineUsers(new Set(userIds))
@@ -594,11 +611,12 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         activeMeeting,
         initiateE2EEHandshake,
         onTriggeredReminder: (cb: any) => { },
-        mySenderKey: mySenderKeyRef.current,
+        mySenderKey: rsaKeysRef.current?.privateKey,
         peerSenderKeys: peerSenderKeysRef.current,
         peerIdentityKeys: peerIdentityKeysRef.current,
         identityKeys: identityKeysRef.current,
-        keyVersion
+        keyVersion,
+        lastLeftConversationId
       }}
     >
       {!mounted ? <div style={{ visibility: 'hidden' }}>{children}</div> : children}

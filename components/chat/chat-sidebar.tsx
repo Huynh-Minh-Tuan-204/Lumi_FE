@@ -60,7 +60,7 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({
-  conversations,
+  conversations: initialConversations,
   selectedConversation,
   onSelectConversation,
   isLoading,
@@ -72,6 +72,8 @@ export function ChatSidebar({
   onRefreshConversations,
 }: ChatSidebarProps) {
   const { token } = useAuth()
+  const { lastLeftConversationId } = useSignalR() as any
+  const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterMode, setFilterMode] = useState<'all' | 'unread'>('all')
   const [showLobby, setShowLobby] = useState<{ meetingId: any; type: 'voice' | 'video'; title: string } | null>(null)
@@ -79,7 +81,15 @@ export function ChatSidebar({
   const [isRoomsExpanded, setIsRoomsExpanded] = useState(true)
   const [isChatsExpanded, setIsChatsExpanded] = useState(true)
 
+  useEffect(() => {
+    setConversations(initialConversations)
+  }, [initialConversations])
 
+  useEffect(() => {
+    if (lastLeftConversationId) {
+      setConversations(prev => prev.filter(c => c.id !== lastLeftConversationId));
+    }
+  }, [lastLeftConversationId]);
 
   const uniqueConversations = useMemo(() => {
     const seen = new Set();
