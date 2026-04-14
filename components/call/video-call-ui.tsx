@@ -44,8 +44,8 @@ function CallChatAttachment({ message, token }: { message: any, token?: string }
     
     if (isImage) {
         return (
-            <div className="mt-2 rounded-lg overflow-hidden border border-white/10">
-                <img src={getAttachmentUrl(att.id || att.Id, token)} alt="attachment" className="max-w-full h-auto object-cover" />
+            <div className="mt-2 rounded-lg overflow-hidden border border-white/10 cursor-pointer hover:ring-2 ring-primary transition-all" onClick={() => window.open(getAttachmentUrl(att.id || att.Id, token), '_blank')}>
+                <img src={getAttachmentUrl(att.id || att.Id, token)} alt="attachment" className="max-w-full h-auto object-cover" title="Bấm để xem ảnh lớn" />
             </div>
         );
     }
@@ -153,6 +153,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   const [callDuration, setCallDuration] = useState(0)
   const [sidebarType, setSidebarType] = useState<'chat' | 'people' | null>(null)
   const [convId, setConvId] = useState<number | null>(null)
+  const [hostId, setHostId] = useState<number | null>(null)
   const [chatInput, setChatInput] = useState('')
   const [callMessages, setCallMessages] = useState<ChatMessage[]>([])
   const chatEndRef = useRef<HTMLDivElement>(null)
@@ -168,7 +169,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       try {
         const meeting = await meetingsApi.getMeeting(token, callId)
         const cid = meeting.conversationId || meeting.ConversationId
-        setConvId(cid); setConversationId(cid);
+        const hId = meeting.creatorId || meeting.CreatorId || meeting.hostId || meeting.HostId
+        setConvId(cid); setConversationId(cid); setHostId(hId);
         const history = await conversationsApi.getMessages(token, cid)
         setCallMessages(history.map((d: any) => ({
           id: d.id || d.Id, conversationId: cid, senderId: d.senderId || d.SenderId,
@@ -198,9 +200,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   }, [lastMessage, convId]);
 
   const allStreams = useMemo(() => [
-    { id: user?.id || 0, name: user?.fullName || "Bạn", stream: localStream, isLocal: true, avatar: getAvatarUrl(user?.id), cameraOn: isCameraOn, muted: isMuted },
-    ...remotePeers.map(p => ({ id: p.userId, name: p.userName, stream: p.stream, isLocal: false, avatar: getAvatarUrl(p.userId), cameraOn: true, muted: false }))
-  ], [user, remotePeers, localStream, isCameraOn, isMuted]);
+    { id: user?.id || 0, name: user?.fullName || "Bạn", stream: localStream, isLocal: true, avatar: getAvatarUrl(user?.id), cameraOn: isCameraOn, muted: isMuted, isHost: (user?.id === hostId) },
+    ...remotePeers.map(p => ({ id: p.userId, name: p.userName, stream: p.stream, isLocal: false, avatar: getAvatarUrl(p.userId), cameraOn: true, muted: false, isHost: (p.userId === hostId) }))
+  ], [user, remotePeers, localStream, isCameraOn, isMuted, hostId]);
 
   const activePeers = allStreams.length;
   // Separate local and remote for PIP logic
@@ -284,7 +286,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         </section>
 
         {sidebarType && (
-            <aside className="w-96 bg-[#0f0f0f]/95 border-l border-white/5 backdrop-blur-3xl flex flex-col z-50 animate-in slide-in-from-right duration-500 shadow-[-20px_0_50px_rgba(0,0,0,0.5)]">
+            <aside className="w-96 h-full bg-[#0f0f0f]/95 border-l border-white/5 backdrop-blur-3xl flex flex-col z-50 animate-in slide-in-from-right duration-500 shadow-[-20px_0_50px_rgba(0,0,0,0.5)] overflow-hidden">
                 <header className="p-6 border-b border-white/5 flex items-center justify-between">
                     <div>
                         <h3 className="font-black text-[12px] uppercase tracking-[0.2em] text-primary">{sidebarType === 'chat' ? 'Trò chuyện trực tiếp' : 'Thành viên'}</h3>
@@ -294,8 +296,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                 </header>
                 
                 {sidebarType === 'people' && (
-                    <ScrollArea className="flex-1 p-6">
-                        <div className="space-y-4">
+                    <ScrollArea className="flex-1">
+                        <div className="p-6 space-y-4">
                             {allStreams.map(p => (
                                 <div key={p.id} className="flex items-center gap-4 p-3 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
                                     <div className="relative">
@@ -309,7 +311,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                                         <p className="text-xs font-black truncate text-white/90 uppercase tracking-tight">{p.name} {p.isLocal && "(Bạn)"}</p>
                                         <div className="flex items-center gap-2 mt-0.5">
                                             {p.muted && <MicOff className="h-2.5 w-2.5 text-red-500" />}
-                                            <span className="text-[10px] font-bold text-white/20 uppercase">{p.isLocal ? 'Người tổ chức' : 'Người tham gia'}</span>
+                                            <span className={cn("text-[10px] font-bold uppercase", p.isHost ? "text-primary" : "text-white/20")}>
+                                                {p.isHost ? 'Người tổ chức' : 'Người tham gia'}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -320,8 +324,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
 
                 {sidebarType === 'chat' && (
                     <>
-                        <ScrollArea className="flex-1 p-6">
-                            <div className="space-y-6">
+                        <ScrollArea className="flex-1 min-h-0">
+                            <div className="p-6 space-y-6">
                                 {callMessages.map(msg => (
                                     <div key={msg.id} className={cn("flex flex-col gap-2", msg.senderId === user?.id ? "items-end" : "items-start")}>
                                         <div className="flex items-center gap-2">
