@@ -84,6 +84,18 @@ interface Message {
 
 
 
+interface ChatAreaProps {
+  conversation: any
+  onBack?: () => void
+  onShowMembers?: () => void
+  onToggleBoard?: () => void
+  onToggleSearch?: () => void
+  onToggleCalendar?: () => void
+  onRefreshConversations?: () => void
+  isMobile?: boolean
+  className?: string
+}
+
 export function ChatArea({ 
   conversation, 
   onBack, 
