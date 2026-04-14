@@ -190,6 +190,7 @@ export function ChatArea({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
 
   const pinnedList = useMemo(() => messages.filter(m => m.isPinned), [messages])
   const latestPin = pinnedList[pinnedList.length - 1]
