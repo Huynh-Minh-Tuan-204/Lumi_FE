@@ -22,7 +22,6 @@ interface Stats {
 export default function DashboardPage() {
   const { token, user } = useAuth()
   const [meetingCode, setMeetingCode] = useState('')
-  const [meetingName, setMeetingName] = useState('Cuộc họp nhanh')
   const [showLobby, setShowLobby] = useState<{ meetingId: string; type: 'voice' | 'video'; title: string; conversationId: number } | null>(null)
 
   const [stats, setStats] = useState<Stats>({
@@ -77,20 +76,7 @@ export default function DashboardPage() {
     loadData()
   }, [token])
 
-  const handleCreateMeeting = async () => {
-    if (!token) return;
-    try {
-      const resp = await meetingsApi.startGlobalMeeting(token, meetingName || "Cuộc họp nhanh");
-      setShowLobby({
-        meetingId: resp.meetingId,
-        type: 'video',
-        title: resp.title,
-        conversationId: resp.conversationId
-      });
-    } catch (e) {
-      toast.error("Không thể tạo cuộc họp.");
-    }
-  }
+
 
   const handleJoinMeeting = async () => {
     if (!token || !meetingCode.trim()) return;
@@ -140,29 +126,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Meeting Hub */}
-      <div className="grid gap-4 md:grid-cols-2">
-         <Card className="bg-primary text-primary-foreground border-none shadow-xl shadow-primary/20 overflow-hidden relative group">
-            <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
-            <CardHeader>
-               <CardTitle className="flex items-center gap-2">
-                  <Video className="h-5 w-5" /> Cuộc họp của bạn
-               </CardTitle>
-               <CardDescription className="text-primary-foreground/70">Đặt tên và bắt đầu thảo luận ngay lập tức.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-               <Input 
-                 placeholder="Tên cuộc họp..." 
-                 value={meetingName}
-                 onChange={(e) => setMeetingName(e.target.value)}
-                 className="h-10 border-white/20 bg-white/10 text-white placeholder:text-white/40 rounded-xl font-bold focus-visible:ring-offset-0 focus-visible:ring-white/30"
-               />
-               <Button onClick={handleCreateMeeting} variant="secondary" className="w-full h-12 rounded-xl font-black uppercase tracking-widest gap-2">
-                  <Plus className="h-4 w-4" /> Tạo cuộc họp
-               </Button>
-            </CardContent>
-         </Card>
-
+      {/* Meeting Hub - Quick Create Removed - Only Join Left */}
+      <div className="max-w-xl mx-auto w-full">
          <Card className="border-2 border-primary/10 shadow-lg">
             <CardHeader>
                <CardTitle className="flex items-center gap-2">

@@ -77,20 +77,7 @@ export function ChatSidebar({
   const [isRoomsExpanded, setIsRoomsExpanded] = useState(true)
   const [isChatsExpanded, setIsChatsExpanded] = useState(true)
 
-  const handleCreateMeeting = async () => {
-    if (!token) return
-    try {
-      toast.info("Đang khởi tạo cuộc họp...")
-      const resp = await meetingsApi.startGlobalMeeting(token, "Cuộc họp nhanh")
-      setShowLobby({
-        meetingId: resp.meetingGuid || resp.id,
-        type: 'video',
-        title: resp.title
-      })
-    } catch (e) {
-      toast.error("Không thể tạo cuộc họp.")
-    }
-  }
+
 
   const uniqueConversations = useMemo(() => {
     const seen = new Set();
@@ -186,13 +173,6 @@ export function ChatSidebar({
         </div>
 
         <div className="pt-1">
-            <Button 
-                onClick={handleCreateMeeting}
-                className="w-full h-11 rounded-xl bg-primary shadow-lg shadow-primary/20 font-black uppercase tracking-widest text-[10px] gap-2 mb-3"
-            >
-                <Video className="h-4 w-4" /> Tạo cuộc họp mới
-            </Button>
-
             <div className="flex items-center gap-2 p-1.5 bg-primary/5 rounded-xl border border-primary/10">
                 <Hash className="h-4 w-4 text-primary opacity-40 ml-2" />
                 <input 
