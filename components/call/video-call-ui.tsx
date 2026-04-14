@@ -167,8 +167,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
          return;
       }
 
-      setConvId(meeting.conversationId)
-      setHostId(meeting.createdBy)
+      setConvId(meeting.conversationId ?? meeting.ConversationId)
+      setHostId(meeting.createdBy ?? meeting.CreatedBy)
       
       // Now fetch messages (should not be 403 anymore as backend JoinCall adds us)
       try {
@@ -178,8 +178,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
             id: d.id ?? d.Id,
             conversationId: meeting.conversationId,
             senderId: d.senderId ?? d.SenderId,
-            sender: d.senderName ?? d.SenderName ?? d.sender ?? 'User',
-            message: d.content ?? d.message ?? d.encryptedContent ?? "",
+            sender: d.senderName ?? d.SenderName ?? d.sender ?? d.Sender ?? 'User',
+            message: d.content ?? d.message ?? d.encryptedContent ?? d.EncryptedContent ?? "",
             time: new Date(d.createdAt ?? d.CreatedAt ?? d.time ?? Date.now()),
             iv: d.iv ?? d.Iv,
             messageType: d.messageType ?? d.MessageType,
@@ -313,17 +313,19 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
           onMeetingMemberList: (members) => {
             // Definitively solve 'Ghost Participants' issue
             console.log("Receiving definitive meeting member list:", members);
-            setMeetingParticipants(members.map(m => ({
-                userId: m.userId,
-                fullName: m.displayName,
-                connectionId: m.connectionId
-            })));
+             setMeetingParticipants(members.map((m: any) => ({
+                 userId: m.userId ?? m.UserId,
+                 fullName: m.displayName ?? m.DisplayName ?? m.fullName ?? m.FullName ?? "User",
+                 connectionId: m.connectionId ?? m.ConnectionId
+             })));
 
             // Update peer names if they are already connected
-            members.forEach(m => {
-              const peer = peersRef.current.get(m.userId);
-              if (peer && (peer.userName === "User" || peer.userName !== m.displayName)) {
-                peer.userName = m.displayName;
+            members.forEach((m: any) => {
+              const mid = m.userId ?? m.UserId;
+              const mname = m.displayName ?? m.DisplayName ?? m.fullName ?? m.FullName ?? "User";
+              const peer = peersRef.current.get(mid);
+              if (peer && (peer.userName === "User" || peer.userName !== mname)) {
+                peer.userName = mname;
               }
             });
             updatePeerUI();

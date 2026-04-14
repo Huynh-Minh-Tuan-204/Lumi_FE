@@ -219,7 +219,7 @@ export function ChatSidebar({
                 <div className="space-y-1">
                    <button 
                     onClick={() => setIsChatsExpanded(!isChatsExpanded)}
-                    className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors"
+                    className="w-full flex items-center justify-between px-2 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors sticky top-0 bg-sidebar/95 backdrop-blur-sm z-20 mb-1"
                    >
                       <span className="flex items-center gap-2">
                         <MessageSquare className="h-3 w-3 text-primary/60" /> Trò chuyện ({directChats.length})
@@ -245,15 +245,15 @@ export function ChatSidebar({
 
                 {meetingRooms.length > 0 && (
                    <div className="space-y-1">
-                      <button 
-                        onClick={() => setIsRoomsExpanded(!isRoomsExpanded)}
-                        className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors group"
-                      >
-                         <span className="flex items-center gap-2">
-                            <Video className="h-3 w-3 text-primary/60" /> Phòng họp ({meetingRooms.length})
-                         </span>
-                         <ChevronDown className={cn("h-3 w-3 transition-transform duration-300", !isRoomsExpanded && "-rotate-90")} />
-                      </button>
+                    <button 
+                      onClick={() => setIsRoomsExpanded(!isRoomsExpanded)}
+                      className="w-full flex items-center justify-between px-2 py-2 text-[10px] font-black uppercase tracking-[0.15em] text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors group sticky top-0 bg-sidebar/95 backdrop-blur-sm z-20 mb-1"
+                    >
+                       <span className="flex items-center gap-2">
+                          <Video className="h-3 w-3 text-primary/60" /> Phòng họp ({meetingRooms.length})
+                       </span>
+                       <ChevronDown className={cn("h-3 w-3 transition-transform duration-300", !isRoomsExpanded && "-rotate-90")} />
+                    </button>
                       
                       {isRoomsExpanded && (
                          <div className="space-y-1 animate-in fade-in slide-in-from-top-1 duration-300">
