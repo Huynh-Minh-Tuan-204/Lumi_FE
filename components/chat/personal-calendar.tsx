@@ -17,9 +17,10 @@ import { Button } from '@/components/ui/button'
 
 interface PersonalCalendarProps {
   token: string
+  userRole?: string
 }
 
-export function PersonalCalendar({ token }: PersonalCalendarProps) {
+export function PersonalCalendar({ token, userRole }: PersonalCalendarProps) {
   const [view, setView] = useState<'day' | 'week' | 'month'>('day')
   const [schedules, setSchedules] = useState<WorkScheduleResponse[]>([])
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
@@ -33,10 +34,19 @@ export function PersonalCalendar({ token }: PersonalCalendarProps) {
   const load = async () => {
     setIsLoading(true)
     try {
-      const data = await schedulesApi.getMySchedules(token)
+      // Admin sees ALL schedules (same as admin dashboard)
+      // Regular users only see schedules they are part of
+      const data = userRole === 'Admin'
+        ? await schedulesApi.getAllSchedules(token)
+        : await schedulesApi.getMySchedules(token)
       setSchedules(data.filter(s => !isNaN(new Date(s.startTime).getTime())))
     } catch (error) {
-      console.error('Failed to load personal schedules:', error)
+      console.error('Failed to load schedules:', error)
+      // Fallback to personal schedules if admin endpoint fails
+      try {
+        const data = await schedulesApi.getMySchedules(token)
+        setSchedules(data.filter(s => !isNaN(new Date(s.startTime).getTime())))
+      } catch { /* ignore */ }
     } finally {
       setIsLoading(false)
     }

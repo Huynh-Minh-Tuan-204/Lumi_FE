@@ -572,6 +572,9 @@ export const schedulesApi = {
   getMySchedules: (token: string) =>
     request<WorkScheduleResponse[]>('/WorkSchedules', { token }),
 
+  getAllSchedules: (token: string) =>
+    request<WorkScheduleResponse[]>('/WorkSchedules/all', { token }),
+
   create: (token: string, data: { title: string; description?: string; startTime: string; endTime: string; location?: string; participantIds?: number[] }) =>
     request<{ message: string; id: number }>('/WorkSchedules', {
       method: 'POST',

@@ -88,10 +88,6 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
              </TooltipProvider>
           )}
 
-          <div className="h-10 w-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 mb-2 active:scale-95 transition-transform cursor-pointer">
-             <MessageSquare className="h-5 w-5 text-primary-foreground" />
-          </div>
-
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -427,7 +423,7 @@ export default function ChatPage() {
                  <Button variant="ghost" size="icon" onClick={() => setShowCalendar(false)} className="text-white"><X className="h-6 w-6" /></Button>
               </header>
               <div className="flex-1 overflow-hidden">
-                  <PersonalCalendar token={token || ""} />
+                  <PersonalCalendar token={token || ""} userRole={user?.role} />
               </div>
            </div>
         </div>
