@@ -155,6 +155,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   const [convId, setConvId] = useState<number | null>(null)
   const [hostId, setHostId] = useState<number | null>(null)
   const [chatInput, setChatInput] = useState('')
+  const [isEnding, setIsEnding] = useState(false)
   const [callMessages, setCallMessages] = useState<ChatMessage[]>([])
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -185,7 +186,11 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     fetch()
   }, [callId, token, setConversationId, initiateE2EEHandshake])
 
-  useEffect(() => { if (callId && token) joinCall(callId, callType); }, [callId, token, callType, joinCall])
+  useEffect(() => { 
+    if (callId && token && !activeCallId && !isEnding) {
+        joinCall(callId, callType); 
+    }
+  }, [callId, token, callType, joinCall, activeCallId, isEnding])
 
   useEffect(() => {
     setIsMuted(!initialMic);
@@ -278,7 +283,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
 
                     <div className="w-px h-10 bg-white/10 mx-1" />
                     
-                    <Button onClick={() => { endCall(); onEndCall(); }} className="h-14 px-8 rounded-full bg-red-600 hover:bg-red-700 text-white font-black uppercase text-xs tracking-[0.1em] shadow-xl shadow-red-600/30 transition-transform active:scale-95 z-50">
+                    <Button onClick={() => { setIsEnding(true); endCall(); onEndCall(); }} className="h-14 px-8 rounded-full bg-red-600 hover:bg-red-700 text-white font-black uppercase text-xs tracking-[0.1em] shadow-xl shadow-red-600/30 transition-transform active:scale-95 z-50">
                         <PhoneOff className="h-5 w-5 mr-3" /> Kết thúc
                     </Button>
                 </TooltipProvider>
