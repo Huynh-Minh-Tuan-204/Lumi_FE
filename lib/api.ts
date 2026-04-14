@@ -492,6 +492,9 @@ export const attachmentsApi = {
 
 // ========== Meetings (Calls) API (api/Meetings/*) ==========
 export const meetingsApi = {
+  getMyMeetings: (token: string) =>
+    request<any[]>(`/Meetings`, { token }),
+
   getMeeting: (token: string, idOrCode: string | number) =>
     request<any>(`/Meetings/${idOrCode}`, { token }),
 

@@ -269,19 +269,25 @@ export function ChatSidebar({
                                  onDelete={async () => {
                                     if (confirm('Bạn có chắc muốn xóa cuộc họp này?')) {
                                         try {
-                                          // Use endMeeting with the conversation's meeting
-                                          // First try deleting by conversation ID directly
-                                          await meetingsApi.deleteMeeting(token!, c.id);
+                                          // Step 1: Find the actual meeting by conversationId
+                                          const allMeetings = await meetingsApi.getMyMeetings(token!);
+                                          const targetMeeting = allMeetings.find(
+                                            (m: any) => m.conversationId === c.id || m.ConversationId === c.id
+                                          );
+
+                                          if (!targetMeeting) {
+                                            toast.error('Không tìm thấy cuộc họp để xóa');
+                                            return;
+                                          }
+
+                                          // Step 2: Delete using the actual meeting ID or GUID
+                                          const deleteId = targetMeeting.meetingGuid || targetMeeting.MeetingGuid || targetMeeting.id || targetMeeting.Id;
+                                          await meetingsApi.deleteMeeting(token!, deleteId);
                                           toast.success('Đã xóa cuộc họp');
                                           if (onRefreshConversations) onRefreshConversations();
                                           else window.location.reload();
                                         } catch(e: any) {
-                                          // Fallback: try ending it by conversationId 
-                                          try {
-                                            await meetingsApi.endMeeting(token!, c.id);
-                                            toast.success('Đã kết thúc cuộc họp');
-                                            if (onRefreshConversations) onRefreshConversations();
-                                          } catch { toast.error('Không thể xóa cuộc họp này'); }
+                                          toast.error('Không thể xóa cuộc họp này');
                                         }
                                     }
                                  }}
