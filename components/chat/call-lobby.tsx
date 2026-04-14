@@ -82,7 +82,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
                     setRequestStatus('accepted');
                     toast.success("Yêu cầu tham gia đã được chấp nhận!");
                     stopPreview();
-                    onJoin(isMicOn, isCamOn);
+                    if (typeof onJoin === 'function') onJoin(isMicOn, isCamOn);
                 }
             },
             onJoinRequestDeclined: (mId, reason) => {
@@ -98,7 +98,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
         setIsAuthorized(true)
       } catch (err) {
         toast.error("Không thể kết nối dịch vụ cuộc gọi.")
-        onCancel()
+        if (typeof onCancel === 'function') onCancel()
       } finally {
         setIsLoading(false)
       }
@@ -176,7 +176,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
           if (token) await meetingsApi.joinMeeting(token, finalGuid);
         } catch(e) {}
         stopPreview();
-        onJoin(isMicOn, isCamOn);
+        if (typeof onJoin === 'function') onJoin(isMicOn, isCamOn);
         return;
      }
 
@@ -193,7 +193,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
 
   const handleCancel = () => {
      stopPreview()
-     onCancel()
+     if (typeof onCancel === 'function') onCancel()
   }
 
   if (!mounted) return null

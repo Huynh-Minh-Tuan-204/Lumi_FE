@@ -471,7 +471,18 @@ export function ChatArea({
       </div>
     </div>
     {showLobby && (
-      <CallLobby meetingId={showLobby.meetingId} type={showLobby.type} title={showLobby.title} onClose={() => setShowLobby(null)} />
+      <CallLobby 
+        meetingId={showLobby.meetingId} 
+        type={showLobby.type} 
+        title={showLobby.title} 
+        conversationId={conversation.id}
+        onJoin={(mic, cam) => {
+           // Success: Navigate to meeting page with states
+           setShowLobby(null);
+           router.push(`/meeting/${showLobby.meetingId}?mic=${mic}&cam=${cam}`);
+        }}
+        onCancel={() => setShowLobby(null)} 
+      />
     )}
     </TooltipProvider>
   )
