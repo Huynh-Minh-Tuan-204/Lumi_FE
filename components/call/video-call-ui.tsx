@@ -345,9 +345,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       </main>
 
       {/* Picture-in-Picture Self Video if Sidebar is Open or in simple mode */}
-      {sidebarType && isCamOn && (
+      {sidebarType && isCameraOn && (
           <div className="absolute top-20 right-[400px] z-50 animate-in fade-in zoom-in duration-500 pointer-events-none">
-             <VideoPlayer stream={localStream} isLocal={true} isCameraOn={isCamOn} userAvatar={getAvatarUrl(user?.id)} userName="Bạn" isMuted={isMuted} isSmall={true} />
+             <VideoPlayer stream={localStream} isLocal={true} isCameraOn={isCameraOn} userAvatar={getAvatarUrl(user?.id)} userName="Bạn" isMuted={isMuted} isSmall={true} />
           </div>
       )}
     </div>

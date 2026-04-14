@@ -17,7 +17,7 @@ import { useSignalR } from '@/hooks/use-signalr'
 export function GlobalCallOverlay() {
   const { sendMessage } = useSignalR()
   const { 
-    activeCallId, localStream, remotePeers, 
+    activeCallId, conversationId, localStream, remotePeers, 
     isMuted, setIsMuted, isCameraOn, setIsCameraOn, 
     isMinimized, setIsMinimized, endCall,
     signalR 
