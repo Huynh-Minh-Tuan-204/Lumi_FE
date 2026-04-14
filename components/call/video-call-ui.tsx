@@ -433,6 +433,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   , [callMessages, meetingStartTimeState]);
 
   const partnerPeer = remotePeers[0];
+  const displayStream = partnerPeer ? partnerPeer.stream : localStreamRef.current;
+  const isLocalDisplay = !partnerPeer;
+  const displayNameDisplay = partnerPeer ? partnerPeer.userName : "Bạn (Đang đợi...)";
 
 
     return (
@@ -497,7 +500,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
              {isMinimized ? (
                 // Minimized View - Show partner or generic placeholder
                 <div className="relative w-full h-full group">
-                   <VideoPlayer stream={partnerPeer?.stream || null} isLocal={false} isCameraOn={true} />
+                   <VideoPlayer stream={displayStream} isLocal={isLocalDisplay} isCameraOn={isCameraOn} />
                    
                    {/* Overlay Controls for Minimized State */}
                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-3">
@@ -518,7 +521,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                    </div>
 
                    <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ring-1 ring-white/10">
-                        {partnerPeer?.userName || "Đang đợi..."}
+                        {displayNameDisplay}
                    </div>
                 </div>
              ) : (
