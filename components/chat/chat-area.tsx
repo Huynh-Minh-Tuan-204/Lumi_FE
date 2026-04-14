@@ -687,14 +687,14 @@ export function ChatArea({
                                    
                                    if (isImage) {
                                      return (
-                                       <div key={i} className="relative group/img cursor-pointer w-full max-w-sm overflow-hidden shadow-sm">
+                                       <div key={i} className="relative group/img max-w-sm rounded-xl overflow-hidden">
                                           <img 
                                             src={url} 
                                             alt={a.fileName} 
-                                            className="w-full h-auto object-cover hover:scale-105 transition-transform duration-500"
+                                            className="w-full h-full object-cover block hover:scale-105 transition-transform duration-500"
                                             onClick={() => window.open(url, '_blank')}
                                           />
-                                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                          <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                                              <Button variant="secondary" size="sm" className="rounded-full gap-2" onClick={() => window.open(url, '_blank')}>
                                                 <ImageIcon className="h-3.5 w-3.5" /> Xem ảnh
                                              </Button>
