@@ -146,16 +146,20 @@ function DecryptedText({
                 const senderKey = isOwn ? mySenderKey : peerSenderKeys.get(senderId);
                 const senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);
 
-                if (senderKey && senderIdPubKey && iv && sig) {
-                    const result = await decryptMessagePro(content, iv, sig, senderKey, senderIdPubKey);
-                    setDecrypted(result);
+                if (iv && sig) {
+                    if (senderKey && senderIdPubKey) {
+                         const result = await decryptMessagePro(content, iv, sig, senderKey, senderIdPubKey);
+                         setDecrypted(result);
+                    } else {
+                         setDecrypted("⏳ [Mã hóa đầu cuối]");
+                         if (message.conversationId) initiateHandshake(message.conversationId);
+                    }
                 } else {
-                    setDecrypted("⏳ [Mã hóa đầu cuối]");
-                    if (message.conversationId) initiateHandshake(message.conversationId);
+                    // Fallback for legacy messages
+                    setDecrypted(content);
                 }
             } catch (e) {
-                console.error("Decryption component error", e);
-                setDecrypted("[Lỗi giải mã]");
+                setDecrypted(content || "[Lỗi giải mã]");
             }
         };
 

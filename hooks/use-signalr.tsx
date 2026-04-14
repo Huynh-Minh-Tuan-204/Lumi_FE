@@ -76,7 +76,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const { token, user, updateUser } = useAuth()
 
   const connectionRef = useRef<signalR.HubConnection | null>(null)
+  const notifiedMeetingsRef = useRef<Set<string>>(new Set());
 
+  const [keyVersion, setKeyVersion] = useState(0)
   const [isConnected, setIsConnected] = useState(false)
   const [isReconnecting, setIsReconnecting] = useState(false)
   const [lastMessage, setLastMessage] = useState<ChatMessage | null>(null)
@@ -98,38 +100,33 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const identityKeysRef = useRef<CryptoKeyPair | null>(null);
   const myRSAKeysRef = useRef<CryptoKeyPair | null>(null);
   
-  // Storage for keys from other users
-  const peerIdentityKeysRef = useRef<Map<number, CryptoKey>>(new Map()); // id -> ECDSA PubKey
-  const peerSenderKeysRef = useRef<Map<number, CryptoKey>>(new Map());   // id -> AES-GCM Key
+  const peerIdentityKeysRef = useRef<Map<number, CryptoKey>>(new Map());
+  const peerSenderKeysRef = useRef<Map<number, CryptoKey>>(new Map());
   const mySenderKeyRef = useRef<CryptoKey | null>(null);
 
-  // 1. Khởi tạo danh tính bền vững (IndexedDB)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       getOrCreateIdentityKey().then(keys => {
         setIdentityKeys(keys);
         identityKeysRef.current = keys;
-        console.log("🔒 [E2EE] Identity key loaded (Persistent).");
+        setKeyVersion(v => v + 1);
       });
-      // Tạo RSA dùng tạm cho phiên này
       generateEphemeralRSAKeyPair().then(keys => {
           setMyRSAKeys(keys);
           myRSAKeysRef.current = keys;
+          setKeyVersion(v => v + 1);
       });
     }
   }, []);
 
-  // 2. Hàm bắt đầu Handshake nâng cao (Chống MITM)
   const initiateE2EEHandshake = useCallback(async (conversationId: number) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected && identityKeysRef.current && myRSAKeysRef.current) {
       const idPubKeyB64 = await exportIdentityPublicKey(identityKeysRef.current.publicKey);
       const rsaPubKeyB64 = await exportPublicKey(myRSAKeysRef.current.publicKey);
       
-      // Sign the RSA key to prevent MITM
       const signature = await signData(rsaPubKeyB64, identityKeysRef.current.privateKey);
       
       await connectionRef.current.invoke("SendSecureIdentity", conversationId, idPubKeyB64, rsaPubKeyB64, signature);
-      console.log(`🤝 [E2EE] Identity and Signed RSA Key sent to group ${conversationId}`);
     }
   }, []);
 
@@ -191,45 +188,37 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       .configureLogging(signalR.LogLevel.None)
       .build()
 
-    // --- HANDSHAKE BƯỚC 1: Xác thực danh tính & Nhận RSA ---
     connection.on("ReceiveSecureIdentity", async (senderId: number, idPubKeyBase64: string, rsaPubKeyBase64: string, signature: string, conversationId: number) => {
       if (user && senderId === user.id) return;
       try {
         const peerIdPubKey = await importIdentityPublicKey(idPubKeyBase64);
         
-        // 1. Verify RSA key signature
         const isVerified = await verifySignature(rsaPubKeyBase64, signature, peerIdPubKey);
-        if (!isVerified) {
-          console.error("⛔ [E2EE] CẢNH BÁO: Public key của User " + senderId + " không hợp lệ (MITM detected)! ");
-          return;
-        }
+        if (!isVerified) return;
 
-        // 2. Store identity for later verification
         peerIdentityKeysRef.current.set(senderId, peerIdPubKey);
+        setKeyVersion(v => v + 1);
 
-        // 3. Generate MY sender key if not already
         if (!mySenderKeyRef.current) {
           mySenderKeyRef.current = await generateSenderKey();
+          setKeyVersion(v => v + 1);
         }
 
-        // 4. Encrypt MY sender key for THIS peer
         const peerRSAPubKey = await importPublicKey(rsaPubKeyBase64);
         const encryptedKey = await encryptSessionKeyForPeer(mySenderKeyRef.current, peerRSAPubKey);
         
-        // 5. Send back our sender key wrapped
         await connection.invoke("SendSecureSenderKey", conversationId, senderId, encryptedKey);
       } catch (e) {
         console.error("Handshake Secure Identity error", e);
       }
     });
 
-    // --- HANDSHAKE BƯỚC 2: Nhận khóa AES phiên ---
     connection.on("ReceiveSecureSenderKey", async (senderId: number, encryptedKeyBase64: string, conversationId: number) => {
        if (!myRSAKeysRef.current) return;
        try {
           const senderKey = await decryptSessionKey(encryptedKeyBase64, myRSAKeysRef.current.privateKey);
           peerSenderKeysRef.current.set(senderId, senderKey);
-          console.log(`✅ [E2EE] Secured with User ${senderId}. Ready to decrypt.`);
+          setKeyVersion(v => v + 1);
        } catch (e) {
           console.error("Handshake Decrypt Key error", e);
        }
@@ -246,11 +235,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         if (senderSessionKey && iv && sig && senderIdKey) {
            displayContent = await decryptMessagePro(content, iv, sig, senderSessionKey, senderIdKey);
         } else if (user && senderId === user.id && mySenderKeyRef.current && identityKeysRef.current) {
-           // For local messages, we use our own session key + our identity key
            displayContent = await decryptMessagePro(content, iv, sig, mySenderKeyRef.current, identityKeysRef.current.publicKey);
         } else {
            displayContent = "⏳ [E2EE: Đang thỏa thuận bảo mật...]";
-           // Request handshake if missing keys
            initiateE2EEHandshake(conversationId);
         }
       }
@@ -498,19 +485,17 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         let sigToSend = "";
 
         if (messageType === 'PLAIN') {
-          // Ensure we have a sender key
           if (!mySenderKeyRef.current) {
             mySenderKeyRef.current = await generateSenderKey();
+            setKeyVersion(v => v + 1);
           }
 
-          // Check if we need to handshake first
           if (peerIdentityKeysRef.current.size === 0) {
               toast.error("Vui lòng đợi 1 giây để thiết lập mã hóa...");
               initiateE2EEHandshake(conversationId);
               return;
           }
 
-          // MÃ HÓA & KÝ TÊN
           const encrypted = await encryptMessagePro(plaintext, mySenderKeyRef.current, identityKeysRef.current!.privateKey);
           contentToSend = encrypted.content;
           ivToSend = encrypted.iv;
@@ -609,11 +594,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         activeMeeting,
         initiateE2EEHandshake,
         onTriggeredReminder: (cb: any) => { },
-        // EXPORT REFS FOR CHAT AREA DECRYPTION
         mySenderKey: mySenderKeyRef.current,
         peerSenderKeys: peerSenderKeysRef.current,
         peerIdentityKeys: peerIdentityKeysRef.current,
-        identityKeys: identityKeysRef.current
+        identityKeys: identityKeysRef.current,
+        keyVersion
       }}
     >
       {!mounted ? <div style={{ visibility: 'hidden' }}>{children}</div> : children}
