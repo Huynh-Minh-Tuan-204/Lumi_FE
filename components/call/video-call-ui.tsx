@@ -31,38 +31,43 @@ function formatDuration(seconds: number) {
   return [h > 0 ? h : null, m, s].filter(x => x !== null).map(x => x!.toString().padStart(2, '0')).join(':')
 }
 
-function VideoPlayer({ stream, isLocal, isCameraOn }: { stream: MediaStream | null, isLocal: boolean, isCameraOn: boolean }) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  
-  useEffect(() => {
-    if (videoRef.current && stream) {
-      videoRef.current.srcObject = stream
-    }
-  }, [stream])
+  // Video Player Component with Avatar support
+  function VideoPlayer({ stream, isLocal, isCameraOn, userAvatar, userName }: { stream: MediaStream | null, isLocal: boolean, isCameraOn: boolean, userAvatar?: string, userName: string }) {
+    const videoRef = useRef<HTMLVideoElement>(null)
+    
+    useEffect(() => {
+      if (videoRef.current && stream) {
+        videoRef.current.srcObject = stream
+      }
+    }, [stream])
 
-  return (
-    <div className="relative w-full h-full bg-[#121212] flex items-center justify-center overflow-hidden rounded-2xl">
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted={isLocal}
-        className={cn(
-          "max-w-full max-h-full object-contain transition-all duration-700",
-          isLocal && "scale-x-[-1]",
-          !isCameraOn && "opacity-0"
+    return (
+      <div className="relative w-full h-full bg-[#121212] flex items-center justify-center overflow-hidden rounded-2xl">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted={isLocal}
+          className={cn(
+            "max-w-full max-h-full object-contain transition-all duration-700",
+            isLocal && "scale-x-[-1]",
+            !isCameraOn && "opacity-0 invisible"
+          )}
+        />
+        {!isCameraOn && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1e1e1e] to-[#0f0f0f]">
+            <Avatar className="h-32 w-32 ring-4 ring-primary/20 shadow-2xl animate-in zoom-in-95 duration-500">
+              <AvatarImage src={userAvatar} className="object-cover" />
+              <AvatarFallback className="bg-primary/10 text-primary text-4xl font-black uppercase">
+                {userName?.substring(0, 1) || "?"}
+              </AvatarFallback>
+            </Avatar>
+          </div>
         )}
-      />
-      {!isCameraOn && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#1e1e1e] to-[#0f0f0f]">
-          <Avatar className="h-24 w-24 ring-4 ring-primary/20 shadow-2xl">
-            <AvatarFallback className="bg-primary/10 text-primary text-3xl font-black uppercase">L</AvatarFallback>
-          </Avatar>
-        </div>
-      )}
-    </div>
-  )
-}
+      </div>
+    )
+  }
+
 
 export function VideoCallUI({ callId, callType, participantName, onEndCall, initialMic = true, initialCam = true }: VideoCallUIProps) {
   const { user, token } = useAuth()
@@ -71,7 +76,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     joinCall, endCall, activeCallId, localStream, remotePeers,
     isMuted, setIsMuted, isCameraOn, setIsCameraOn,
     isMinimized, setIsMinimized, isScreenSharing, toggleScreenShare,
-    signalR
+    signalR, setConversationId
   } = useCall()
   
   const router = useRouter()
@@ -114,6 +119,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       }
 
       setConvId(meeting.conversationId ?? meeting.ConversationId)
+      setConversationId(meeting.conversationId ?? meeting.ConversationId)
       setHostId(meeting.createdBy ?? meeting.CreatedBy)
       
       const startAtRaw = meeting.createdAt || meeting.startTime || meeting.CreatedAt || meeting.StartTime;
@@ -163,9 +169,22 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   }, [lastMessage, convId]);
 
   const allStreams = useMemo(() => [
-    { id: user?.id || 0, name: "Bạn", stream: localStream, isLocal: true },
-    ...remotePeers.map(p => ({ id: p.userId, name: p.userName, stream: p.stream, isLocal: false }))
+    { 
+        id: user?.id || 0, 
+        name: user?.fullName || "Bạn", 
+        stream: localStream, 
+        isLocal: true, 
+        avatar: getAvatarUrl(user?.id) 
+    },
+    ...remotePeers.map(p => ({ 
+        id: p.userId, 
+        name: p.userName, 
+        stream: p.stream, 
+        isLocal: false, 
+        avatar: getAvatarUrl(p.userId) 
+    }))
   ], [user, remotePeers, localStream]);
+
 
   const filteredCallMessages = useMemo(() => 
     meetingStartTimeState 
@@ -176,7 +195,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   const partnerPeer = remotePeers[0];
   const displayStream = partnerPeer ? partnerPeer.stream : localStream;
   const isLocalDisplay = !partnerPeer;
-  const displayNameDisplay = partnerPeer ? partnerPeer.userName : "Bạn (Đang đợi...)";
+  const displayNameDisplay = partnerPeer ? partnerPeer.userName : (user?.fullName || "Bạn");
+  const displayAvatarDisplay = partnerPeer ? getAvatarUrl(partnerPeer.userId) : getAvatarUrl(user?.id);
+
 
   return (
     <div className={cn(
@@ -226,7 +247,13 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
             )}>
                 {allStreams.map((p) => (
                     <div key={p.id} className="relative rounded-3xl overflow-hidden bg-[#121212] w-full h-full border border-white/5 shadow-2xl group transition-all duration-500 hover:border-primary/30 flex items-center justify-center">
-                        <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.isLocal ? isCameraOn : true} />
+                        <VideoPlayer 
+                            stream={p.stream} 
+                            isLocal={p.isLocal} 
+                            isCameraOn={p.isLocal ? isCameraOn : true} 
+                            userAvatar={p.avatar}
+                            userName={p.name}
+                        />
                         <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-xl px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest ring-1 ring-white/10 flex items-center gap-2 z-20">
                             {p.name} {p.isLocal && "(Tôi)"}
                         </div>
@@ -264,7 +291,12 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                         <MessageSquare className="h-6 w-6" />
                     </Button>
                     <div className="ml-2">
-                        <Button onClick={() => { endCall(); onEndCall(); }} className="h-14 px-8 rounded-3xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-red-600/20">
+                        <Button onClick={() => {
+                            const durationStr = formatDuration(callDuration);
+                            if (convId) sendMessage(convId, `📞 Cuộc họp đã kết thúc (${durationStr})`, 'Text');
+                            endCall();
+                            onEndCall();
+                        }} className="h-14 px-8 rounded-3xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[11px] shadow-xl shadow-red-600/20">
                             <PhoneOff className="h-5 w-5 mr-3" /> Kết thúc
                         </Button>
                     </div>

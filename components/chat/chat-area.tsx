@@ -164,7 +164,10 @@ export function ChatArea({
       const title = `${type === 'voice' ? 'Cuộc gọi thoại' : 'Cuộc gọi video'} - ${conversation.name}`
       const resp = await meetingsApi.startMeeting(token, conversation.id, title, [], type)
       if (resp && (resp.meetingGuid || resp.id)) {
-        setShowLobby({ meetingId: resp.meetingGuid || resp.id, type, title })
+        const mGuid = resp.meetingGuid || resp.id;
+        // Gửi tin nhắn thông báo vào nhóm để lưu lịch sử và cho phép người khác tham gia
+        sendMessage(conversation.id, `📹 Đã bắt đầu cuộc họp: ${title}\n[MEETING_GUID:${mGuid}]`, 'Text');
+        setShowLobby({ meetingId: mGuid, type, title })
       }
     } catch (error) {
       toast.error(`Không thể bắt đầu cuộc gọi.`)
@@ -559,9 +562,35 @@ export function ChatArea({
                                  })}
                               </div>
                             )}
-                             {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
-                               <p className="font-medium leading-relaxed">{m.encryptedContent}</p>
-                             )}
+                              {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
+                                <div className="space-y-3">
+                                   {m.encryptedContent.includes('[MEETING_GUID:') ? (
+                                      <div className="bg-primary/10 rounded-xl p-4 border border-primary/20 flex flex-col gap-3">
+                                         <div className="flex items-center gap-3">
+                                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                                               <VideoIcon className="h-5 w-5 text-primary" />
+                                            </div>
+                                            <div>
+                                               <p className="font-black text-xs text-primary uppercase tracking-widest">Cuộc họp video</p>
+                                               <p className="text-[11px] font-bold opacity-70">{m.encryptedContent.split('\n')[0].replace('📹 ', '')}</p>
+                                            </div>
+                                         </div>
+                                         <Button 
+                                            size="sm" 
+                                            className="w-full rounded-lg h-8 font-black uppercase text-[10px] tracking-widest bg-primary hover:bg-primary/80"
+                                            onClick={() => {
+                                               const match = m.encryptedContent.match(/\[MEETING_GUID:([^\]]+)\]/);
+                                               if (match) setShowLobby({ meetingId: match[1], type: 'video', title: 'Tham gia cuộc họp' });
+                                            }}
+                                         >
+                                            Tham gia ngay
+                                         </Button>
+                                      </div>
+                                   ) : (
+                                      <p className="font-medium leading-relaxed">{m.encryptedContent}</p>
+                                   )}
+                                </div>
+                              )}
                             
                             {/* Nút Pin nhanh và Menu hành động */}
                              <div className={cn(

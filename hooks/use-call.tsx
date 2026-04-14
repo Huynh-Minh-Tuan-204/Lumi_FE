@@ -30,6 +30,8 @@ const RTC_CONFIG: RTCConfiguration = {
 
 interface CallContextType {
   activeCallId: string | null
+  conversationId: number | null
+  setConversationId: (val: number | null) => void
   localStream: MediaStream | null
   remotePeers: UserPeer[]
   isMuted: boolean
@@ -51,6 +53,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const { user, token } = useAuth()
   
   const [activeCallId, setActiveCallId] = useState<string | null>(null)
+  const [conversationId, setConversationId] = useState<number | null>(null)
   const [localStream, setLocalStream] = useState<MediaStream | null>(null)
   const [remotePeers, setRemotePeers] = useState<UserPeer[]>([])
   const [isMuted, setIsMuted] = useState(false)
@@ -216,6 +219,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     signalRRef.current?.disconnect()
     
     setActiveCallId(null)
+    setConversationId(null)
     setLocalStream(null)
     setRemotePeers([])
     setIsMinimized(false)
@@ -268,7 +272,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CallContext.Provider value={{
-      activeCallId, localStream, remotePeers,
+      activeCallId, conversationId, setConversationId, localStream, remotePeers,
       isMuted, setIsMuted, isCameraOn, setIsCameraOn,
       isMinimized, setIsMinimized, isScreenSharing,
       joinCall, endCall, toggleScreenShare,
