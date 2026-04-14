@@ -43,7 +43,8 @@ import {
   Video as VideoIcon,
   Activity as ActivityIcon,
   Calendar as CalendarIcon,
-  X
+  X,
+  MessageSquare
 } from 'lucide-react'
 import {
   DropdownMenu,
