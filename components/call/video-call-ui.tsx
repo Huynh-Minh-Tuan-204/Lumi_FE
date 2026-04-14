@@ -158,6 +158,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   const [isEnding, setIsEnding] = useState(false)
   const [callMessages, setCallMessages] = useState<ChatMessage[]>([])
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const joinedRef = useRef<string | null>(null)
 
   useEffect(() => {
     const timer = setInterval(() => setCallDuration(v => v + 1), 1000)
@@ -188,8 +189,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   }, [callId, token, setConversationId, initiateE2EEHandshake])
 
   useEffect(() => { 
-    if (callId && token && !activeCallId && !isEnding) {
-        joinCall(callId, callType); 
+    if (callId && token && !activeCallId && !isEnding && joinedRef.current !== callId) {
+        joinedRef.current = callId as string;
+        joinCall(callId as string, callType); 
     }
   }, [callId, token, callType, joinCall, activeCallId, isEnding])
 
