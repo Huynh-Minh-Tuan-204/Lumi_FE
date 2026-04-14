@@ -123,20 +123,30 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
             return
         }
 
-        const localStream = await navigator.mediaDevices.getUserMedia({
-          video: isCamOn ? { width: 1280, height: 720 } : false,
-          audio: isMicOn
-        })
-        setStream(localStream)
-        if (videoRef.current) {
-          videoRef.current.srcObject = localStream
-          videoRef.current.onloadedmetadata = () => {
-             videoRef.current?.play().catch(e => console.error("Play error:", e))
+        try {
+          const localStream = await navigator.mediaDevices.getUserMedia({
+            video: isCamOn ? { width: 1280, height: 720 } : false,
+            audio: isMicOn
+          })
+          setStream(localStream)
+          if (videoRef.current) {
+            videoRef.current.srcObject = localStream
+            videoRef.current.onloadedmetadata = () => {
+               videoRef.current?.play().catch(e => console.error("Play error:", e))
+            }
           }
+        } catch (innerErr: any) {
+          if (innerErr.name === 'NotFoundError' || innerErr.name === 'DevicesNotFoundError') {
+            toast.warning("Không tìm thấy camera hoặc microphone.");
+          } else if (innerErr.name === 'NotAllowedError' || innerErr.name === 'PermissionDeniedError') {
+            toast.warning("Quyền truy cập Camera/Mic bị từ chối.");
+          } else {
+            toast.warning("Lỗi khi truy cập thiết bị âm thanh/hình ảnh.");
+          }
+          console.error("Lỗi thiết bị:", innerErr)
         }
       } catch (err) {
-        console.error("Lỗi thiết bị:", err)
-        toast.warning("Không thể truy cập Camera/Mic.")
+        console.error("Unexpected error in preview:", err)
       }
     }
 

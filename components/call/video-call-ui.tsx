@@ -261,10 +261,27 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
 
     const startCall = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: callType === 'video'
-        });
+        let stream: MediaStream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: callType === 'video'
+          });
+        } catch (innerErr: any) {
+          // If camera is not found or failed, try audio only
+          if (callType === 'video' && (innerErr.name === 'NotFoundError' || innerErr.name === 'DevicesNotFoundError')) {
+            console.warn("Camera not found, trying audio only...");
+            toast.warning("Không tìm thấy camera. Bạn sẽ tham gia bằng âm thanh.");
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+              video: false
+            });
+            setIsCameraOn(false);
+          } else {
+            throw innerErr;
+          }
+        }
+
         if (!active) { stream.getTracks().forEach(t => t.stop()); return; }
         
         localStreamRef.current = stream;
@@ -349,8 +366,14 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         signalRRef.current = signalR;
         await signalR.connect(token);
         await signalR.joinCall(callId);
-      } catch (err) {
-        setError("Không thể khởi tạo cuộc họp.");
+      } catch (err: any) {
+        if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+             setError("Không tìm thấy thiết bị thu âm hoặc hình ảnh.");
+        } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+             setError("Bạn đã chặn quyền truy cập Camera/Microphone.");
+        } else {
+             setError("Không thể khởi tạo cuộc họp.");
+        }
         console.error(err);
       }
     };
