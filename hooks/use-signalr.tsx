@@ -240,9 +240,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
         if (senderSessionKey && iv && sig && senderIdKey) {
            displayContent = await decryptMessagePro(content, iv, sig, senderSessionKey, senderIdKey);
-        } else if (user && senderId === user.id && mySenderKeyRef.current) {
+        } else if (user && senderId === user.id && mySenderKeyRef.current && identityKeys) {
            // For local messages, we use our own session key + our identity key
-           displayContent = await decryptMessagePro(content, iv, sig, mySenderKeyRef.current, identityKeys!.publicKey);
+           displayContent = await decryptMessagePro(content, iv, sig, mySenderKeyRef.current, identityKeys.publicKey);
         } else {
            displayContent = "⏳ [E2EE: Đang thỏa thuận bảo mật...]";
            // Request handshake if missing keys

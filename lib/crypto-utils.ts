@@ -90,6 +90,21 @@ export async function generateEphemeralRSAKeyPair(): Promise<CryptoKeyPair> {
     );
 }
 
+export async function exportPublicKey(key: CryptoKey): Promise<string> {
+    const exported = await window.crypto.subtle.exportKey("spki", key);
+    return bufferToBase64(exported);
+}
+
+export async function importPublicKey(base64Key: string): Promise<CryptoKey> {
+    return await window.crypto.subtle.importKey(
+        "spki",
+        base64ToBuffer(base64Key),
+        { name: "RSA-OAEP", hash: "SHA-256" },
+        true,
+        ["encrypt"]
+    );
+}
+
 // ==========================================
 // PHẦN 4: SIGNING (XÁC THỰC)
 // ==========================================

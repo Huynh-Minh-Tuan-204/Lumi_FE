@@ -60,7 +60,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { useAuth } from '@/lib/auth-context'
-import { getSessionKey, decryptMessage } from '@/lib/crypto-utils'
 import { conversationsApi, meetingsApi, attachmentsApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
 import { toast } from 'sonner'
