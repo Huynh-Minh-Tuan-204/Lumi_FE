@@ -157,12 +157,29 @@ export function ChatArea({
   className 
  }: ChatAreaProps) {
   const { token, user } = useAuth()
+  
+  // Bước 1: Gọi hook 1 lần ở đầu component
+  const signalRData = useSignalR()
+
+  // Bước 2: Destructure các hàm và dữ liệu cần thiết
   const { 
-    sendMessage, lastMessage, markAsRead, sendTyping, typingUsers, 
-    togglePinMessage, lastDeletedMessage, pinnedMessages, activeMeeting, 
-    initiateE2EEHandshake, hideMessageForMe, mySenderKey, peerSenderKeys, 
-    peerIdentityKeys, identityKeys, keyVersion
-  } = useSignalR()
+    sendMessage, 
+    lastMessage, 
+    markAsRead, 
+    sendTyping, 
+    typingUsers, 
+    togglePinMessage, 
+    lastDeletedMessage, 
+    pinnedMessages, 
+    activeMeeting, 
+    initiateE2EEHandshake, 
+    hideMessageForMe, 
+    mySenderKey, 
+    peerSenderKeys, 
+    peerIdentityKeys, 
+    identityKeys, 
+    keyVersion 
+  } = signalRData
 
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')

@@ -132,7 +132,15 @@ function DecryptedText({
 
 export function VideoCallUI({ callId, callType, participantName, onEndCall, initialMic = true, initialCam = true }: VideoCallUIProps) {
   const { user, token } = useAuth()
-  const { sendMessage, lastMessage } = useSignalR()
+  const { 
+    sendMessage, 
+    lastMessage, 
+    mySenderKey, 
+    peerSenderKeys, 
+    peerIdentityKeys, 
+    identityKeys, 
+    initiateE2EEHandshake 
+  } = useSignalR()
   const { 
     joinCall, endCall, activeCallId, localStream, remotePeers,
     isMuted, setIsMuted, isCameraOn, setIsCameraOn,
@@ -402,11 +410,11 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                                             <DecryptedText 
                                                 message={msg}
                                                 user={user}
-                                                mySenderKey={(useSignalR() as any).mySenderKey}
-                                                peerSenderKeys={(useSignalR() as any).peerSenderKeys}
-                                                peerIdentityKeys={(useSignalR() as any).peerIdentityKeys}
-                                                identityKeys={(useSignalR() as any).identityKeys}
-                                                initiateHandshake={(useSignalR() as any).initiateE2EEHandshake}
+                                                mySenderKey={mySenderKey}
+                                                peerSenderKeys={peerSenderKeys}
+                                                peerIdentityKeys={peerIdentityKeys}
+                                                identityKeys={identityKeys}
+                                                initiateHandshake={initiateE2EEHandshake}
                                             />
                                         </div>
                                     </div>
