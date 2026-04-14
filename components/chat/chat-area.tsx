@@ -28,6 +28,7 @@ import {
   Download, 
   Pin, 
   PinOff,
+  Search,
   Video as VideoIcon,
   Activity as ActivityIcon,
   X,
