@@ -602,6 +602,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         lastScheduleUpdate,
         lastUserLeft,
         activeMeeting,
+        initiateE2EEHandshake,
         onTriggeredReminder: (cb: any) => { },
       }}
     >
