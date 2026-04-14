@@ -212,12 +212,15 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [token, user, activeCallId, createPeerConnection, removePeer])
 
   const endCall = useCallback(() => {
-    localStreamRef.current?.getTracks().forEach(t => t.stop())
-    screenStreamRef.current?.getTracks().forEach(t => t.stop())
-    peersRef.current.forEach(p => p.connection.close())
-    peersRef.current.clear()
-    signalRRef.current?.disconnect()
+    try {
+      localStreamRef.current?.getTracks().forEach(t => t.stop())
+      screenStreamRef.current?.getTracks().forEach(t => t.stop())
+      peersRef.current.forEach(p => p.connection.close())
+      peersRef.current.clear()
+      signalRRef.current?.disconnect()
+    } catch (e) { console.error("Error cleaning up call", e) }
     
+    // Force clear all state synchronously
     setActiveCallId(null)
     setConversationId(null)
     setLocalStream(null)
