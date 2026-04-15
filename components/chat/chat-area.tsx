@@ -82,7 +82,8 @@ function DecryptedText({
     peerIdentityKeys, 
     identityKeys,
     initiateHandshake,
-    onJoinMeeting
+    onJoinMeeting,
+    isOwn
 }: { 
     message: any, 
     user: any, 
@@ -91,7 +92,8 @@ function DecryptedText({
     peerIdentityKeys: Map<number, any>,
     identityKeys: any,
     initiateHandshake: (cid: number) => Promise<void>,
-    onJoinMeeting: (meetingId: string) => void
+    onJoinMeeting: (meetingId: string) => void,
+    isOwn?: boolean
 }) {
     const [decrypted, setDecrypted] = useState<string>("⌛ [Đang giải mã...]");
 
@@ -111,9 +113,9 @@ function DecryptedText({
                 return;
             }
             try {
-                const isOwn = user && senderId === user.id;
-                const senderKey = isOwn ? mySenderKey : peerSenderKeys.get(senderId);
-                const senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);
+                const isMessageOwn = user && senderId === user.id;
+                const senderKey = isMessageOwn ? mySenderKey : peerSenderKeys.get(senderId);
+                const senderIdPubKey = isMessageOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);
 
                 if (iv && sig && senderKey && senderIdPubKey) {
                     const result = await decryptMessagePro(content, iv, sig, senderKey, senderIdPubKey);
@@ -131,15 +133,30 @@ function DecryptedText({
 
     if (decrypted.includes('[MEETING_GUID:')) {
         return (
-            <div className="bg-primary/10 rounded-xl p-4 border border-primary/20 flex flex-col gap-3">
+            <div className={cn(
+                "rounded-xl p-4 border flex flex-col gap-3 min-w-[240px]",
+                isOwn ? "bg-white/20 border-white/30 backdrop-blur-md" : "bg-primary/10 border-primary/20"
+            )}>
                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center"><VideoIcon className="h-5 w-5 text-primary" /></div>
+                  <div className={cn(
+                      "h-10 w-10 rounded-full flex items-center justify-center",
+                      isOwn ? "bg-white/20" : "bg-primary/20"
+                  )}>
+                    <VideoIcon className={cn("h-5 w-5", isOwn ? "text-white" : "text-primary")} />
+                  </div>
                   <div>
-                     <p className="font-black text-xs text-primary uppercase tracking-widest leading-none mb-1">Cuộc họp video</p>
-                     <p className="text-[11px] font-bold opacity-70 truncate">{decrypted.split('\n')[0].replace('📹 ', '')}</p>
+                     <p className={cn("font-black text-xs uppercase tracking-widest leading-none mb-1", isOwn ? "text-white" : "text-primary")}>Cuộc họp video</p>
+                     <p className={cn("text-[11px] font-bold truncate opacity-70", isOwn ? "text-white" : "text-foreground")}>{decrypted.split('\n')[0].replace('📹 ', '')}</p>
                   </div>
                </div>
-               <Button size="sm" className="w-full rounded-lg h-8 font-black uppercase text-[10px] tracking-widest" onClick={() => {
+               <Button 
+                size="sm" 
+                variant={isOwn ? "secondary" : "default"}
+                className={cn(
+                    "w-full rounded-lg h-8 font-black uppercase text-[10px] tracking-widest shadow-sm",
+                    isOwn && "bg-white text-primary hover:bg-white/90 border-none"
+                )} 
+                onClick={() => {
                    const match = decrypted.match(/\[MEETING_GUID:([^\]]+)\]/);
                    if (match) onJoinMeeting(match[1]);
                }}>Tham gia ngay</Button>
@@ -379,7 +396,7 @@ export function ChatArea({
                 <Pin className="h-3.5 w-3.5 text-primary fill-primary" />
                 <div className="flex-1 min-w-0">
                    <p className="text-[9px] font-black uppercase text-primary/60 mb-0.5 tracking-widest">TIN NHẮN GHIM</p>
-                   <div className="text-xs font-bold truncate opacity-90"><span className="text-primary">{latestPin.senderName}:</span> <DecryptedText message={latestPin} user={user} mySenderKey={mySenderKey} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} /></div>
+                   <div className="text-xs font-bold truncate opacity-90"><span className="text-primary">{latestPin.senderName}:</span> <DecryptedText message={latestPin} user={user} mySenderKey={mySenderKey} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} isOwn={latestPin.senderId === user?.id} /></div>
                 </div>
              </div>
              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}><ChevronDown className={cn("h-4 w-4 transition-transform", isPinnedListExpanded && "rotate-180")} /></Button>
@@ -431,7 +448,7 @@ export function ChatArea({
                           )}
                           {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
                              <div className={cn("px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border relative group/msg transition-all duration-300", isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card")}>
-                                <DecryptedText message={m} user={user} mySenderKey={mySenderKey} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} />
+                                <DecryptedText message={m} user={user} mySenderKey={mySenderKey} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} isOwn={isOwn} />
                                 <div className={cn("absolute bottom-0 opacity-0 group-hover/msg:opacity-100 flex items-center gap-1 transition-opacity", isOwn ? "-left-20" : "-right-20")}>
                                    <button onClick={() => togglePinMessage(m.id)} className={cn("p-1.5 rounded-full bg-background border", m.isPinned ? "text-primary" : "text-muted-foreground")}>{m.isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}</button>
                                    <DropdownMenu>
