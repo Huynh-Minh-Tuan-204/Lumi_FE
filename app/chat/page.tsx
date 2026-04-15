@@ -182,10 +182,10 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                         </p>
                      </div>
                   </div>
-                  <DropdownMenuItem className="p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest gap-3">
+                  <DropdownMenuItem onClick={() => toast.info('Tính năng này đang phát triển!')} className="p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest gap-3">
                      <UserIcon className="h-4 w-4 text-primary" /> Hồ sơ cá nhân
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest gap-3">
+                  <DropdownMenuItem onClick={() => toast.info('Tính năng này đang phát triển!')} className="p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest gap-3">
                      <Settings className="h-4 w-4 text-primary" /> Cài đặt chung
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/5" />

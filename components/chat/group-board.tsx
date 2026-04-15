@@ -6,6 +6,7 @@ import { conversationsApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { toast } from 'sonner'
 import { 
   ArrowLeft, 
   Plus, 
@@ -67,7 +68,7 @@ export function GroupBoard({ conversationId, token, onClose, onGoToMessage, onUn
              <p className="text-[10px] text-muted-foreground font-bold opacity-60">Tin nhắn đã ghim</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/5">
+        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-primary/5" onClick={() => toast.info('Tính năng này đang phát triển!')}>
           <Plus className="h-5 w-5" />
         </Button>
       </div>

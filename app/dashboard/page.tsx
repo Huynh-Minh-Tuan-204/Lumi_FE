@@ -98,14 +98,7 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {isAdmin && (
-          <Button asChild>
-            <Link href="/dashboard/users">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Thêm người dùng
-            </Link>
-          </Button>
-        )}
+
       </div>
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
