@@ -23,8 +23,11 @@ import {
   User as UserIcon,
   MessageSquare,
   X,
-  LayoutDashboard
+  LayoutDashboard,
+  Sun,
+  Moon
 } from 'lucide-react'
+import { useTheme } from 'next-themes'
 import Link from 'next/link'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
@@ -62,6 +65,34 @@ interface LeftTabbarProps {
   onToggleNotes: () => void
   activeTab: string | null
   setActiveTab: (tab: string | null) => void
+}
+
+function ThemeToggle() {
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => setMounted(true), [])
+
+  if (!mounted) return (
+     <Button variant="ghost" size="icon" className="h-12 w-12 text-white/40 hover:bg-white/5 hover:text-white rounded-xl">
+        <Moon className="h-6 w-6" />
+     </Button>
+  )
+
+  return (
+    <Button 
+      variant="ghost" 
+      size="icon" 
+      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      className="h-12 w-12 text-white/40 hover:bg-white/5 hover:text-white rounded-xl transition-all hover:scale-110 active:scale-90"
+    >
+       {theme === 'dark' ? (
+          <Sun className="h-6 w-6 text-yellow-500 animate-in fade-in zoom-in spin-in-90 duration-300" />
+       ) : (
+          <Moon className="h-6 w-6 text-indigo-400 animate-in fade-in zoom-in spin-in-90 duration-300" />
+       )}
+    </Button>
+  )
 }
 
 function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onToggleBoard, onToggleCalendar, onToggleNotes, activeTab, setActiveTab }: LeftTabbarProps) {
@@ -153,6 +184,13 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">Ghi chú dự án (Minh Tuấn)</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ThemeToggle />
+              </TooltipTrigger>
+              <TooltipContent side="right">Cài đặt giao diện</TooltipContent>
             </Tooltip>
           </TooltipProvider>
        </div>
