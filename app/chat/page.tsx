@@ -74,7 +74,7 @@ function ThemeToggle() {
   useEffect(() => setMounted(true), [])
 
   if (!mounted) return (
-     <Button variant="ghost" size="icon" className="h-12 w-12 text-white/40 hover:bg-white/5 hover:text-white rounded-xl">
+     <Button variant="ghost" size="icon" className="h-12 w-12 text-muted-foreground hover:bg-muted hover:text-foreground rounded-xl">
         <Moon className="h-6 w-6" />
      </Button>
   )
@@ -84,7 +84,7 @@ function ThemeToggle() {
       variant="ghost" 
       size="icon" 
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-      className="h-12 w-12 text-white/40 hover:bg-white/5 hover:text-white rounded-xl transition-all hover:scale-110 active:scale-90"
+      className="h-12 w-12 text-muted-foreground hover:bg-muted hover:text-foreground rounded-xl transition-all hover:scale-110 active:scale-90"
     >
        {theme === 'dark' ? (
           <Sun className="h-6 w-6 text-yellow-500 animate-in fade-in zoom-in spin-in-90 duration-300" />
@@ -97,7 +97,7 @@ function ThemeToggle() {
 
 function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onToggleBoard, onToggleCalendar, onToggleNotes, activeTab, setActiveTab }: LeftTabbarProps) {
   return (
-    <div className="w-[64px] bg-[#0a0a0a] flex flex-col items-center py-6 gap-6 shrink-0 z-[60] shadow-2xl h-full border-r border-white/5">
+    <div className="w-[64px] bg-card flex flex-col items-center py-6 gap-6 shrink-0 z-[60] shadow-2xl h-full border-r border-border">
        <div className="flex flex-col gap-6 items-center flex-1 w-full">
           {user?.role === 'Admin' && (
              <TooltipProvider>
@@ -128,8 +128,8 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                   onClick={() => setActiveTab('chat')}
                   className={cn(
                     "h-12 w-12 rounded-xl transition-all group",
-                    activeTab === 'chat' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" : "text-white/40 hover:bg-white/5 hover:text-white"
-                  )}
+                    activeTab === 'chat' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                   )}
                 >
                    <MessageSquare className="h-6 w-6" />
                 </Button>
@@ -145,7 +145,7 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                   onClick={onToggleNotifications}
                   className={cn(
                     "h-12 w-12 rounded-xl transition-all group",
-                    activeTab === 'notifications' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" : "text-white/40 hover:bg-white/5 hover:text-white"
+                    activeTab === 'notifications' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
                    <Bell className="h-6 w-6" />
@@ -160,7 +160,7 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                    variant="ghost" 
                    size="icon" 
                    onClick={onToggleCalendar}
-                   className="h-12 w-12 text-white/40 hover:bg-white/5 hover:text-white rounded-xl"
+                   className="h-12 w-12 text-muted-foreground hover:bg-muted hover:text-foreground rounded-xl"
                 >
                    <CalendarIcon className="h-6 w-6" />
                 </Button>
@@ -177,7 +177,7 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                    onClick={() => onToggleNotes()}
                    className={cn(
                     "h-12 w-12 rounded-xl transition-all group",
-                    activeTab === 'notes' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" : "text-white/40 hover:bg-white/5 hover:text-white"
+                    activeTab === 'notes' ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30" : "text-muted-foreground hover:bg-muted hover:text-foreground"
                    )}
                 >
                    <NotebookText className="h-6 w-6" />
@@ -200,15 +200,15 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
             <DropdownMenu>
                <DropdownMenuTrigger asChild>
                   <button className="relative group active:scale-90 transition-transform mb-4">
-                     <Avatar className="h-10 w-10 border-2 border-white/10 group-hover:border-primary transition-colors ring-2 ring-primary/0 group-hover:ring-primary/20">
+                     <Avatar className="h-10 w-10 border-2 border-border group-hover:border-primary transition-colors ring-2 ring-primary/0 group-hover:ring-primary/20">
                         <AvatarImage src={getAvatarUrl(user?.avatarPath)} className="object-cover" />
                         <AvatarFallback className="bg-primary/10 text-primary font-black text-xs uppercase">{user?.fullName?.[0]}</AvatarFallback>
                      </Avatar>
-                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-[#1a1c1e]" />
+                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
                   </button>
                </DropdownMenuTrigger>
-               <DropdownMenuContent side="right" align="end" className="w-64 p-3 rounded-2xl shadow-2xl mb-4 ml-2 bg-popover border-white/5">
-                  <div className="flex items-center gap-4 p-2 border-b border-white/5 mb-3 pb-4">
+               <DropdownMenuContent side="right" align="end" className="w-64 p-3 rounded-2xl shadow-2xl mb-4 ml-2 bg-popover border-border">
+                  <div className="flex items-center gap-4 p-2 border-b border-border mb-3 pb-4">
                      <Avatar className="h-12 w-12">
                         <AvatarImage src={getAvatarUrl(user?.avatarPath)} />
                         <AvatarFallback className="bg-primary/10 text-primary font-black uppercase text-xs">{user?.fullName?.[0]}</AvatarFallback>
@@ -226,7 +226,7 @@ function LeftTabbar({ user, onLogout, onToggleNotifications, onToggleSearch, onT
                   <DropdownMenuItem onClick={() => toast.info('Tính năng này đang phát triển!')} className="p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest gap-3">
                      <Settings className="h-4 w-4 text-primary" /> Cài đặt chung
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-white/5" />
+                  <DropdownMenuSeparator className="bg-border" />
                   <DropdownMenuItem onClick={onLogout} className="p-3 rounded-xl font-bold text-[11px] uppercase tracking-widest gap-3 text-red-500 focus:text-red-500 focus:bg-red-500/10">
                      <LogOut className="h-4 w-4" /> Đăng xuất
                   </DropdownMenuItem>
