@@ -71,9 +71,12 @@ function DecryptedText({
     const [decrypted, setDecrypted] = useState<string>("⌛ [Đang giải mã...]");
     useEffect(() => {
         const decrypt = async () => {
-            const content = message.message || message.encryptedContent;
+            let content = (message.message || message.encryptedContent || "");
+            // Filter out internal system tags
+            content = content.replace(/\[MEETING_GUID:.*?\]/g, '').trim();
+            
             if (message.messageType !== 'PLAIN' && message.messageType !== 'Text' && message.messageType !== 'PLAIN_SECURE') {
-                setDecrypted(content || "");
+                setDecrypted(content);
                 return;
             }
             const senderId = message.senderId;
