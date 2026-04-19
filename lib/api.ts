@@ -292,15 +292,17 @@ export const adminApi = {
       '/Announcements',
       { token }
     ),
-  sendAnnouncement: (token: string, data: { title: string, message: string, userIds?: number[], category?: string, forceConfirmed?: boolean }) =>
+  sendAnnouncement: (token: string, data: { title: string, encryptedContent: string, iv: string, signature: string, userIds?: number[], category?: string, forceConfirmed?: boolean }) =>
     request<any>('/Announcements', {
       method: "POST",
       body: JSON.stringify({
-        title: data.title,
-        message: data.message,
-        userIds: data.userIds || [],
-        category: data.category || "General",
-        forceConfirmed: data.forceConfirmed || false
+        Title: data.title,
+        EncryptedContent: data.encryptedContent,
+        IV: data.iv,
+        Signature: data.signature,
+        UserIds: data.userIds,
+        Category: data.category || "General",
+        ForceConfirmed: data.forceConfirmed || false
       }),
       token,
     }),
@@ -547,12 +549,18 @@ export const announcementsApi = {
   getAnnouncements: (token: string) =>
     request<any[]>('/Announcements', { token }),
 
-  createAnnouncement: (token: string, title: string, message: string, iv: string) =>
+  sendAnnouncement: (token: string, data: { title: string; EncryptedContent: string; iv: string; userIds?: number[] }) =>
     request<any>('/Announcements', {
       method: 'POST',
-      body: JSON.stringify({ title, message, iv }),
+      body: JSON.stringify({ 
+        Title: data.title, 
+        EncryptedContent: data.EncryptedContent, 
+        IV: data.iv, 
+        UserIds: data.userIds 
+      }),
       token,
     }),
+
   markAllRead: (token: string) =>
     request<any>('/Announcements/read', {
       method: 'POST',

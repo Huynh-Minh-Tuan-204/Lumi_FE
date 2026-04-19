@@ -35,10 +35,47 @@ interface Announcement {
   id: number
   title: string
   sender: string
+  senderId?: number
   message: string
+  iv?: string
+  signature?: string
   isSystem: boolean
   time: string
   targetIds?: string[] | null
+}
+
+import { decryptMessagePro } from '@/lib/crypto-utils'
+
+function DecryptedAnnouncement({ announcement, mySenderKey, peerSenderKeys, peerIdentityKeys, identityKeys }: any) {
+  const [decrypted, setDecrypted] = useState<string>("⌛ [Đang giải mã...]");
+
+  useEffect(() => {
+    const decrypt = async () => {
+      const { message, iv, signature, senderId } = announcement;
+      
+      // Legacy or System messages (not encrypted)
+      if (!iv || !signature) {
+        setDecrypted(message);
+        return;
+      }
+
+      try {
+        const isOwn = senderId === undefined || senderId === null; // Simple check or use Auth
+        const senderKey = isOwn ? mySenderKey : peerSenderKeys?.get(senderId);
+        const senderPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderId);
+
+        if (iv && signature && senderKey && senderPubKey) {
+           const result = await decryptMessagePro(message, iv, signature, senderKey, senderPubKey);
+           setDecrypted(result);
+        } else {
+           setDecrypted("⏳ [Mã hóa đầu cuối]");
+        }
+      } catch (e) { setDecrypted(message || "[Lỗi giải mã]"); }
+    };
+    decrypt();
+  }, [announcement.id, announcement.message, mySenderKey]);
+
+  return <p className="text-sm text-foreground/80 font-medium leading-relaxed">{decrypted}</p>;
 }
 
 function AvatarStack({ userIds, allUsers }: { userIds: string[] | null | undefined, allUsers: any[] }) {
@@ -92,7 +129,7 @@ import {
 
 export default function NotificationsPage() {
   const { token, user } = useAuth()
-  const { isConnected, notifications: realtimeNotifications } = useSignalR()
+  const { isConnected, notifications: realtimeNotifications, mySenderKey, identityKeys, peerSenderKeys, peerIdentityKeys } = useSignalR()
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [title, setTitle] = useState('')
   const [newAnnouncement, setNewAnnouncement] = useState('')
@@ -121,13 +158,16 @@ export default function NotificationsPage() {
     try {
       const data: any = await announcementsApi.getAnnouncements(token)
       const mapped = data.map((a: any) => ({
-        id: a.id,
-        title: a.title || 'Thông báo',
-        sender: a.senderName || 'Hệ thống',
-        message: a.message,
+        id: a.Id || a.id,
+        title: a.Title || a.title || 'Thông báo',
+        sender: a.SenderName || a.senderName || 'Hệ thống',
+        senderId: a.SenderId || a.senderId,
+        message: a.Message || a.message,
+        iv: a.IV || a.iv,
+        signature: a.Signature || a.signature,
         isSystem: true,
-        time: a.timestamp,
-        targetIds: a.targetIds
+        time: a.Timestamp || a.timestamp,
+        targetIds: a.TargetIds || a.targetIds
       }))
       setAnnouncements(mapped)
     } catch (error) {
@@ -140,15 +180,27 @@ export default function NotificationsPage() {
 
   const handleSendAnnouncement = async () => {
     if (!title.trim() || !newAnnouncement.trim() || isSending || !token) return
+    if (!mySenderKey || !identityKeys) {
+        toast.error("Vui lòng đợi 1 giây để thiết lập mã hóa bảo mật...");
+        return;
+    }
 
     setIsSending(true)
     try {
+      // 1. Mã hóa nội dung trước khi gửi (E2EE)
+      const { encryptMessagePro } = await import('@/lib/crypto-utils');
+      const encrypted = await encryptMessagePro(newAnnouncement, mySenderKey, identityKeys.privateKey);
+
+      // 2. Gửi dữ liệu đã mã hóa lên server
       await adminApi.sendAnnouncement(token, {
         title,
-        message: newAnnouncement, 
+        encryptedContent: encrypted.content, 
+        iv: encrypted.iv, 
+        signature: encrypted.sig,
         userIds: targetType === 'all' ? undefined : selectedUserIds
       });
-      toast.success('Gửi thông báo thành công')
+
+      toast.success('Gửi thông báo thành công (Đã mã hóa đầu cuối)')
       setNewAnnouncement('')
       setTitle('')
       setSelectedUserIds([])
@@ -423,9 +475,13 @@ export default function NotificationsPage() {
                       </div>
                       
                       <div className="bg-background/40 p-4 rounded-2xl border border-primary/5 shadow-inner">
-                         <p className="text-sm text-foreground/80 font-medium leading-relaxed">
-                           {announcement.message}
-                         </p>
+                         <DecryptedAnnouncement 
+                            announcement={announcement} 
+                            mySenderKey={mySenderKey} 
+                            peerSenderKeys={peerSenderKeys} 
+                            peerIdentityKeys={peerIdentityKeys} 
+                            identityKeys={identityKeys} 
+                         />
                       </div>
                     </div>
                   ))}
