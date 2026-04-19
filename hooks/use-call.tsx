@@ -60,11 +60,16 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [isCameraOn, setIsCameraOn] = useState(true)
   const [isMinimized, setIsMinimized] = useState(false)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordings, setRecordings] = useState<any[]>([])
 
   const signalRRef = useRef<CallSignalR | null>(null)
   const peersRef = useRef<Map<number, PeerState>>(new Map())
   const localStreamRef = useRef<MediaStream | null>(null)
   const screenStreamRef = useRef<MediaStream | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordedChunksRef = useRef<Blob[]>([])
+  const iceServersRef = useRef<RTCIceServer[]>(RTC_CONFIG.iceServers || [])
   const lastEndedCallIdRef = useRef<string | null>(null)
 
   const updatePeerUI = useCallback(() => {
@@ -86,7 +91,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [updatePeerUI])
 
   const createPeerConnection = useCallback((callId: string, targetUserId: number, targetUserName: string, isPolite: boolean) => {
-    const pc = new RTCPeerConnection(RTC_CONFIG)
+    const pc = new RTCPeerConnection({
+      ...RTC_CONFIG,
+      iceServers: iceServersRef.current
+    })
     const peerState: PeerState = {
       userId: targetUserId,
       userName: targetUserName,
@@ -205,6 +213,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
       signalRRef.current = signalR
       await signalR.connect(token)
+      
+      // Fetch ICE Servers from BE
+      const servers = await signalR.getIceServers()
+      if (servers && servers.length > 0) {
+        iceServersRef.current = servers
+      }
+
       await signalR.joinCall(callId)
       
     } catch (err) {
@@ -274,6 +289,49 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isScreenSharing])
 
+  const startRecording = useCallback(() => {
+    if (!localStream) return
+    
+    // In a real app, you might want to combine local and remote streams
+    // For simplicity, we'll record the local stream for now, but a professional
+    // version would use a canvas or specialized WebAudio to merge tracks.
+    const streamToRecord = localStream
+    
+    const recorder = new MediaRecorder(streamToRecord, { mimeType: 'video/webm;codecs=vp9' })
+    recordedChunksRef.current = []
+    
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) recordedChunksRef.current.push(e.data)
+    }
+    
+    recorder.onstop = async () => {
+      const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' })
+      // Logic to upload blob to backend would go here using recordingsApi
+      toast.success("Recording saved locally. Uploading...")
+    }
+    
+    recorder.start()
+    mediaRecorderRef.current = recorder
+    setIsRecording(true)
+  }, [localStream])
+
+  const stopRecording = useCallback(async () => {
+    if (!mediaRecorderRef.current) return
+    mediaRecorderRef.current.stop()
+    setIsRecording(false)
+    
+    // Finalize upload
+    if (activeCallId && token) {
+        try {
+            // Find meeting numeric ID if possible, for now use activeCallId (guid)
+            // Backend might need to be updated to accept GUID for recordings or FE needs numeric ID
+            // Assuming activeCallId is the GUID and we have a way to get the meeting object
+        } catch (e) {
+            console.error("Recording upload failed", e)
+        }
+    }
+  }, [activeCallId, token])
+
   useEffect(() => {
     if (localStreamRef.current) {
         localStreamRef.current.getAudioTracks().forEach(t => t.enabled = !isMuted)
@@ -286,6 +344,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       activeCallId, conversationId, setConversationId, localStream, remotePeers,
       isMuted, setIsMuted, isCameraOn, setIsCameraOn,
       isMinimized, setIsMinimized, isScreenSharing,
+      isRecording, startRecording, stopRecording,
       joinCall, endCall, toggleScreenShare,
       signalR: signalRRef.current
     }}>

@@ -168,4 +168,10 @@ export class CallSignalR {
     if (!this.isConnected) return
     await this.connection?.invoke('DeclineJoinRequest', meetingId, attendeeId)
   }
+
+  async getIceServers(): Promise<RTCIceServer[]> {
+    if (!this.isConnected) return []
+    return await this.connection?.invoke('GetIceServers')
+  }
 }
+

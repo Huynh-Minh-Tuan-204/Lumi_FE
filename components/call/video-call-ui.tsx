@@ -16,7 +16,8 @@ import { decryptMessagePro } from '@/lib/crypto-utils'
 import { 
   Mic, MicOff, Video, VideoOff, PhoneOff, 
   Monitor, MoreHorizontal, Users, MessageSquare, 
-  X, Send, Smile, ShieldCheck, Minimize2, Maximize2, Download, FileText, Image as ImageIcon
+  X, Send, Smile, ShieldCheck, Minimize2, Maximize2, Download, FileText, Image as ImageIcon,
+  Circle, StopCircle
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
@@ -149,6 +150,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     joinCall, endCall, activeCallId, localStream, remotePeers,
     isMuted, setIsMuted, isCameraOn, setIsCameraOn,
     isMinimized, setIsMinimized, isScreenSharing, toggleScreenShare,
+    isRecording, startRecording, stopRecording,
     setConversationId
   } = useCall()
   
@@ -286,8 +288,20 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                     <Button variant={sidebarType === 'chat' ? "secondary" : "ghost"} size="icon" onClick={() => setSidebarType(sidebarType === 'chat' ? null : 'chat')} className={cn("h-14 w-14 rounded-full", sidebarType === 'chat' && "bg-primary text-white")}>
                         <MessageSquare className="h-6 w-6" />
                     </Button>
-
+                    
                     <div className="w-px h-10 bg-white/10 mx-1" />
+
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={isRecording ? stopRecording : startRecording} 
+                      className={cn(
+                        "h-14 w-14 rounded-full transition-all duration-300", 
+                        isRecording ? "bg-red-500/20 text-red-500 animate-pulse" : "bg-white/5 text-white/50 hover:text-red-500"
+                      )}
+                    >
+                        {isRecording ? <StopCircle className="h-6 w-6 fill-red-500" /> : <Circle className="h-6 w-6" />}
+                    </Button>
                     
                     <Button onClick={() => { setIsEnding(true); endCall(); onEndCall(); }} className="h-14 px-8 rounded-full bg-red-600 hover:bg-red-700 text-white font-black uppercase text-xs tracking-[0.1em] shadow-xl shadow-red-600/30 transition-transform active:scale-95 z-50">
                         <PhoneOff className="h-5 w-5 mr-3" /> Kết thúc
