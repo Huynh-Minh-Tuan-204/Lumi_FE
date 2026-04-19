@@ -50,7 +50,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { useSearch } from '@/components/admin/search-context'
+import { useSearch } from '@/features/admin/search-context'
 import {
   Search,
   UserPlus,
@@ -511,3 +511,4 @@ export default function UsersPage() {
     </div>
   )
 }
+

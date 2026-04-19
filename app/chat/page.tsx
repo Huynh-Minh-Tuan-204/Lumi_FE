@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { ChatSidebar } from '@/components/chat/chat-sidebar'
-import { ChatArea } from '@/components/chat/chat-area'
-import { MembersSidebar } from '@/components/chat/members-sidebar'
-import { GroupBoard } from '@/components/chat/group-board'
-import { MessageSearchSidebar } from '@/components/chat/message-search-sidebar'
-import { ProjectNotes } from '@/components/chat/project-notes'
-import { CreateEventModal } from '@/components/chat/create-event-modal'
-import { PersonalCalendar } from '@/components/chat/personal-calendar'
+import { ChatSidebar } from '@/features/chat/chat-sidebar'
+import { ChatArea } from '@/features/chat/chat-area'
+import { MembersSidebar } from '@/features/chat/members-sidebar'
+import { GroupBoard } from '@/features/chat/group-board'
+import { MessageSearchSidebar } from '@/features/chat/message-search-sidebar'
+import { ProjectNotes } from '@/features/chat/project-notes'
+import { CreateEventModal } from '@/features/schedule/create-event-modal'
+import { PersonalCalendar } from '@/features/schedule/personal-calendar'
 import { useAuth } from '@/lib/auth-context'
 import { conversationsApi } from '@/lib/api'
 import { useSignalR } from '@/hooks/use-signalr'
@@ -492,3 +492,4 @@ export default function ChatPage() {
     </div>
   )
 }
+

@@ -4,9 +4,9 @@ import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/lib/auth-context'
 import { SignalRProvider } from '@/hooks/use-signalr'
 import { CallProvider } from '@/hooks/use-call'
-import { IdleTimeout } from '@/components/auth/idle-timeout'
-import { IncomingCallOverlay } from '@/components/call/incoming-call-overlay'
-import { GlobalCallOverlay } from '@/components/call/global-call-overlay'
+import { IdleTimeout } from '@/features/auth/idle-timeout'
+import { IncomingCallOverlay } from '@/features/call/incoming-call-overlay'
+import { GlobalCallOverlay } from '@/features/call/global-call-overlay'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
@@ -30,7 +30,7 @@ export const viewport: Viewport = {
   userScalable: false,
 }
 
-import { SecurityGuard } from '@/components/auth/security-guard'
+import { SecurityGuard } from '@/features/auth/security-guard'
 
 export default function RootLayout({
   children,
@@ -60,3 +60,4 @@ export default function RootLayout({
     </html>
   )
 }
+

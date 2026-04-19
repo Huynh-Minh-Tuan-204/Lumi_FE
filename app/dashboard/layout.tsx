@@ -3,9 +3,9 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { DashboardSidebar } from '@/components/admin/dashboard-sidebar'
-import { DashboardHeader } from '@/components/admin/dashboard-header'
-import { SearchProvider } from '@/components/admin/search-context'
+import { DashboardSidebar } from '@/features/admin/dashboard-sidebar'
+import { DashboardHeader } from '@/features/admin/dashboard-header'
+import { SearchProvider } from '@/features/admin/search-context'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -54,3 +54,4 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </SearchProvider>
   )
 }
+

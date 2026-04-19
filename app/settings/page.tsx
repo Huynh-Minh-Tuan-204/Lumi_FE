@@ -1,6 +1,6 @@
 'use client'
 import SettingsPage from '@/app/dashboard/settings/page'
-import { MobileNavigation } from '@/components/chat/mobile-navigation'
+import { MobileNavigation } from '@/features/chat/mobile-navigation'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
@@ -26,3 +26,4 @@ export default function Settings() {
     </div>
   )
 }
+

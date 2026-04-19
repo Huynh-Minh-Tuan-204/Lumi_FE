@@ -4,51 +4,8 @@ import React, { createContext, useContext, useState, useRef, useCallback, useEff
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
 import { CallSignalR } from '@/lib/call-signalr'
-
-interface UserPeer {
-  userId: number
-  userName: string
-  stream: MediaStream | null
-}
-
-interface PeerState {
-  userId: number
-  userName: string
-  stream: MediaStream | null
-  connection: RTCPeerConnection
-  isPolite: boolean
-  makingOffer: boolean
-  ignoreOffer: boolean
-}
-
-const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-  ],
-}
-
-interface CallContextType {
-  activeCallId: string | null
-  conversationId: number | null
-  setConversationId: (val: number | null) => void
-  localStream: MediaStream | null
-  remotePeers: UserPeer[]
-  isMuted: boolean
-  setIsMuted: (val: boolean) => void
-  isCameraOn: boolean
-  setIsCameraOn: (val: boolean) => void
-  isMinimized: boolean
-  setIsMinimized: (val: boolean) => void
-  isScreenSharing: boolean
-  joinCall: (callId: string, type: 'video' | 'voice') => Promise<void>
-  endCall: () => void
-  toggleScreenShare: () => Promise<void>
-  isRecording: boolean
-  startRecording: () => void
-  stopRecording: () => Promise<void>
-  signalR: CallSignalR | null
-}
+import { UserPeer, PeerState, CallContextType } from '@/types/call.types'
+import { RTC_FALLBACK_CONFIG as RTC_CONFIG } from '@/constants/call.constants'
 
 const CallContext = createContext<CallContextType | undefined>(undefined)
 
@@ -501,3 +458,4 @@ export function useCall() {
   }
   return context
 }
+

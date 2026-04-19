@@ -1,21 +1,7 @@
 'use client'
 
 import * as signalR from '@microsoft/signalr'
-
-function buildCallHubUrl(): string {
-  const callHubUrl = process.env.NEXT_PUBLIC_CALL_HUB_URL
-  if (callHubUrl) return callHubUrl
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api';
-  try {
-    const u = new URL(apiUrl)
-    return `${u.origin}/callhub`
-  } catch {
-    return 'https://mintuan-001-site1.ktempurl.com/callhub';
-  }
-}
-
-const CALL_HUB_URL = buildCallHubUrl()
+import { CALL_HUB_URL } from '@/constants/api.constants'
 
 export interface CallSignalRHandlers {
   onReceiveOffer?: (offer: RTCSessionDescriptionInit, fromUserId: number) => void
@@ -174,4 +160,5 @@ export class CallSignalR {
     return await this.connection?.invoke('GetIceServers')
   }
 }
+
 

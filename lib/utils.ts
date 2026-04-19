@@ -128,3 +128,4 @@ export function formatZaloRelativeTime(dateInput: string | Date | null) {
 
   return `${dd}/${mm}`;
 }
+

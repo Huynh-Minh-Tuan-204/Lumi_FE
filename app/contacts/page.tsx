@@ -1,5 +1,5 @@
 'use client'
-import { MobileNavigation } from '@/components/chat/mobile-navigation'
+import { MobileNavigation } from '@/features/chat/mobile-navigation'
 import { MessageSquare, Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -34,3 +34,4 @@ export default function Contacts() {
     </div>
   )
 }
+

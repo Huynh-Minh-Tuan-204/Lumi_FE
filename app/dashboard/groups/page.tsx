@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/lib/auth-context'
 import { adminApi, conversationsApi } from '@/lib/api'
 import { toast } from 'sonner'
-import { useSearch } from '@/components/admin/search-context'
+import { useSearch } from '@/features/admin/search-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -518,3 +518,4 @@ export default function GroupsPage() {
     </div>
   )
 }
+

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { VideoCallUI } from '@/components/call/video-call-ui'
+import { VideoCallUI } from '@/features/call/video-call-ui'
 
 export default function CallPage() {
   const { id } = useParams()
