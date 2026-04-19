@@ -363,14 +363,28 @@ export default function ChatPage() {
         />
       </main>
 
-      {/* 4. Resizing Side Panels (Pushes ChatArea) */}
+      {/* 4. Right Panel — Overlay trên <xl, Push trên xl+ */}
+      {/* Backdrop: chỉ hiện trên màn nhỏ khi sidebar mở */}
+      {rightSidebar && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 xl:hidden" 
+          onClick={() => setRightSidebar(null)} 
+        />
+      )}
+
       <div 
         className={cn(
-          "h-full border-l transition-all duration-300 ease-in-out bg-card overflow-hidden",
-          rightSidebar ? "w-80 md:w-96 opacity-100" : "w-0 opacity-0 border-none"
+          // Mobile/tablet: fixed overlay từ phải
+          "fixed top-0 right-0 h-full z-50 bg-card border-l shadow-2xl transition-transform duration-300 ease-in-out",
+          // Desktop XL+: relative (push layout)
+          "xl:relative xl:z-auto xl:shadow-none xl:transition-all xl:duration-300",
+          // Khi đóng
+          rightSidebar 
+            ? "translate-x-0 w-80 md:w-96 xl:w-80 xl:opacity-100" 
+            : "translate-x-full xl:translate-x-0 xl:w-0 xl:opacity-0 xl:border-none"
         )}
       >
-        <div className="w-80 md:w-96 h-full flex flex-col">
+        <div className="w-80 md:w-96 xl:w-80 h-full flex flex-col overflow-hidden">
             {rightSidebar === 'search' && selectedId && (
               <MessageSearchSidebar 
                 conversationId={selectedId}

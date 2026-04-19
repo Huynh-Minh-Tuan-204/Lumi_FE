@@ -249,14 +249,26 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       <main className="flex-1 flex min-h-0 relative">
         <section className="flex-1 p-6 relative overflow-hidden flex flex-col items-center justify-center">
             {/* Main Video Grid */}
-            <div className={cn(
-                "grid gap-4 w-full h-full max-w-7xl mx-auto items-center justify-center p-4",
-                activePeers === 1 ? "grid-cols-1 max-w-4xl" : activePeers === 2 ? "grid-cols-2" : "grid-cols-2 md:grid-cols-3"
-            )}>
+            {(() => {
+                const gridClassName = (() => {
+                  if (activePeers <= 1) return "grid-cols-1 max-w-4xl"
+                  if (activePeers <= 2) return "grid-cols-2 max-w-4xl"
+                  if (activePeers <= 4) return "grid-cols-2"
+                  if (activePeers <= 6) return "grid-cols-3"
+                  return "grid-cols-4"
+                })()
+
+                return (
+                    <div className={cn(
+                        "grid gap-4 w-full h-full max-w-7xl mx-auto items-center justify-center p-4",
+                        gridClassName
+                    )}>
                 {allStreams.map(p => (
                     <VideoPlayer key={p.id} stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
                 ))}
             </div>
+                )
+            })()}
 
             {/* PIP / Corner Overlays for a "Premium" look if side panel is open */}
             {sidebarType && activePeers > 1 && (

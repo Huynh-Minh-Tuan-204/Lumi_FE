@@ -44,6 +44,9 @@ interface CallContextType {
   joinCall: (callId: string, type: 'video' | 'voice') => Promise<void>
   endCall: () => void
   toggleScreenShare: () => Promise<void>
+  isRecording: boolean
+  startRecording: () => void
+  stopRecording: () => Promise<void>
   signalR: CallSignalR | null
 }
 
@@ -214,12 +217,20 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       signalRRef.current = signalR
       await signalR.connect(token)
       
-      // Fetch ICE Servers from BE
-      const servers = await signalR.getIceServers()
-      if (servers && servers.length > 0) {
-        iceServersRef.current = servers
+      // CRITICAL: Fetch ICE Servers TRƯỚC KHI joinCall để đảm bảo
+      // tất cả peer connections được tạo với TURN server đầy đủ.
+      // Nếu fetch fail → giữ nguyên STUN default, vẫn join được (chỉ không qua TURN).
+      try {
+        const servers = await signalR.getIceServers()
+        if (servers && servers.length > 0) {
+          iceServersRef.current = servers
+          console.log('[WebRTC] ICE Servers loaded:', servers.map((s: any) => s.urls))
+        }
+      } catch (iceErr) {
+        console.warn('[WebRTC] Could not fetch ICE servers from BE, using defaults:', iceErr)
       }
 
+      // Join AFTER ICE servers are ready
       await signalR.joinCall(callId)
       
     } catch (err) {
@@ -290,47 +301,135 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [isScreenSharing])
 
   const startRecording = useCallback(() => {
-    if (!localStream) return
-    
-    // In a real app, you might want to combine local and remote streams
-    // For simplicity, we'll record the local stream for now, but a professional
-    // version would use a canvas or specialized WebAudio to merge tracks.
-    const streamToRecord = localStream
-    
-    const recorder = new MediaRecorder(streamToRecord, { mimeType: 'video/webm;codecs=vp9' })
-    recordedChunksRef.current = []
-    
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) recordedChunksRef.current.push(e.data)
+    if (!localStreamRef.current) {
+      console.warn('[Recording] No local stream available')
+      return
     }
     
-    recorder.onstop = async () => {
-      const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' })
-      // Logic to upload blob to backend would go here using recordingsApi
-      toast.success("Recording saved locally. Uploading...")
+    try {
+      // Mix audio của tất cả participants (local + remote peers)
+      const audioContext = new AudioContext()
+      const mixedDestination = audioContext.createMediaStreamDestination()
+
+      // Add local audio
+      const localAudioTracks = localStreamRef.current.getAudioTracks()
+      if (localAudioTracks.length > 0) {
+        const localSource = audioContext.createMediaStreamSource(localStreamRef.current)
+        localSource.connect(mixedDestination)
+      }
+
+      // Add remote peer audio
+      peersRef.current.forEach((peer) => {
+        if (peer.stream) {
+          try {
+            const remoteSource = audioContext.createMediaStreamSource(peer.stream)
+            remoteSource.connect(mixedDestination)
+          } catch (e) {
+            console.warn('[Recording] Could not add peer audio:', e)
+          }
+        }
+      })
+
+      // Composite stream: local video + mixed audio từ tất cả
+      const videoTracks = localStreamRef.current.getVideoTracks()
+      const compositeStream = new MediaStream([
+        ...videoTracks,
+        ...mixedDestination.stream.getAudioTracks()
+      ])
+
+      // Fallback nếu vp9 không được support
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+        ? 'video/webm;codecs=vp9'
+        : MediaRecorder.isTypeSupported('video/webm')
+        ? 'video/webm'
+        : ''
+
+      const recorder = new MediaRecorder(compositeStream, mimeType ? { mimeType } : undefined)
+      recordedChunksRef.current = []
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunksRef.current.push(e.data)
+      }
+
+      recorder.onstop = async () => {
+        const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' })
+        console.log('[Recording] Recording stopped, blob size:', blob.size)
+        toast.success('Đang tải bản ghi lên...')
+
+        // Upload lên BE nếu có meetingId
+        if (activeCallId && token) {
+          try {
+            // Resolve meeting numeric ID từ activeCallId (GUID)
+            const meetingRes = await fetch(
+              `${process.env.NEXT_PUBLIC_API_URL || ''}/api/Meetings/${activeCallId}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            )
+            if (meetingRes.ok) {
+              const meetingData = await meetingRes.json()
+              const numericId = meetingData.id || meetingData.Id
+
+              if (numericId) {
+                const formData = new FormData()
+                formData.append('file', blob, `recording_${Date.now()}.webm`)
+                formData.append('meetingId', String(numericId))
+                formData.append('iv', '') // Không encrypt phía client cho recording
+
+                const uploadRes = await fetch(
+                  `${process.env.NEXT_PUBLIC_API_URL || ''}/api/Recordings/upload`,
+                  {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` },
+                    body: formData
+                  }
+                )
+
+                if (uploadRes.ok) {
+                  toast.success('Bản ghi đã được lưu thành công!')
+                } else {
+                  throw new Error(`Upload failed: ${uploadRes.status}`)
+                }
+              }
+            }
+          } catch (uploadErr) {
+            console.error('[Recording] Upload failed:', uploadErr)
+            // Fallback: download về máy user
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `lumi_recording_${new Date().toISOString().slice(0,19)}.webm`
+            a.click()
+            URL.revokeObjectURL(url)
+            toast.info('Không thể upload, đã tải về máy của bạn.')
+          }
+        } else {
+          // Không có meetingId → download về máy
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `lumi_recording_${new Date().toISOString().slice(0,19)}.webm`
+          a.click()
+          URL.revokeObjectURL(url)
+        }
+
+        audioContext.close()
+      }
+
+      recorder.start(1000) // timeslice 1s để nhận data đều
+      mediaRecorderRef.current = recorder
+      setIsRecording(true)
+      toast.info('Đang ghi âm cuộc gọi...')
+
+    } catch (err) {
+      console.error('[Recording] Failed to start recording:', err)
+      toast.error('Không thể bắt đầu ghi âm. Trình duyệt có thể không hỗ trợ.')
     }
-    
-    recorder.start()
-    mediaRecorderRef.current = recorder
-    setIsRecording(true)
-  }, [localStream])
+  }, [localStream, activeCallId, token])
 
   const stopRecording = useCallback(async () => {
-    if (!mediaRecorderRef.current) return
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') return
     mediaRecorderRef.current.stop()
     setIsRecording(false)
-    
-    // Finalize upload
-    if (activeCallId && token) {
-        try {
-            // Find meeting numeric ID if possible, for now use activeCallId (guid)
-            // Backend might need to be updated to accept GUID for recordings or FE needs numeric ID
-            // Assuming activeCallId is the GUID and we have a way to get the meeting object
-        } catch (e) {
-            console.error("Recording upload failed", e)
-        }
-    }
-  }, [activeCallId, token])
+  }, [])
 
   useEffect(() => {
     if (localStreamRef.current) {

@@ -1759,10 +1759,47 @@ interface Announcement {
   id: number
   title: string
   sender: string
+  senderId?: number
   message: string
+  iv?: string
+  signature?: string
   isSystem: boolean
   time: string
   targetIds?: string[] | null
+}
+
+import { decryptMessagePro } from '@/lib/crypto-utils'
+
+function DecryptedAnnouncement({ announcement, mySenderKey, peerSenderKeys, peerIdentityKeys, identityKeys }: any) {
+  const [decrypted, setDecrypted] = useState<string>("âŒ› [Äang giáº£i mĂ£...]");
+
+  useEffect(() => {
+    const decrypt = async () => {
+      const { message, iv, signature, senderId } = announcement;
+      
+      // Legacy or System messages (not encrypted)
+      if (!iv || !signature) {
+        setDecrypted(message);
+        return;
+      }
+
+      try {
+        const isOwn = senderId === undefined || senderId === null; // Simple check or use Auth
+        const senderKey = isOwn ? mySenderKey : peerSenderKeys?.get(senderId);
+        const senderPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderId);
+
+        if (iv && signature && senderKey && senderPubKey) {
+           const result = await decryptMessagePro(message, iv, signature, senderKey, senderPubKey);
+           setDecrypted(result);
+        } else {
+           setDecrypted("â³ [MĂ£ hĂ³a Ä‘áº§u cuá»‘i]");
+        }
+      } catch (e) { setDecrypted(message || "[Lá»—i giáº£i mĂ£]"); }
+    };
+    decrypt();
+  }, [announcement.id, announcement.message, mySenderKey]);
+
+  return <p className="text-sm text-foreground/80 font-medium leading-relaxed">{decrypted}</p>;
 }
 
 function AvatarStack({ userIds, allUsers }: { userIds: string[] | null | undefined, allUsers: any[] }) {
@@ -1816,7 +1853,7 @@ import {
 
 export default function NotificationsPage() {
   const { token, user } = useAuth()
-  const { isConnected, notifications: realtimeNotifications } = useSignalR()
+  const { isConnected, notifications: realtimeNotifications, mySenderKey, identityKeys, peerSenderKeys, peerIdentityKeys } = useSignalR()
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [title, setTitle] = useState('')
   const [newAnnouncement, setNewAnnouncement] = useState('')
@@ -1845,13 +1882,16 @@ export default function NotificationsPage() {
     try {
       const data: any = await announcementsApi.getAnnouncements(token)
       const mapped = data.map((a: any) => ({
-        id: a.id,
-        title: a.title || 'ThĂ´ng bĂ¡o',
-        sender: a.senderName || 'Há»‡ thá»‘ng',
-        message: a.message,
+        id: a.Id || a.id,
+        title: a.Title || a.title || 'ThĂ´ng bĂ¡o',
+        sender: a.SenderName || a.senderName || 'Há»‡ thá»‘ng',
+        senderId: a.SenderId || a.senderId,
+        message: a.Message || a.message,
+        iv: a.IV || a.iv,
+        signature: a.Signature || a.signature,
         isSystem: true,
-        time: a.timestamp,
-        targetIds: a.targetIds
+        time: a.Timestamp || a.timestamp,
+        targetIds: a.TargetIds || a.targetIds
       }))
       setAnnouncements(mapped)
     } catch (error) {
@@ -1864,15 +1904,27 @@ export default function NotificationsPage() {
 
   const handleSendAnnouncement = async () => {
     if (!title.trim() || !newAnnouncement.trim() || isSending || !token) return
+    if (!mySenderKey || !identityKeys) {
+        toast.error("Vui lĂ²ng Ä‘á»£i 1 giĂ¢y Ä‘á»ƒ thiáº¿t láº­p mĂ£ hĂ³a báº£o máº­t...");
+        return;
+    }
 
     setIsSending(true)
     try {
+      // 1. MĂ£ hĂ³a ná»™i dung trÆ°á»›c khi gá»­i (E2EE)
+      const { encryptMessagePro } = await import('@/lib/crypto-utils');
+      const encrypted = await encryptMessagePro(newAnnouncement, mySenderKey, identityKeys.privateKey);
+
+      // 2. Gá»­i dá»¯ liá»‡u Ä‘Ă£ mĂ£ hĂ³a lĂªn server
       await adminApi.sendAnnouncement(token, {
         title,
-        message: newAnnouncement, 
+        encryptedContent: encrypted.content, 
+        iv: encrypted.iv, 
+        signature: encrypted.sig,
         userIds: targetType === 'all' ? undefined : selectedUserIds
       });
-      toast.success('Gá»­i thĂ´ng bĂ¡o thĂ nh cĂ´ng')
+
+      toast.success('Gá»­i thĂ´ng bĂ¡o thĂ nh cĂ´ng (ÄĂ£ mĂ£ hĂ³a Ä‘áº§u cuá»‘i)')
       setNewAnnouncement('')
       setTitle('')
       setSelectedUserIds([])
@@ -2147,9 +2199,13 @@ export default function NotificationsPage() {
                       </div>
                       
                       <div className="bg-background/40 p-4 rounded-2xl border border-primary/5 shadow-inner">
-                         <p className="text-sm text-foreground/80 font-medium leading-relaxed">
-                           {announcement.message}
-                         </p>
+                         <DecryptedAnnouncement 
+                            announcement={announcement} 
+                            mySenderKey={mySenderKey} 
+                            peerSenderKeys={peerSenderKeys} 
+                            peerIdentityKeys={peerIdentityKeys} 
+                            identityKeys={identityKeys} 
+                         />
                       </div>
                     </div>
                   ))}
@@ -4994,7 +5050,8 @@ import { decryptMessagePro } from '@/lib/crypto-utils'
 import { 
   Mic, MicOff, Video, VideoOff, PhoneOff, 
   Monitor, MoreHorizontal, Users, MessageSquare, 
-  X, Send, Smile, ShieldCheck, Minimize2, Maximize2, Download, FileText, Image as ImageIcon
+  X, Send, Smile, ShieldCheck, Minimize2, Maximize2, Download, FileText, Image as ImageIcon,
+  Circle, StopCircle
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
@@ -5127,6 +5184,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     joinCall, endCall, activeCallId, localStream, remotePeers,
     isMuted, setIsMuted, isCameraOn, setIsCameraOn,
     isMinimized, setIsMinimized, isScreenSharing, toggleScreenShare,
+    isRecording, startRecording, stopRecording,
     setConversationId
   } = useCall()
   
@@ -5264,8 +5322,20 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                     <Button variant={sidebarType === 'chat' ? "secondary" : "ghost"} size="icon" onClick={() => setSidebarType(sidebarType === 'chat' ? null : 'chat')} className={cn("h-14 w-14 rounded-full", sidebarType === 'chat' && "bg-primary text-white")}>
                         <MessageSquare className="h-6 w-6" />
                     </Button>
-
+                    
                     <div className="w-px h-10 bg-white/10 mx-1" />
+
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={isRecording ? stopRecording : startRecording} 
+                      className={cn(
+                        "h-14 w-14 rounded-full transition-all duration-300", 
+                        isRecording ? "bg-red-500/20 text-red-500 animate-pulse" : "bg-white/5 text-white/50 hover:text-red-500"
+                      )}
+                    >
+                        {isRecording ? <StopCircle className="h-6 w-6 fill-red-500" /> : <Circle className="h-6 w-6" />}
+                    </Button>
                     
                     <Button onClick={() => { setIsEnding(true); endCall(); onEndCall(); }} className="h-14 px-8 rounded-full bg-red-600 hover:bg-red-700 text-white font-black uppercase text-xs tracking-[0.1em] shadow-xl shadow-red-600/30 transition-transform active:scale-95 z-50">
                         <PhoneOff className="h-5 w-5 mr-3" /> Káº¿t thĂºc
@@ -5738,7 +5808,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { CallLobby } from '@/components/chat/call-lobby'
 import { SystemMessageGroup } from '@/components/chat/system-message-group'
-import { decryptMessagePro } from '@/lib/crypto-utils'
+import { decryptMessagePro, encryptFilePro } from '@/lib/crypto-utils'
 
 interface Message {
   id: number
@@ -5753,6 +5823,108 @@ interface Message {
   parentMessageId?: number
   iv?: string
   signature?: string
+}
+
+function DecryptedAttachment({ 
+    attachment, 
+    token, 
+    user,
+    mySenderKey, 
+    peerSenderKeys, 
+    peerIdentityKeys, 
+    identityKeys,
+    senderId
+}: { 
+    attachment: any, 
+    token: string, 
+    user: any,
+    mySenderKey: any, 
+    peerSenderKeys: Map<number, any>, 
+    peerIdentityKeys: Map<number, any>,
+    identityKeys: any,
+    senderId: number
+}) {
+    const [url, setUrl] = useState<string>("");
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const blob = await attachmentsApi.downloadBlob(token, attachment.id);
+                // 1. Check if attachment is E2EE
+                if (attachment.iv && (attachment.signature || (attachment as any).sig)) {
+                    const isOwn = user && senderId === user.id;
+                    const senderKey = isOwn ? mySenderKey : peerSenderKeys.get(senderId);
+                    const senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);
+                    
+                    if (senderKey && senderIdPubKey) {
+                        try {
+                           const decryptedBlob = await decryptFilePro(
+                               blob, 
+                               attachment.iv, 
+                               attachment.signature || (attachment as any).sig, 
+                               senderKey, 
+                               senderIdPubKey
+                           );
+                           setUrl(URL.createObjectURL(decryptedBlob));
+                        } catch (e) {
+                           console.error("Decryption failed", e);
+                           setError(true);
+                        }
+                    } else {
+                        // Keys not ready
+                    }
+                } else {
+                    // Legacy or plain file
+                    setUrl(URL.createObjectURL(blob));
+                }
+            } catch (e) { 
+                console.error("Download failed", e);
+                setError(true); 
+            }
+            finally { setLoading(false); }
+        };
+        load();
+        return () => { if (url) URL.revokeObjectURL(url); };
+    }, [attachment.id, mySenderKey, peerSenderKeys.size, peerIdentityKeys.size]);
+
+    if (loading) return (
+        <div className="flex items-center gap-3 p-3 rounded-2xl border w-[280px] bg-muted animate-pulse">
+            <div className="h-10 w-10 rounded-lg bg-background/50" />
+            <div className="flex-1 space-y-2"><div className="h-3 w-3/4 bg-background/50 rounded" /><div className="h-2 w-1/2 bg-background/50 rounded" /></div>
+        </div>
+    );
+
+    if (error || !url) return (
+        <div className="flex items-center gap-3 p-3 rounded-2xl border w-[280px] bg-destructive/10 border-destructive/20 text-destructive">
+            <div className="h-10 w-10 rounded-lg bg-destructive/20 flex items-center justify-center"><X className="h-5 w-5" /></div>
+            <div className="flex-1 overflow-hidden"><p className="text-xs font-bold truncate">{attachment.fileName}</p><p className="text-[10px] uppercase font-black">Lá»—i báº£o máº­t/háº¿t háº¡n</p></div>
+        </div>
+    );
+
+    const isImg = attachment.mimeType?.startsWith('image/');
+    if (isImg) return (
+        <div className="relative group/img max-w-sm rounded-xl overflow-hidden shadow-md">
+            <img src={url} alt={attachment.fileName} className="block w-full h-auto max-h-[400px] object-cover hover:scale-105 transition-transform duration-500" onClick={() => window.open(url, '_blank')} />
+            <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
+                <Button variant="secondary" size="sm" className="rounded-full gap-2" onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = attachment.fileName;
+                    link.click();
+                }}><Download className="h-3.5 w-3.5" /> Táº£i vá»</Button>
+            </div>
+        </div>
+    );
+
+    return (
+        <a href={url} download={attachment.fileName} className={cn("flex items-center gap-3 p-3 rounded-2xl border w-[280px] max-w-full shadow-sm hover:scale-[1.02] transition-transform", senderId === user?.id ? "bg-primary/10 border-primary/20" : "bg-card border-border")}>
+            <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
+            <div className="flex-1 min-w-0"><p className="text-xs font-bold truncate">{attachment.fileName}</p><p className="text-[10px] opacity-40 uppercase font-black">{(attachment.fileSize / 1024).toFixed(1)} KB</p></div>
+            <Download className="h-4 w-4 opacity-40" />
+        </a>
+    );
 }
 
 function DecryptedText({ 
@@ -5954,15 +6126,29 @@ export function ChatArea({
     const file = event.target.files?.[0]
     if (!file || !conversation || !token) return
     try {
-      toast.info('Äang táº£i lĂªn...')
-      await attachmentsApi.upload(token, file, conversation.id)
+      if (!mySenderKey || !identityKeys) {
+          toast.error("Vui lĂ²ng Ä‘á»£i thiáº¿t láº­p mĂ£ hĂ³a...");
+          return;
+      }
+
+      toast.info('Äang mĂ£ hĂ³a vĂ  táº£i lĂªn...')
+      
+      // 1. Client-side E2EE Encryption
+      const { encryptedBlob, iv, sig } = await encryptFilePro(file, mySenderKey, identityKeys.privateKey);
+
+      // 2. Upload Encrypted Blob
+      await attachmentsApi.upload(token, encryptedBlob, conversation.id, undefined, iv, sig, file.name)
+      
       const news = await conversationsApi.getMessages(token, conversation.id)
       setMessages(news.map((m: any) => ({
         ...m, id: m.id || m.Id, conversationId: m.conversationId || conversation.id,
         isPinned: m.isPinned || m.IsPinned, encryptedContent: m.encryptedContent || m.content || ""
       })))
-      toast.success('ThĂ nh cĂ´ng!')
-    } catch { toast.error('Tháº¥t báº¡i.') }
+      toast.success('Gá»­i tá»‡p thĂ nh cĂ´ng!')
+    } catch (err) { 
+      console.error(err);
+      toast.error('Gá»­i tá»‡p tháº¥t báº¡i.') 
+    }
   }
 
   useEffect(() => {
@@ -6108,23 +6294,20 @@ export function ChatArea({
                       <div className={cn("max-w-[75%] space-y-1.5 flex flex-col", isOwn ? "items-end" : "items-start")}>
                           {!isOwn && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
                           {m.attachments && m.attachments.length > 0 && (
-                            <div className="space-y-2 w-full flex flex-col items-inherit">
-                              {m.attachments.map((a: any, i: number) => {
-                                const isImg = a.mimeType?.startsWith('image/'); const url = getAttachmentUrl(a.id, token!);
-                                if (isImg) return (
-                                  <div key={i} className="relative group/img max-w-sm rounded-xl overflow-hidden shadow-md">
-                                     <img src={url} alt={a.fileName} className="block w-full h-auto max-h-[400px] object-cover hover:scale-105 transition-transform duration-500" onClick={() => window.open(url, '_blank')} />
-                                     <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity"><Button variant="secondary" size="sm" className="rounded-full gap-2" onClick={() => window.open(url, '_blank')}><ImageIcon className="h-3.5 w-3.5" /> Xem áº£nh</Button></div>
-                                  </div>
-                                );
-                                return (
-                                  <a key={i} href={url} target="_blank" className={cn("flex items-center gap-3 p-3 rounded-2xl border w-[280px] max-w-full shadow-sm", isOwn ? "bg-primary/10 border-primary/20" : "bg-card border-border")}>
-                                     <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
-                                     <div className="flex-1 min-w-0"><p className="text-xs font-bold truncate">{a.fileName}</p><p className="text-[10px] opacity-40 uppercase font-black">{(a.fileSize / 1024).toFixed(1)} KB</p></div>
-                                     <Download className="h-4 w-4 opacity-40" />
-                                  </a>
-                                );
-                              })}
+                            <div className={cn("space-y-2 w-full flex flex-col", isOwn ? "items-end" : "items-start")}>
+                              {m.attachments.map((a: any) => (
+                                <DecryptedAttachment 
+                                    key={a.id} 
+                                    attachment={a} 
+                                    token={token!} 
+                                    user={user}
+                                    mySenderKey={mySenderKey} 
+                                    peerSenderKeys={peerSenderKeys} 
+                                    peerIdentityKeys={peerIdentityKeys} 
+                                    identityKeys={identityKeys}
+                                    senderId={m.senderId}
+                                />
+                              ))}
                             </div>
                           )}
                           {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (
@@ -15114,11 +15297,16 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [isCameraOn, setIsCameraOn] = useState(true)
   const [isMinimized, setIsMinimized] = useState(false)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordings, setRecordings] = useState<any[]>([])
 
   const signalRRef = useRef<CallSignalR | null>(null)
   const peersRef = useRef<Map<number, PeerState>>(new Map())
   const localStreamRef = useRef<MediaStream | null>(null)
   const screenStreamRef = useRef<MediaStream | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordedChunksRef = useRef<Blob[]>([])
+  const iceServersRef = useRef<RTCIceServer[]>(RTC_CONFIG.iceServers || [])
   const lastEndedCallIdRef = useRef<string | null>(null)
 
   const updatePeerUI = useCallback(() => {
@@ -15140,7 +15328,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   }, [updatePeerUI])
 
   const createPeerConnection = useCallback((callId: string, targetUserId: number, targetUserName: string, isPolite: boolean) => {
-    const pc = new RTCPeerConnection(RTC_CONFIG)
+    const pc = new RTCPeerConnection({
+      ...RTC_CONFIG,
+      iceServers: iceServersRef.current
+    })
     const peerState: PeerState = {
       userId: targetUserId,
       userName: targetUserName,
@@ -15259,6 +15450,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
       signalRRef.current = signalR
       await signalR.connect(token)
+      
+      // Fetch ICE Servers from BE
+      const servers = await signalR.getIceServers()
+      if (servers && servers.length > 0) {
+        iceServersRef.current = servers
+      }
+
       await signalR.joinCall(callId)
       
     } catch (err) {
@@ -15328,6 +15526,49 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isScreenSharing])
 
+  const startRecording = useCallback(() => {
+    if (!localStream) return
+    
+    // In a real app, you might want to combine local and remote streams
+    // For simplicity, we'll record the local stream for now, but a professional
+    // version would use a canvas or specialized WebAudio to merge tracks.
+    const streamToRecord = localStream
+    
+    const recorder = new MediaRecorder(streamToRecord, { mimeType: 'video/webm;codecs=vp9' })
+    recordedChunksRef.current = []
+    
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) recordedChunksRef.current.push(e.data)
+    }
+    
+    recorder.onstop = async () => {
+      const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' })
+      // Logic to upload blob to backend would go here using recordingsApi
+      toast.success("Recording saved locally. Uploading...")
+    }
+    
+    recorder.start()
+    mediaRecorderRef.current = recorder
+    setIsRecording(true)
+  }, [localStream])
+
+  const stopRecording = useCallback(async () => {
+    if (!mediaRecorderRef.current) return
+    mediaRecorderRef.current.stop()
+    setIsRecording(false)
+    
+    // Finalize upload
+    if (activeCallId && token) {
+        try {
+            // Find meeting numeric ID if possible, for now use activeCallId (guid)
+            // Backend might need to be updated to accept GUID for recordings or FE needs numeric ID
+            // Assuming activeCallId is the GUID and we have a way to get the meeting object
+        } catch (e) {
+            console.error("Recording upload failed", e)
+        }
+    }
+  }, [activeCallId, token])
+
   useEffect(() => {
     if (localStreamRef.current) {
         localStreamRef.current.getAudioTracks().forEach(t => t.enabled = !isMuted)
@@ -15340,6 +15581,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       activeCallId, conversationId, setConversationId, localStream, remotePeers,
       isMuted, setIsMuted, isCameraOn, setIsCameraOn,
       isMinimized, setIsMinimized, isScreenSharing,
+      isRecording, startRecording, stopRecording,
       joinCall, endCall, toggleScreenShare,
       signalR: signalRRef.current
     }}>
@@ -15921,7 +16163,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           sigToSend = encrypted.sig;
         }
 
-        await connectionRef.current.invoke('SendMessageSecure', conversationId, contentToSend, ivToSend, sigToSend, messageType, parentMessageId || 0);
+        const clientMessageId = crypto.randomUUID();
+        await connectionRef.current.invoke('SendMessageSecure', conversationId, contentToSend, ivToSend, sigToSend, messageType, parentMessageId || 0, clientMessageId);
       } catch (err) {
         console.error("Failed to send encrypted message:", err);
         toast.error("Lá»—i khi mĂ£ hĂ³a tin nháº¯n.");
@@ -16408,6 +16651,8 @@ export interface MessageResponse {
     encryptedFilePath: string
     fileSize: number
     mimeType: string
+    iv?: string
+    signature?: string
   }>
 }
 
@@ -16524,15 +16769,17 @@ export const adminApi = {
       '/Announcements',
       { token }
     ),
-  sendAnnouncement: (token: string, data: { title: string, message: string, userIds?: number[], category?: string, forceConfirmed?: boolean }) =>
+  sendAnnouncement: (token: string, data: { title: string, encryptedContent: string, iv: string, signature: string, userIds?: number[], category?: string, forceConfirmed?: boolean }) =>
     request<any>('/Announcements', {
       method: "POST",
       body: JSON.stringify({
-        title: data.title,
-        message: data.message,
-        userIds: data.userIds || [],
-        category: data.category || "General",
-        forceConfirmed: data.forceConfirmed || false
+        Title: data.title,
+        EncryptedContent: data.encryptedContent,
+        IV: data.iv,
+        Signature: data.signature,
+        UserIds: data.userIds,
+        Category: data.category || "General",
+        ForceConfirmed: data.forceConfirmed || false
       }),
       token,
     }),
@@ -16703,13 +16950,14 @@ export const conversationsApi = {
 
 // ========== Attachments API (api/Attachments/*) ==========
 export const attachmentsApi = {
-  upload: (token: string, file: File, conversationId?: number, messageId?: number) => {
+  upload: (token: string, file: File | Blob, conversationId?: number, messageId?: number, iv?: string, signature?: string, fileName?: string) => {
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('file', file, fileName)
     if (conversationId) formData.append('conversationId', conversationId.toString())
     if (messageId) formData.append('messageId', messageId.toString())
+    if (iv) formData.append('iv', iv)
+    if (signature) formData.append('signature', signature)
 
-    // Custom fetch because of FormData
     return fetch(`${API_BASE_URL}/Attachments/upload`, {
       method: 'POST',
       headers: {
@@ -16723,11 +16971,17 @@ export const attachmentsApi = {
     });
   },
 
-  getAttachment: (token: string, id: number) =>
-    request<any>(`/Attachments/${id}`, { token }),
-
-  deleteAttachment: (token: string, id: number) =>
-    request<any>(`/Attachments/${id}`, { method: 'DELETE', token }),
+  downloadBlob: (token: string, id: number) => {
+    return fetch(`${API_BASE_URL}/Attachments/${id}/download`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'ngrok-skip-browser-warning': 'true'
+      }
+    }).then(async res => {
+      if (!res.ok) throw new ApiError(await res.text(), res.status);
+      return res.blob();
+    });
+  },
 }
 
 // ========== Meetings (Calls) API (api/Meetings/*) ==========
@@ -16779,12 +17033,19 @@ export const announcementsApi = {
   getAnnouncements: (token: string) =>
     request<any[]>('/Announcements', { token }),
 
-  createAnnouncement: (token: string, title: string, message: string, iv: string) =>
+  sendAnnouncement: (token: string, data: { title: string; encryptedContent: string; iv: string; signature: string; userIds?: number[] }) =>
     request<any>('/Announcements', {
       method: 'POST',
-      body: JSON.stringify({ title, message, iv }),
+      body: JSON.stringify({ 
+        Title: data.title, 
+        EncryptedContent: data.encryptedContent, 
+        IV: data.iv, 
+        Signature: data.signature,
+        UserIds: data.userIds 
+      }),
       token,
     }),
+
   markAllRead: (token: string) =>
     request<any>('/Announcements/read', {
       method: 'POST',
@@ -16839,7 +17100,33 @@ export const schedulesApi = {
     }),
 }
 
+// ========== Recordings API (api/Recordings/*) ==========
+export const recordingsApi = {
+  upload: (token: string, meetingId: number, file: Blob | File, iv: string) => {
+    const formData = new FormData()
+    formData.append('meetingId', meetingId.toString())
+    formData.append('file', file)
+    formData.append('iv', iv)
+
+    return fetch(`${API_BASE_URL}/Recordings/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'ngrok-skip-browser-warning': 'true'
+      },
+      body: formData
+    }).then(async res => {
+      if (!res.ok) throw new ApiError(await res.text(), res.status)
+      return res.json()
+    })
+  },
+
+  getMeetingRecordings: (token: string, meetingId: number) =>
+    request<any[]>(`/Recordings/meeting/${meetingId}`, { token }),
+}
+
 export { ApiError }
+
 
 
 
@@ -17161,7 +17448,13 @@ export class CallSignalR {
     if (!this.isConnected) return
     await this.connection?.invoke('DeclineJoinRequest', meetingId, attendeeId)
   }
+
+  async getIceServers(): Promise<RTCIceServer[]> {
+    if (!this.isConnected) return []
+    return await this.connection?.invoke('GetIceServers')
+  }
 }
+
 
 
 
@@ -17342,6 +17635,22 @@ export async function encryptMessagePro(plaintext: string, senderKey: CryptoKey,
     };
 }
 
+export async function encryptFilePro(file: File, senderKey: CryptoKey, identityPrivateKey: CryptoKey) {
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const arrayBuffer = await file.arrayBuffer();
+    
+    const ciphertext = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv }, senderKey, arrayBuffer);
+    
+    // Sign the ciphertext
+    const signature = await signData(bufferToBase64(ciphertext), identityPrivateKey);
+
+    return {
+        encryptedBlob: new Blob([ciphertext], { type: 'application/octet-stream' }),
+        iv: bufferToBase64(iv),
+        sig: signature
+    };
+}
+
 export async function decryptMessagePro(
     contentBase64: string, 
     ivBase64: string, 
@@ -17365,6 +17674,30 @@ export async function decryptMessagePro(
     } catch (e) {
         return "[Lá»—i giáº£i mĂ£: KhĂ³a khĂ´ng khá»›p hoáº·c dá»¯ liá»‡u há»ng]";
     }
+}
+
+export async function decryptFilePro(
+    blob: Blob,
+    ivBase64: string,
+    sigBase64: string,
+    senderKey: CryptoKey,
+    senderIdentityPubKey: CryptoKey
+): Promise<Blob> {
+    const arrayBuffer = await blob.arrayBuffer();
+    const contentBase64 = bufferToBase64(new Uint8Array(arrayBuffer));
+
+    // Verify Signature
+    const isValid = await verifySignature(contentBase64, sigBase64, senderIdentityPubKey);
+    if (!isValid) throw new Error("Chá»¯ kĂ½ tá»‡p khĂ´ng há»£p lá»‡!");
+
+    // Decrypt
+    const decrypted = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: base64ToBuffer(ivBase64) },
+        senderKey,
+        arrayBuffer
+    );
+
+    return new Blob([decrypted]);
 }
 
 // ==========================================
