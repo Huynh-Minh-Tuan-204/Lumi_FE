@@ -101,8 +101,12 @@ function DecryptedAttachment({
         const load = async () => {
             try {
                 const blob = await attachmentsApi.downloadBlob(token, attachment.id);
+                
+                const iv = attachment.iv || (attachment as any).IV;
+                const isLegacy = !iv || iv === 'legacy-unencrypted';
+                
                 // 1. Check if attachment is E2EE
-                if (attachment.iv && (attachment.signature || (attachment as any).sig)) {
+                if (!isLegacy && attachment.iv && (attachment.signature || (attachment as any).sig)) {
                     const isOwn = user && senderId === user.id;
                     const senderKey = isOwn ? mySenderKey : peerSenderKeys.get(senderId);
                     const senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);

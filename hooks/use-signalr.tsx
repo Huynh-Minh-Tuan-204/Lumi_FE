@@ -514,6 +514,32 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
   const sendMessage = useCallback(async (conversationId: number, plaintext: string, messageType: string = 'PLAIN', parentMessageId?: number) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
+      // Guard: Đảm bảo E2EE key sẵn sàng trước khi encrypt
+      // Nếu chưa có sender key → trigger handshake và đợi tối đa 4 giây
+      if (!mySenderKeyRef.current) {
+        console.log('[E2EE] Sender key chưa sẵn sàng, đang khởi tạo handshake...')
+        try {
+          await initiateE2EEHandshake(conversationId)
+        } catch (hsErr) {
+          console.warn('[E2EE] Handshake failed:', hsErr)
+        }
+        
+        // Đợi key được set (polling 200ms, tối đa 4s)
+        let waited = 0
+        while (!mySenderKeyRef.current && waited < 4000) {
+          await new Promise(resolve => setTimeout(resolve, 200))
+          waited += 200
+        }
+        
+        // Nếu sau 4s vẫn không có key → báo lỗi, không gửi
+        if (!mySenderKeyRef.current) {
+          console.error('[E2EE] Không thể khởi tạo encryption key sau 4 giây')
+          toast.error('Chưa thiết lập mã hóa. Vui lòng thử lại hoặc reload trang.')
+          return
+        }
+        
+        console.log('[E2EE] Key sẵn sàng sau', waited, 'ms')
+      }
       try {
         let contentToSend = plaintext;
         let ivToSend = "";

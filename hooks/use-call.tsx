@@ -159,15 +159,57 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     if (lastEndedCallIdRef.current === callId) return // Just ended this call, prevent zombie re-join
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: type === 'video'
-      })
+      // Thử lấy stream với cấu hình đầy đủ (audio + video nếu video call)
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: type === 'video'
+        })
+      } catch (deviceErr: any) {
+        const isNotFound = deviceErr?.name === 'NotFoundError' || deviceErr?.name === 'DevicesNotFoundError'
+        const isNotAllowed = deviceErr?.name === 'NotAllowedError' || deviceErr?.name === 'PermissionDeniedError'
+
+        if (isNotAllowed) {
+          // User từ chối quyền → không có cách fix tự động
+          toast.error('Trình duyệt bị từ chối quyền camera/microphone. Vui lòng cấp quyền trong cài đặt trình duyệt.')
+          throw deviceErr
+        }
+
+        if (isNotFound && type === 'video') {
+          // Không có camera → thử lại với audio only
+          console.warn('[Call] Không tìm thấy camera, thử tham gia bằng audio only...')
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              audio: true,
+              video: false
+            })
+            // Thông báo cho user biết đang ở chế độ audio only
+            toast.warning('Không tìm thấy camera. Tham gia bằng audio only.')
+            // Force camera state = off vì không có video track
+            setIsCameraOn(false)
+          } catch (audioErr: any) {
+            // Không có cả microphone
+            toast.error('Không thể truy cập microphone. Kiểm tra quyền trình duyệt và kết nối thiết bị.')
+            throw audioErr
+          }
+        } else {
+          // Lỗi khác (NotReadableError - thiết bị đang bị dùng bởi app khác)
+          const isInUse = deviceErr?.name === 'NotReadableError'
+          if (isInUse) {
+            toast.error('Camera/Microphone đang được sử dụng bởi ứng dụng khác. Vui lòng đóng ứng dụng đó và thử lại.')
+          } else {
+            toast.error(`Lỗi thiết bị media: ${deviceErr?.message || 'Unknown error'}`)
+          }
+          throw deviceErr
+        }
+      }
       
       localStreamRef.current = stream
       setLocalStream(stream)
       setActiveCallId(callId)
-      setIsCameraOn(type === 'video')
+      const hasVideo = stream.getVideoTracks().length > 0
+      setIsCameraOn(hasVideo)
 
       const signalR = new CallSignalR({
         onUserJoined: async (_connId, remoteUserId, displayName) => {
