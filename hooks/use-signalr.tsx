@@ -537,7 +537,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           sigToSend = encrypted.sig;
         }
 
-        await connectionRef.current.invoke('SendMessageSecure', conversationId, contentToSend, ivToSend, sigToSend, messageType, parentMessageId || 0);
+        const clientMessageId = crypto.randomUUID();
+        await connectionRef.current.invoke('SendMessageSecure', conversationId, contentToSend, ivToSend, sigToSend, messageType, parentMessageId || 0, clientMessageId);
       } catch (err) {
         console.error("Failed to send encrypted message:", err);
         toast.error("Lỗi khi mã hóa tin nhắn.");

@@ -176,6 +176,8 @@ export interface MessageResponse {
     encryptedFilePath: string
     fileSize: number
     mimeType: string
+    iv?: string
+    signature?: string
   }>
 }
 
@@ -473,13 +475,14 @@ export const conversationsApi = {
 
 // ========== Attachments API (api/Attachments/*) ==========
 export const attachmentsApi = {
-  upload: (token: string, file: File, conversationId?: number, messageId?: number) => {
+  upload: (token: string, file: File | Blob, conversationId?: number, messageId?: number, iv?: string, signature?: string, fileName?: string) => {
     const formData = new FormData()
-    formData.append('file', file)
+    formData.append('file', file, fileName)
     if (conversationId) formData.append('conversationId', conversationId.toString())
     if (messageId) formData.append('messageId', messageId.toString())
+    if (iv) formData.append('iv', iv)
+    if (signature) formData.append('signature', signature)
 
-    // Custom fetch because of FormData
     return fetch(`${API_BASE_URL}/Attachments/upload`, {
       method: 'POST',
       headers: {
@@ -493,11 +496,17 @@ export const attachmentsApi = {
     });
   },
 
-  getAttachment: (token: string, id: number) =>
-    request<any>(`/Attachments/${id}`, { token }),
-
-  deleteAttachment: (token: string, id: number) =>
-    request<any>(`/Attachments/${id}`, { method: 'DELETE', token }),
+  downloadBlob: (token: string, id: number) => {
+    return fetch(`${API_BASE_URL}/Attachments/${id}/download`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'ngrok-skip-browser-warning': 'true'
+      }
+    }).then(async res => {
+      if (!res.ok) throw new ApiError(await res.text(), res.status);
+      return res.blob();
+    });
+  },
 }
 
 // ========== Meetings (Calls) API (api/Meetings/*) ==========
@@ -549,13 +558,14 @@ export const announcementsApi = {
   getAnnouncements: (token: string) =>
     request<any[]>('/Announcements', { token }),
 
-  sendAnnouncement: (token: string, data: { title: string; EncryptedContent: string; iv: string; userIds?: number[] }) =>
+  sendAnnouncement: (token: string, data: { title: string; encryptedContent: string; iv: string; signature: string; userIds?: number[] }) =>
     request<any>('/Announcements', {
       method: 'POST',
       body: JSON.stringify({ 
         Title: data.title, 
-        EncryptedContent: data.EncryptedContent, 
+        EncryptedContent: data.encryptedContent, 
         IV: data.iv, 
+        Signature: data.signature,
         UserIds: data.userIds 
       }),
       token,

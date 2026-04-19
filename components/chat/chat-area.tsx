@@ -57,7 +57,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { CallLobby } from '@/components/chat/call-lobby'
 import { SystemMessageGroup } from '@/components/chat/system-message-group'
-import { decryptMessagePro } from '@/lib/crypto-utils'
+import { decryptMessagePro, encryptFilePro } from '@/lib/crypto-utils'
 
 interface Message {
   id: number
@@ -72,6 +72,108 @@ interface Message {
   parentMessageId?: number
   iv?: string
   signature?: string
+}
+
+function DecryptedAttachment({ 
+    attachment, 
+    token, 
+    user,
+    mySenderKey, 
+    peerSenderKeys, 
+    peerIdentityKeys, 
+    identityKeys,
+    senderId
+}: { 
+    attachment: any, 
+    token: string, 
+    user: any,
+    mySenderKey: any, 
+    peerSenderKeys: Map<number, any>, 
+    peerIdentityKeys: Map<number, any>,
+    identityKeys: any,
+    senderId: number
+}) {
+    const [url, setUrl] = useState<string>("");
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const blob = await attachmentsApi.downloadBlob(token, attachment.id);
+                // 1. Check if attachment is E2EE
+                if (attachment.iv && (attachment.signature || (attachment as any).sig)) {
+                    const isOwn = user && senderId === user.id;
+                    const senderKey = isOwn ? mySenderKey : peerSenderKeys.get(senderId);
+                    const senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);
+                    
+                    if (senderKey && senderIdPubKey) {
+                        try {
+                           const decryptedBlob = await decryptFilePro(
+                               blob, 
+                               attachment.iv, 
+                               attachment.signature || (attachment as any).sig, 
+                               senderKey, 
+                               senderIdPubKey
+                           );
+                           setUrl(URL.createObjectURL(decryptedBlob));
+                        } catch (e) {
+                           console.error("Decryption failed", e);
+                           setError(true);
+                        }
+                    } else {
+                        // Keys not ready
+                    }
+                } else {
+                    // Legacy or plain file
+                    setUrl(URL.createObjectURL(blob));
+                }
+            } catch (e) { 
+                console.error("Download failed", e);
+                setError(true); 
+            }
+            finally { setLoading(false); }
+        };
+        load();
+        return () => { if (url) URL.revokeObjectURL(url); };
+    }, [attachment.id, mySenderKey, peerSenderKeys.size, peerIdentityKeys.size]);
+
+    if (loading) return (
+        <div className="flex items-center gap-3 p-3 rounded-2xl border w-[280px] bg-muted animate-pulse">
+            <div className="h-10 w-10 rounded-lg bg-background/50" />
+            <div className="flex-1 space-y-2"><div className="h-3 w-3/4 bg-background/50 rounded" /><div className="h-2 w-1/2 bg-background/50 rounded" /></div>
+        </div>
+    );
+
+    if (error || !url) return (
+        <div className="flex items-center gap-3 p-3 rounded-2xl border w-[280px] bg-destructive/10 border-destructive/20 text-destructive">
+            <div className="h-10 w-10 rounded-lg bg-destructive/20 flex items-center justify-center"><X className="h-5 w-5" /></div>
+            <div className="flex-1 overflow-hidden"><p className="text-xs font-bold truncate">{attachment.fileName}</p><p className="text-[10px] uppercase font-black">Lỗi bảo mật/hết hạn</p></div>
+        </div>
+    );
+
+    const isImg = attachment.mimeType?.startsWith('image/');
+    if (isImg) return (
+        <div className="relative group/img max-w-sm rounded-xl overflow-hidden shadow-md">
+            <img src={url} alt={attachment.fileName} className="block w-full h-auto max-h-[400px] object-cover hover:scale-105 transition-transform duration-500" onClick={() => window.open(url, '_blank')} />
+            <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
+                <Button variant="secondary" size="sm" className="rounded-full gap-2" onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = attachment.fileName;
+                    link.click();
+                }}><Download className="h-3.5 w-3.5" /> Tải về</Button>
+            </div>
+        </div>
+    );
+
+    return (
+        <a href={url} download={attachment.fileName} className={cn("flex items-center gap-3 p-3 rounded-2xl border w-[280px] max-w-full shadow-sm hover:scale-[1.02] transition-transform", senderId === user?.id ? "bg-primary/10 border-primary/20" : "bg-card border-border")}>
+            <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
+            <div className="flex-1 min-w-0"><p className="text-xs font-bold truncate">{attachment.fileName}</p><p className="text-[10px] opacity-40 uppercase font-black">{(attachment.fileSize / 1024).toFixed(1)} KB</p></div>
+            <Download className="h-4 w-4 opacity-40" />
+        </a>
+    );
 }
 
 function DecryptedText({ 
@@ -273,15 +375,29 @@ export function ChatArea({
     const file = event.target.files?.[0]
     if (!file || !conversation || !token) return
     try {
-      toast.info('Đang tải lên...')
-      await attachmentsApi.upload(token, file, conversation.id)
+      if (!mySenderKey || !identityKeys) {
+          toast.error("Vui lòng đợi thiết lập mã hóa...");
+          return;
+      }
+
+      toast.info('Đang mã hóa và tải lên...')
+      
+      // 1. Client-side E2EE Encryption
+      const { encryptedBlob, iv, sig } = await encryptFilePro(file, mySenderKey, identityKeys.privateKey);
+
+      // 2. Upload Encrypted Blob
+      await attachmentsApi.upload(token, encryptedBlob, conversation.id, undefined, iv, sig, file.name)
+      
       const news = await conversationsApi.getMessages(token, conversation.id)
       setMessages(news.map((m: any) => ({
         ...m, id: m.id || m.Id, conversationId: m.conversationId || conversation.id,
         isPinned: m.isPinned || m.IsPinned, encryptedContent: m.encryptedContent || m.content || ""
       })))
-      toast.success('Thành công!')
-    } catch { toast.error('Thất bại.') }
+      toast.success('Gửi tệp thành công!')
+    } catch (err) { 
+      console.error(err);
+      toast.error('Gửi tệp thất bại.') 
+    }
   }
 
   useEffect(() => {
@@ -427,23 +543,20 @@ export function ChatArea({
                       <div className={cn("max-w-[75%] space-y-1.5 flex flex-col", isOwn ? "items-end" : "items-start")}>
                           {!isOwn && <p className="text-[10px] font-black uppercase opacity-40 ml-1">{m.senderName}</p>}
                           {m.attachments && m.attachments.length > 0 && (
-                            <div className="space-y-2 w-full flex flex-col items-inherit">
-                              {m.attachments.map((a: any, i: number) => {
-                                const isImg = a.mimeType?.startsWith('image/'); const url = getAttachmentUrl(a.id, token!);
-                                if (isImg) return (
-                                  <div key={i} className="relative group/img max-w-sm rounded-xl overflow-hidden shadow-md">
-                                     <img src={url} alt={a.fileName} className="block w-full h-auto max-h-[400px] object-cover hover:scale-105 transition-transform duration-500" onClick={() => window.open(url, '_blank')} />
-                                     <div className="absolute inset-0 rounded-xl bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity"><Button variant="secondary" size="sm" className="rounded-full gap-2" onClick={() => window.open(url, '_blank')}><ImageIcon className="h-3.5 w-3.5" /> Xem ảnh</Button></div>
-                                  </div>
-                                );
-                                return (
-                                  <a key={i} href={url} target="_blank" className={cn("flex items-center gap-3 p-3 rounded-2xl border w-[280px] max-w-full shadow-sm", isOwn ? "bg-primary/10 border-primary/20" : "bg-card border-border")}>
-                                     <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center"><FileText className="h-5 w-5 text-primary" /></div>
-                                     <div className="flex-1 min-w-0"><p className="text-xs font-bold truncate">{a.fileName}</p><p className="text-[10px] opacity-40 uppercase font-black">{(a.fileSize / 1024).toFixed(1)} KB</p></div>
-                                     <Download className="h-4 w-4 opacity-40" />
-                                  </a>
-                                );
-                              })}
+                            <div className={cn("space-y-2 w-full flex flex-col", isOwn ? "items-end" : "items-start")}>
+                              {m.attachments.map((a: any) => (
+                                <DecryptedAttachment 
+                                    key={a.id} 
+                                    attachment={a} 
+                                    token={token!} 
+                                    user={user}
+                                    mySenderKey={mySenderKey} 
+                                    peerSenderKeys={peerSenderKeys} 
+                                    peerIdentityKeys={peerIdentityKeys} 
+                                    identityKeys={identityKeys}
+                                    senderId={m.senderId}
+                                />
+                              ))}
                             </div>
                           )}
                           {m.encryptedContent?.trim() !== "[Attachment]" && m.encryptedContent?.trim() !== "" && (

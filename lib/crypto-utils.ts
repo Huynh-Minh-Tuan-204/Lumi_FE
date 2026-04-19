@@ -174,6 +174,22 @@ export async function encryptMessagePro(plaintext: string, senderKey: CryptoKey,
     };
 }
 
+export async function encryptFilePro(file: File, senderKey: CryptoKey, identityPrivateKey: CryptoKey) {
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const arrayBuffer = await file.arrayBuffer();
+    
+    const ciphertext = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv }, senderKey, arrayBuffer);
+    
+    // Sign the ciphertext
+    const signature = await signData(bufferToBase64(ciphertext), identityPrivateKey);
+
+    return {
+        encryptedBlob: new Blob([ciphertext], { type: 'application/octet-stream' }),
+        iv: bufferToBase64(iv),
+        sig: signature
+    };
+}
+
 export async function decryptMessagePro(
     contentBase64: string, 
     ivBase64: string, 
@@ -197,6 +213,30 @@ export async function decryptMessagePro(
     } catch (e) {
         return "[Lỗi giải mã: Khóa không khớp hoặc dữ liệu hỏng]";
     }
+}
+
+export async function decryptFilePro(
+    blob: Blob,
+    ivBase64: string,
+    sigBase64: string,
+    senderKey: CryptoKey,
+    senderIdentityPubKey: CryptoKey
+): Promise<Blob> {
+    const arrayBuffer = await blob.arrayBuffer();
+    const contentBase64 = bufferToBase64(new Uint8Array(arrayBuffer));
+
+    // Verify Signature
+    const isValid = await verifySignature(contentBase64, sigBase64, senderIdentityPubKey);
+    if (!isValid) throw new Error("Chữ ký tệp không hợp lệ!");
+
+    // Decrypt
+    const decrypted = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: base64ToBuffer(ivBase64) },
+        senderKey,
+        arrayBuffer
+    );
+
+    return new Blob([decrypted]);
 }
 
 // ==========================================
