@@ -113,7 +113,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       try {
         const meeting = await meetingsApi.getMeeting(token, callId)
         const cid = meeting.conversationId || meeting.ConversationId
-        const hId = meeting.creatorId || meeting.CreatorId || meeting.hostId || meeting.HostId || meeting.creator?.id || meeting.Creator?.Id || meeting.host?.id || meeting.Host?.Id
+        const hId = meeting.creatorId || meeting.CreatorId || meeting.hostId || meeting.HostId || 
+                   meeting.createdBy || meeting.CreatedBy ||
+                   meeting.creator?.id || meeting.Creator?.Id || meeting.host?.id || meeting.Host?.Id
         const finalHostId = hId ? Number(hId) : null;
         setConvId(cid); setConversationId(cid); setHostId(finalHostId);
         const history = await conversationsApi.getMessages(token, cid)

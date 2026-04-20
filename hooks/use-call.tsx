@@ -221,10 +221,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       // Nếu fetch fail → giữ nguyên STUN default, vẫn join được (chỉ không qua TURN).
       try {
         const servers = await signalR.getIceServers()
-        if (servers && servers.length > 0) {
-          iceServersRef.current = servers
-          console.log('[WebRTC] ICE Servers loaded:', servers.map((s: any) => s.urls))
-        }
+        const normalized = servers.map((s: any) => ({
+          urls: s.urls || s.Urls || s.url || s.Url,
+          username: s.username || s.Username,
+          credential: s.credential || s.Credential
+        }));
+        iceServersRef.current = normalized;
+        const urlsLog = normalized.map((s: any) => s.urls);
+        console.log('[WebRTC] ICE Servers loaded:', urlsLog);
       } catch (iceErr) {
         console.warn('[WebRTC] Could not fetch ICE servers from BE, using defaults:', iceErr)
       }
@@ -299,22 +303,39 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isScreenSharing])
 
-  const startRecording = useCallback(() => {
-    if (!localStreamRef.current) {
-      console.warn('[Recording] No local stream available')
-      return
-    }
-    
+  const startRecording = useCallback(async () => {
     try {
-      // Mix audio của tất cả participants (local + remote peers)
+      // 1. Capture Screen (Quay màn hình) instead of just local camera
+      // This ensures we record the UI and all participants
+      let screenStream: MediaStream;
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+          video: true, 
+          audio: true // Capture system/tab audio if possible
+        });
+      } catch (screenErr) {
+        console.warn('[Recording] Screen capture failed or canceled, falling back to local stream:', screenErr);
+        if (!localStreamRef.current) throw new Error('No media stream available for recording');
+        screenStream = localStreamRef.current;
+      }
+
+      // 2. Mix audio của tất cả participants
       const audioContext = new AudioContext()
       const mixedDestination = audioContext.createMediaStreamDestination()
 
-      // Add local audio
-      const localAudioTracks = localStreamRef.current.getAudioTracks()
-      if (localAudioTracks.length > 0) {
-        const localSource = audioContext.createMediaStreamSource(localStreamRef.current)
-        localSource.connect(mixedDestination)
+      // Add audio from screen capture (system audio)
+      if (screenStream.getAudioTracks().length > 0) {
+        const screenSource = audioContext.createMediaStreamSource(screenStream);
+        screenSource.connect(mixedDestination);
+      }
+
+      // Add local microphone audio (if not already in screenStream)
+      if (localStreamRef.current && localStreamRef.current !== screenStream) {
+        const micTracks = localStreamRef.current.getAudioTracks();
+        if (micTracks.length > 0) {
+          const micSource = audioContext.createMediaStreamSource(localStreamRef.current);
+          micSource.connect(mixedDestination);
+        }
       }
 
       // Add remote peer audio
@@ -329,8 +350,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         }
       })
 
-      // Composite stream: local video + mixed audio từ tất cả
-      const videoTracks = localStreamRef.current.getVideoTracks()
+      // Composite stream: screen video + mixed audio
+      const videoTracks = screenStream.getVideoTracks()
       const compositeStream = new MediaStream([
         ...videoTracks,
         ...mixedDestination.stream.getAudioTracks()
@@ -358,10 +379,12 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         // Upload lên BE nếu có meetingId
         if (activeCallId && token) {
           try {
-            // Resolve meeting numeric ID từ activeCallId (GUID)
+            // Fix 404: Use API_BASE_URL (which is already configured correctly)
+            const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api').replace(/\/$/, "");
+            
             const meetingRes = await fetch(
-              `${process.env.NEXT_PUBLIC_API_URL || ''}/api/Meetings/${activeCallId}`,
-              { headers: { Authorization: `Bearer ${token}` } }
+              `${baseUrl}/Meetings/${activeCallId}`,
+              { headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' } }
             )
             if (meetingRes.ok) {
               const meetingData = await meetingRes.json()
@@ -374,10 +397,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
                 formData.append('iv', '') // Không encrypt phía client cho recording
 
                 const uploadRes = await fetch(
-                  `${process.env.NEXT_PUBLIC_API_URL || ''}/api/Recordings/upload`,
+                  `${baseUrl}/Recordings/upload`,
                   {
                     method: 'POST',
-                    headers: { Authorization: `Bearer ${token}` },
+                    headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
                     body: formData
                   }
                 )

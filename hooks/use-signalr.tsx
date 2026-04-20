@@ -478,16 +478,18 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+        // Normalizing messageType: treat empty or undefined as 'PLAIN'
+        const effectiveMessageType = (messageType === '' || !messageType) ? 'PLAIN' : messageType;
+
         let contentToSend = plaintext;
         let ivToSend = "";
         let sigToSend = "";
 
-        if (messageType === 'PLAIN') {
-          // Kiểm tra xem đã có thông tin định danh của người khác chưa
+        if (effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text') {
+          // Check if we have keys for others, if not, handshake first but DON'T BLOCK
           if (peerIdentityKeysRef.current.size === 0) {
-              toast.error("Đang kết nối bảo mật với người nhận, vui lòng thử gửi lại...");
-              initiateE2EEHandshake(conversationId);
-              return;
+              console.log('[E2EE] Peer keys not found, initiating handshake...');
+              initiateE2EEHandshake(conversationId).catch(e => console.warn(e));
           }
 
           if (!identityKeysRef.current) {
@@ -495,14 +497,14 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          const encrypted = await encryptMessagePro(plaintext, mySenderKeyRef.current, identityKeysRef.current.privateKey);
+          const encrypted = await encryptMessagePro(plaintext, mySenderKeyRef.current!, identityKeysRef.current.privateKey);
           contentToSend = encrypted.content;
           ivToSend = encrypted.iv;
           sigToSend = encrypted.sig;
         }
 
         const clientMessageId = crypto.randomUUID();
-        await connectionRef.current.invoke('SendMessageSecure', conversationId, contentToSend, ivToSend, sigToSend, messageType, parentMessageId || 0, clientMessageId);
+        await connectionRef.current.invoke('SendMessageSecure', conversationId, contentToSend, ivToSend, sigToSend, effectiveMessageType, parentMessageId || 0, clientMessageId);
       } catch (err) {
         console.error("Failed to send encrypted message:", err);
         toast.error("Lỗi khi mã hóa tin nhắn.");
