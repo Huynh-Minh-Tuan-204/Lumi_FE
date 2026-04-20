@@ -34,7 +34,9 @@ import {
   ImageOff,
   AlertCircle,
   MessageSquare,
-  Video as VideoIcon
+  Video as VideoIcon,
+  Activity as ActivityIcon,
+  X
 } from 'lucide-react'
 import {
   DropdownMenu,
