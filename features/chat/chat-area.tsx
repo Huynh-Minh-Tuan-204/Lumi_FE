@@ -33,7 +33,8 @@ import {
   Maximize2,
   ImageOff,
   AlertCircle,
-  MessageSquare
+  MessageSquare,
+  Video as VideoIcon
 } from 'lucide-react'
 import {
   DropdownMenu,
