@@ -89,22 +89,25 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
-    if (!token) {
-      setNotifications([]);
-      setOnlineUsers(new Set());
-      setLastMessage(null);
-      setLastReadUpdate(null);
-      setIncomingCall(null);
-      setCallDeclined(null);
-      setLastGroupUpdate(null);
-      setTypingUsers([]);
-      setLastUserUpdate(null);
-      setPinnedMessages(null);
-      setLastDeletedMessage(null);
-      setLastScheduleUpdate(null);
-      setActiveMeeting(null);
-      setIsConnected(false);
-      setIsReconnecting(false);
+    // Wait for everything to be ready before connecting
+    if (!token || !identityKeys || !myRSAKeys) {
+      if (!token) {
+        setNotifications([]);
+        setOnlineUsers(new Set());
+        setLastMessage(null);
+        setLastReadUpdate(null);
+        setIncomingCall(null);
+        setCallDeclined(null);
+        setLastGroupUpdate(null);
+        setTypingUsers([]);
+        setLastUserUpdate(null);
+        setPinnedMessages(null);
+        setLastDeletedMessage(null);
+        setLastScheduleUpdate(null);
+        setActiveMeeting(null);
+        setIsConnected(false);
+        setIsReconnecting(false);
+      }
       return
     }
 
