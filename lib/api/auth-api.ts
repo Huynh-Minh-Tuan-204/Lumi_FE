@@ -24,13 +24,13 @@ export const authApi = {
   login: (username: string, password: string) =>
     request<LoginResponse>('/Auth/login', {
       method: 'POST',
-      body: JSON.stringify({ Username: username, Password: password } as LoginDto),
+      body: JSON.stringify({ username, password } as LoginDto),
     }),
 
   refreshToken: (refreshToken: string) =>
     request<{ accessToken: string; refreshToken: string }>('/Auth/refresh-token', {
       method: 'POST',
-      body: JSON.stringify({ RefreshToken: refreshToken } as RefreshTokenRequestDto),
+      body: JSON.stringify({ refreshToken } as RefreshTokenRequestDto),
     }),
 
   getMe: (token: string) =>
@@ -59,7 +59,7 @@ export const authApi = {
     request<{ message: string }>('/Auth/change-password-first-time', {
       method: 'POST',
       token,
-      body: JSON.stringify({ OldPassword: oldPassword, NewPassword: newPassword }),
+      body: JSON.stringify({ oldPassword, newPassword }),
     }),
 }
 

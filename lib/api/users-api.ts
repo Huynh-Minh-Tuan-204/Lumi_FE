@@ -42,7 +42,7 @@ export const adminApi = {
   changeRole: (token: string, id: number, roleId: number) =>
     request<{ message: string }>(`/Admin/change-role/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ RoleId: roleId }),
+      body: JSON.stringify({ roleId: roleId }),
       token,
     }),
 
@@ -62,13 +62,13 @@ export const adminApi = {
     request<any>('/Announcements', {
       method: "POST",
       body: JSON.stringify({
-        Title: data.title,
-        EncryptedContent: data.encryptedContent,
-        IV: data.iv,
-        Signature: data.signature,
-        UserIds: data.userIds,
-        Category: data.category || "General",
-        ForceConfirmed: data.forceConfirmed || false
+        title: data.title,
+        encryptedContent: data.encryptedContent,
+        iv: data.iv,
+        signature: data.signature,
+        userIds: data.userIds,
+        category: data.category || "General",
+        forceConfirmed: data.forceConfirmed || false
       }),
       token,
     }),

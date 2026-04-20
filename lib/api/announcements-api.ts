@@ -8,11 +8,11 @@ export const announcementsApi = {
     request<any>('/Announcements', {
       method: 'POST',
       body: JSON.stringify({ 
-        Title: data.title, 
-        EncryptedContent: data.encryptedContent, 
-        IV: data.iv, 
-        Signature: data.signature,
-        UserIds: data.userIds 
+        title: data.title, 
+        encryptedContent: data.encryptedContent, 
+        iv: data.iv, 
+        signature: data.signature,
+        userIds: data.userIds 
       }),
       token,
     }),

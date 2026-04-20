@@ -147,13 +147,13 @@ export default function UsersPage() {
     setIsCreating(true)
     try {
       await adminApi.createUser(token, {
-        EmployeeCode: newUser.employeeCode,
-        Username: newUser.username,
-        Password: newUser.password,
-        FullName: newUser.fullName,
-        Email: newUser.email,
-        Phone: newUser.phone,
-        RoleId: newUser.roleId,
+        employeeCode: newUser.employeeCode,
+        username: newUser.username,
+        password: newUser.password,
+        fullName: newUser.fullName,
+        email: newUser.email,
+        phone: newUser.phone,
+        roleId: newUser.roleId,
       })
       toast.success('Đã tạo người dùng thành công')
       setIsCreateDialogOpen(false)

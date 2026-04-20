@@ -16,49 +16,49 @@ export interface TokenResponse {
   refreshToken: string
 }
 
-// ========== DTOs PascalCase (khớp C#) ==========
+// ========== DTOs camelCase (khớp CamelCase policy của .NET) ==========
 export interface LoginDto {
-  Username: string
-  Password: string
+  username: string
+  password: string
 }
 
 export interface RegisterDto {
-  EmployeeCode: string
-  Username: string
-  Password: string
-  FullName: string
-  Email: string
-  Phone: string
-  RoleId: number
+  employeeCode: string
+  username: string
+  password: string
+  fullName: string
+  email: string
+  phone: string
+  roleId: number
 }
 
 export interface RefreshTokenRequestDto {
-  RefreshToken: string
+  refreshToken: string
 }
 
 export interface TokenResponseDto {
-  AccessToken: string
-  RefreshToken: string
+  accessToken: string
+  refreshToken: string
 }
 
 export interface CreateGroupDto {
-  Name: string;
-  MemberIds: number[];
+  name: string;
+  memberIds: number[];
 }
 
 export interface AddMemberDto {
-  UserId: number;
-  RoleInConversation: string;
+  userId: number;
+  roleInConversation: string;
 }
 
 export interface CreateAnnouncementDto {
-  Message: string;
-  IV: string;
+  message: string;
+  iv: string;
 }
 
 export interface StartMeetingDto {
-  Title: string;
-  ScheduledAt?: string;
-  ParticipantIds: number[];
+  title: string;
+  scheduledAt?: string;
+  participantIds: number[];
 }
 

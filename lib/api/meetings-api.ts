@@ -13,14 +13,14 @@ export const meetingsApi = {
   startGlobalMeeting: (token: string, title?: string, callType: string = 'video') =>
     request<any>(`/Meetings/start-global`, {
       method: 'POST',
-      body: JSON.stringify({ Title: title, Type: callType }),
+      body: JSON.stringify({ title: title, type: callType }),
       token
     }),
 
   startMeeting: (token: string, conversationId: number, title: string, participantIds: number[], callType: string = 'video') =>
     request<any>(`/Meetings/start/${conversationId}`, {
       method: 'POST',
-      body: JSON.stringify({ Title: title, Type: callType, ParticipantIds: participantIds }),
+      body: JSON.stringify({ title: title, type: callType, participantIds: participantIds }),
       token,
     }),
 
