@@ -29,12 +29,10 @@ import {
   Pin, 
   PinOff,
   Search,
-  Video as VideoIcon,
-  Activity as ActivityIcon,
-  X,
-  MessageSquare,
   PhoneCall,
-  Maximize2
+  Maximize2,
+  ImageOff,
+  AlertCircle
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -151,6 +149,7 @@ function DecryptedAttachment({
         return () => { if (url) URL.revokeObjectURL(url); };
     }, [attachment.id, mySenderKey, peerSenderKeys.size, peerIdentityKeys.size]);
 
+    const isImg = attachment.mimeType?.startsWith('image/');
     if (loading) return (
         <div className="flex items-center gap-3 p-3 rounded-2xl border w-[280px] bg-muted animate-pulse">
             <div className="h-10 w-10 rounded-lg bg-background/50" />
@@ -159,13 +158,31 @@ function DecryptedAttachment({
     );
 
     if (error || !url) return (
-        <div className="flex items-center gap-3 p-3 rounded-2xl border w-[280px] bg-destructive/10 border-destructive/20 text-destructive">
-            <div className="h-10 w-10 rounded-lg bg-destructive/20 flex items-center justify-center"><X className="h-5 w-5" /></div>
-            <div className="flex-1 overflow-hidden"><p className="text-xs font-bold truncate">{attachment.fileName}</p><p className="text-[10px] uppercase font-black">Lỗi bảo mật/hết hạn</p></div>
+        <div className={cn(
+            "flex flex-col items-center justify-center gap-3 p-6 rounded-2xl border w-[280px] min-h-[160px] text-center",
+            senderId === user?.id ? "bg-primary/5 border-primary/10" : "bg-muted/30 border-muted-foreground/10"
+        )}>
+            <div className="relative">
+                <ImageOff className="h-10 w-10 text-muted-foreground/30" />
+                <AlertCircle className="h-4 w-4 text-muted-foreground/40 absolute -bottom-1 -right-1" />
+            </div>
+            <div className="space-y-1.5">
+                <p className="text-sm font-bold text-muted-foreground/80">
+                    {isImg ? "Ảnh không tồn tại" : "Tệp không tồn tại"}
+                </p>
+                <p className="text-[10px] leading-relaxed text-muted-foreground/60 max-w-[200px] mx-auto">
+                    Nội dung không có trên máy này và không còn trên máy chủ để tải về.
+                </p>
+                <button 
+                  className="text-[10px] font-bold text-primary hover:underline mt-2 flex items-center justify-center gap-1 mx-auto"
+                  onClick={() => toast.info("Liên hệ người gửi để nhận lại tệp này.")}
+                >
+                    Tìm hiểu thêm
+                </button>
+            </div>
         </div>
     );
 
-    const isImg = attachment.mimeType?.startsWith('image/');
     if (isImg) return (
         <div className="relative group/img max-w-sm rounded-xl overflow-hidden shadow-md">
             <AttachmentImage 

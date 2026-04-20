@@ -55,6 +55,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const peerIdentityKeysRef = useRef<Map<number, CryptoKey>>(new Map());
   const peerSenderKeysRef = useRef<Map<number, CryptoKey>>(new Map());
   const mySenderKeyRef = useRef<CryptoKey | null>(null);
+  
+  // Sync user object into a ref to avoid stale closures in SignalR listeners 
+  // without re-creating the entire connection every time user profile updates.
+  const userRef = useRef(user)
+  useEffect(() => { userRef.current = user }, [user])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -141,7 +146,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       .build()
 
     connection.on("ReceiveSecureIdentity", async (senderId: number, idPubKeyBase64: string, rsaPubKeyBase64: string, signature: string, conversationId: number, isDirectReply: boolean = false) => {
-      if (user && senderId === user.id) return;
+      if (userRef.current && senderId === userRef.current.id) return;
       try {
         const peerIdPubKey = await importIdentityPublicKey(idPubKeyBase64);
         const isVerified = await verifySignature(rsaPubKeyBase64, signature, peerIdPubKey);
@@ -207,8 +212,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         } 
         // KIỂM TRA B: Có IV -> Tin nhắn E2EE, tiến hành giải mã
         else {
-            const senderSessionKey = (user && senderId === user.id) ? mySenderKeyRef.current : peerSenderKeysRef.current.get(senderId);
-            const senderIdKey = (user && senderId === user.id) ? identityKeysRef.current?.publicKey : peerIdentityKeysRef.current.get(senderId);
+            const senderSessionKey = (userRef.current && senderId === userRef.current.id) ? mySenderKeyRef.current : peerSenderKeysRef.current.get(senderId);
+            const senderIdKey = (userRef.current && senderId === userRef.current.id) ? identityKeysRef.current?.publicKey : peerIdentityKeysRef.current.get(senderId);
 
             if (senderSessionKey && iv && sig && senderIdKey) {
                // Đủ chìa khóa -> Giải mã!
@@ -297,7 +302,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     })
 
     connection.on('IncomingCall', (meetingId: string, callerId: number, callerName: string, callType: string, convName: string) => {
-      if (user && callerId === user.id) return
+      if (userRef.current && callerId === userRef.current.id) return;
       setIncomingCall({ meetingId, callerName, callType, convName })
     })
 
@@ -314,7 +319,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
       setActiveMeeting({ meetingId: mIdString, conversationId, title, callType, hostName })
 
-      if (user && hostId !== user.id) {
+      if (userRef.current && hostId !== userRef.current.id) {
         toast.info(`🚀 CUỘC HỌP MỚI: ${title}`, {
           description: `Bởi ${hostName}. Tham gia ngay!`,
           duration: 5000,
@@ -329,7 +334,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connection.on('GlobalMeetingStarted', (data: any) => {
       const { meetingId, conversationId, title, hostName, hostId, type } = data;
 
-      if (user && (hostId === user.id || hostName === user.fullName)) return;
+      if (userRef.current && (hostId === userRef.current.id || hostName === userRef.current.fullName)) return;
 
       const mIdString = String(meetingId);
       const convKey = `conv-${conversationId}`;
@@ -370,7 +375,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connection.on('UserUpdated', (userId: number, avatarPath: string) => {
       const pathWithTime = `${avatarPath}?v=${Date.now()}`
       setLastUserUpdate({ userId, avatarPath: pathWithTime })
-      if (user && userId === user.id) updateUser({ avatarPath: pathWithTime })
+      if (userRef.current && userId === userRef.current.id) updateUser({ avatarPath: pathWithTime })
     })
 
     connection.on('UserTyping', (conversationId: number, userId: number, userName: string) => {
@@ -454,54 +459,40 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       connection.stop()
     }
 
-  }, [token, identityKeys])
+  }, [token, identityKeys, myRSAKeys])
 
   const sendMessage = useCallback(async (conversationId: number, plaintext: string, messageType: string = 'PLAIN', parentMessageId?: number) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
-      // Guard: Đảm bảo E2EE key sẵn sàng trước khi encrypt
-      // Nếu chưa có sender key → trigger handshake và đợi tối đa 4 giây
+      
+      // Tự tạo khóa ngay lập tức nếu chưa có, KHÔNG ĐỨNG ĐỢI!
       if (!mySenderKeyRef.current) {
-        console.log('[E2EE] Sender key chưa sẵn sàng, đang khởi tạo handshake...')
-        try {
-          await initiateE2EEHandshake(conversationId)
-        } catch (hsErr) {
-          console.warn('[E2EE] Handshake failed:', hsErr)
-        }
+        console.log('[E2EE] Khởi tạo Sender Key cho bản thân...');
+        mySenderKeyRef.current = await generateSenderKey();
+        setKeyVersion(v => v + 1);
         
-        // Đợi key được set (polling 200ms, tối đa 4s)
-        let waited = 0
-        while (!mySenderKeyRef.current && waited < 4000) {
-          await new Promise(resolve => setTimeout(resolve, 200))
-          waited += 200
-        }
-        
-        // Nếu sau 4s vẫn không có key → báo lỗi, không gửi
-        if (!mySenderKeyRef.current) {
-          console.error('[E2EE] Không thể khởi tạo encryption key sau 4 giây')
-          toast.error('Chưa thiết lập mã hóa. Vui lòng thử lại hoặc reload trang.')
-          return
-        }
-        
-        console.log('[E2EE] Key sẵn sàng sau', waited, 'ms')
+        // Sau khi có khóa mình, vẫy tay gọi mọi người để lấy khóa họ (Không cần đợi)
+        initiateE2EEHandshake(conversationId).catch(e => console.warn(e));
       }
+
       try {
         let contentToSend = plaintext;
         let ivToSend = "";
         let sigToSend = "";
 
         if (messageType === 'PLAIN') {
-          if (!mySenderKeyRef.current) {
-            mySenderKeyRef.current = await generateSenderKey();
-            setKeyVersion(v => v + 1);
-          }
-
+          // Kiểm tra xem đã có thông tin định danh của người khác chưa
           if (peerIdentityKeysRef.current.size === 0) {
-              toast.error("Vui lòng đợi 1 giây để thiết lập mã hóa...");
+              toast.error("Đang kết nối bảo mật với người nhận, vui lòng thử gửi lại...");
               initiateE2EEHandshake(conversationId);
               return;
           }
 
-          const encrypted = await encryptMessagePro(plaintext, mySenderKeyRef.current, identityKeysRef.current!.privateKey);
+          if (!identityKeysRef.current) {
+            toast.error("Vui lòng đợi 1 giây để thiết lập khóa danh tính...");
+            return;
+          }
+
+          const encrypted = await encryptMessagePro(plaintext, mySenderKeyRef.current, identityKeysRef.current.privateKey);
           contentToSend = encrypted.content;
           ivToSend = encrypted.iv;
           sigToSend = encrypted.sig;
@@ -515,6 +506,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [initiateE2EEHandshake])
+
 
   const markAsRead = useCallback(async (conversationId: number, messageId: number = 0) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
