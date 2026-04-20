@@ -32,7 +32,8 @@ import {
   PhoneCall,
   Maximize2,
   ImageOff,
-  AlertCircle
+  AlertCircle,
+  MessageSquare
 } from 'lucide-react'
 import {
   DropdownMenu,
