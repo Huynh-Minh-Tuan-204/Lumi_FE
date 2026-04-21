@@ -75,12 +75,13 @@ export async function importIdentityPublicKey(base64: string): Promise<CryptoKey
     );
 }
 
-// ==========================================
-// PHẦN 3: RSA (TRAO ĐỔI KHÓA)
-// ==========================================
+// Sinh và lưu cặp khóa RSA (dùng để trao đổi Session Key)
+// Fix lỗi F5 mất key: Dùng getOrCreate để load từ IndexedDB nếu đã tồn tại
+export async function getOrCreateRSAKeyPair(): Promise<CryptoKeyPair> {
+    const existing = await loadKey(RSA_KEY_ALIAS);
+    if (existing) return existing;
 
-export async function generateEphemeralRSAKeyPair(): Promise<CryptoKeyPair> {
-    return await window.crypto.subtle.generateKey(
+    const keys = await window.crypto.subtle.generateKey(
         {
             name: "RSA-OAEP",
             modulusLength: 2048,
@@ -90,13 +91,6 @@ export async function generateEphemeralRSAKeyPair(): Promise<CryptoKeyPair> {
         true,
         ["encrypt", "decrypt"]
     );
-}
-
-export async function getOrCreateRSAKeyPair(): Promise<CryptoKeyPair> {
-    const existing = await loadKey(RSA_KEY_ALIAS);
-    if (existing) return existing;
-
-    const keys = await generateEphemeralRSAKeyPair();
     await saveKey(RSA_KEY_ALIAS, keys);
     return keys;
 }

@@ -224,19 +224,29 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         } 
         // KIỂM TRA B: Có IV -> Tin nhắn E2EE, tiến hành giải mã
         else {
-            const senderSessionKey = (userRef.current && senderId === userRef.current.id) ? mySenderKeyRef.current : peerSenderKeysRef.current.get(senderId);
-            const senderIdKey = (userRef.current && senderId === userRef.current.id) ? identityKeysRef.current?.publicKey : peerIdentityKeysRef.current.get(senderId);
+            let senderSessionKey = (userRef.current && senderId === userRef.current.id) 
+                ? mySenderKeyRef.current 
+                : peerSenderKeysRef.current.get(senderId);
+            
+            // [FIX] Nếu là tin nhắn của mình gửi từ máy khác/phiên khác nhưng mình đã có key trong IndexedDB
+            if (!senderSessionKey && userRef.current && senderId === userRef.current.id && conversationId) {
+                const stored = await saveOrLoadSenderKey(conversationId);
+                if (stored) {
+                    mySenderKeyRef.current = stored;
+                    setMySenderKey(stored);
+                    senderSessionKey = stored;
+                }
+            }
+
+            const senderIdKey = (userRef.current && senderId === userRef.current.id) 
+                ? identityKeysRef.current?.publicKey 
+                : peerIdentityKeysRef.current.get(senderId);
 
             if (senderSessionKey && iv && sig && senderIdKey) {
                // Đủ chìa khóa -> Giải mã!
                try {
                   displayContent = await decryptMessagePro(content, iv, sig, senderSessionKey, senderIdKey);
                } catch (e) { displayContent = content || "[Lỗi giải mã]"; }
-            } else if (user && senderId === user.id && mySenderKeyRef.current && identityKeysRef.current) {
-               // Fallback: Đủ chìa khóa của bản thân -> Giải mã!
-               try {
-                  displayContent = await decryptMessagePro(content, iv, sig, mySenderKeyRef.current, identityKeysRef.current.publicKey);
-               } catch (e) { displayContent = content; }
             } else {
                // Thiếu chìa khóa do F5 hoặc chưa bắt tay -> Hiện thông báo chờ
                displayContent = "⏳ [Tin nhắn bảo mật]";

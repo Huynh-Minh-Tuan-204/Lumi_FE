@@ -210,7 +210,21 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             await peer.connection.addIceCandidate(candidate).catch(() => {})
           }
         },
-        onMeetingMemberList: () => {}
+        onMeetingMemberList: (members) => {
+          // [FIX] Mesh P2P: Khi vào phòng, chủ động kết nối với toàn bộ người đang có mặt
+          console.log('[Call] Received member list:', members);
+          members.forEach((member: any) => {
+            const memberId = member.userId || member.UserId;
+            const displayName = member.userName || member.DisplayName || member.fullName || 'User';
+            
+            if (user && memberId !== user.id && !peersRef.current.has(memberId)) {
+              console.log(`[Call] Auto-initiating connection with existing member: ${memberId}`);
+              // isPolite: user với ID lớn hơn sẽ là polite side để giải quyết xung đột negotiation
+              const isPolite = user.id > memberId;
+              createPeerConnection(callId, memberId, displayName, isPolite);
+            }
+          });
+        }
       })
 
       signalRRef.current = signalR
@@ -278,14 +292,22 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
                 if (sender) sender.replaceTrack(track)
             })
             
+            // Lắng nghe sự kiện kết thúc share (bấm nút Stop Sharing của browser)
             track.onended = () => {
-                setIsScreenSharing(false)
+                console.log('[Call] Screen share stopped via browser');
+                setIsScreenSharing(false);
+                screenStreamRef.current = null;
+                
+                // Khôi phục lại camera track cho toàn bộ peers
                 if (localStreamRef.current) {
-                    const localTrack = localStreamRef.current.getVideoTracks()[0]
+                    const localVideoTrack = localStreamRef.current.getVideoTracks()[0];
                     peersRef.current.forEach(peer => {
-                        const sender = peer.connection.getSenders().find(s => s.track?.kind === 'video')
-                        if (sender) sender.replaceTrack(localTrack)
-                    })
+                        const senders = peer.connection.getSenders();
+                        const videoSender = senders.find(s => s.track?.kind === 'video');
+                        if (videoSender && localVideoTrack) {
+                            videoSender.replaceTrack(localVideoTrack);
+                        }
+                    });
                 }
             }
             setIsScreenSharing(true)
