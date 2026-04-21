@@ -200,16 +200,18 @@ export async function decryptSessionKey(encryptedBase64: string, myPrivateKey: C
 }
 
 export async function encryptMessagePro(plaintext: string, senderKey: CryptoKey, identityPrivateKey: CryptoKey) {
+    // 12-byte random IV for AES-GCM (Authenticated Encryption)
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
     const encoded = new TextEncoder().encode(plaintext);
 
-    const ciphertext = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv }, senderKey, encoded);
+    // GCM automatically appends the 16-byte authentication tag at the end of ciphertext
+    const ciphertextBuffer = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv }, senderKey, encoded);
 
-    // Sign the ciphertext for non-repudiation
-    const signature = await signData(bufferToBase64(ciphertext), identityPrivateKey);
+    // Sign the ciphertext for non-repudiation and extra authenticity layer
+    const signature = await signData(bufferToBase64(ciphertextBuffer), identityPrivateKey);
 
     return {
-        content: bufferToBase64(ciphertext),
+        content: bufferToBase64(ciphertextBuffer), // Includes auth tag
         iv: bufferToBase64(iv),
         sig: signature
     };
@@ -239,11 +241,12 @@ export async function decryptMessagePro(
     senderIdentityPubKey: CryptoKey
 ): Promise<string> {
     try {
-        // 1. Verify Signature FIRST
+        // 1. Verify ECDSA signature layer first
         const isValid = await verifySignature(contentBase64, sigBase64, senderIdentityPubKey);
-        if (!isValid) return "[CẢNH BÁO: Tin nhắn bị giả mạo chữ ký!]";
+        if (!isValid) return "🚨 [CẢNH BÁO: Tin nhắn bị giả mạo hoặc sai chữ ký!]";
 
-        // 2. Decrypt
+        // 2. AES-GCM Authenticated Decryption
+        // Web Crypto will automatically verify the tag. If bit-flipped, it throws an error.
         const decrypted = await window.crypto.subtle.decrypt(
             { name: "AES-GCM", iv: base64ToBuffer(ivBase64) },
             senderKey,
@@ -252,7 +255,9 @@ export async function decryptMessagePro(
 
         return new TextDecoder().decode(decrypted);
     } catch (e) {
-        return "[Lỗi giải mã: Khóa không khớp hoặc dữ liệu hỏng]";
+        // GCM Error - likely auth tag mismatch (Integrity violation)
+        console.error("AES-GCM Auth Tag validation failed!", e);
+        return "🚨 [Tin nhắn bị giả mạo: Xác thực dữ liệu thất bại!]";
     }
 }
 

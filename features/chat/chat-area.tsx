@@ -106,10 +106,14 @@ function DecryptedAttachment({
     const [error, setError] = useState(false);
 
     useEffect(() => {
+        let objectUrl: string | null = null;
+        let cancelled = false;
+
         const load = async () => {
             try {
                 const blob = await attachmentsApi.downloadBlob(token, attachment.id);
-                
+                if (cancelled) return;
+
                 let iv = attachment.iv || (attachment as any).IV;
                 let sig = attachment.signature || (attachment as any).sig || attachment.Signature || (attachment as any).Signature;
 
@@ -121,15 +125,12 @@ function DecryptedAttachment({
                 }
 
                 const isLegacy = !iv || iv === 'legacy-unencrypted';
-                
-                // 1. Check if attachment is E2EE
+
                 if (!isLegacy && iv && sig) {
                     const isOwn = user && senderId === user.id;
-                    
-                    // [FIX] If it's our own attachment but mySenderKey is null (after F5), try to recover it
                     let currentSenderKey = isOwn ? mySenderKey : peerSenderKeys.get(senderId);
                     let senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);
-                    
+
                     if (conversationId) {
                         if (isOwn && !currentSenderKey) {
                             const stored = await saveOrLoadSenderKey(conversationId);
@@ -144,20 +145,17 @@ function DecryptedAttachment({
                         const stored = await saveOrLoadPeerIdentityKey(senderId);
                         if (stored) senderIdPubKey = stored;
                     }
-                    
+
                     if (currentSenderKey && senderIdPubKey) {
                         try {
-                           const decryptedBlob = await decryptFilePro(
-                               blob, 
-                               iv, 
-                               sig, 
-                               currentSenderKey, 
-                               senderIdPubKey
-                           );
-                           setUrl(URL.createObjectURL(decryptedBlob));
+                           const decryptedBlob = await decryptFilePro(blob, iv, sig, currentSenderKey, senderIdPubKey);
+                           if (!cancelled) {
+                               objectUrl = URL.createObjectURL(decryptedBlob);
+                               setUrl(objectUrl);
+                           }
                         } catch (e) {
-                           console.error("Decryption failed", e);
-                           setError(true);
+                           console.error('Decryption failed', e);
+                           if (!cancelled) setError(true);
                         }
                     } else {
                         // Keys not ready — wait for keyVersion to trigger re-run
@@ -165,22 +163,32 @@ function DecryptedAttachment({
                     }
                 } else {
                     // Legacy or plain file
-                    setUrl(URL.createObjectURL(blob));
+                    if (!cancelled) {
+                        objectUrl = URL.createObjectURL(blob);
+                        setUrl(objectUrl);
+                    }
                 }
-            } catch (e: any) { 
-                console.error("Download failed", e)
-                const isFileGone = e?.message?.includes('404') || e?.status === 404
-                if (isFileGone) {
-                    // File đã bị xóa khỏi server — không cần show error UI, onError của img sẽ xử lý
-                    console.warn('[Attachment] File không còn tồn tại trên server:', attachment.id)
-                } else {
-                    setError(true)
+            } catch (e: any) {
+                if (!cancelled) {
+                    console.error('Download failed', e);
+                    const isFileGone = e?.message?.includes('404') || e?.status === 404;
+                    if (isFileGone) {
+                        console.warn('[Attachment] File không còn tồn tại trên server:', attachment.id);
+                    } else {
+                        setError(true);
+                    }
                 }
+            } finally {
+                if (!cancelled) setLoading(false);
             }
-            finally { setLoading(false); }
         };
         load();
-        return () => { if (url) URL.revokeObjectURL(url); };
+
+        // [Fix 4.1] Proper cleanup: objectUrl captured in closure, not stale state
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
     }, [attachment.id, mySenderKey, keyVersion]);
 
     const isImg = attachment.mimeType?.startsWith('image/');
@@ -338,12 +346,19 @@ export function ChatArea({
        return
     }
     try {
-      const title = `${type === 'voice' ? 'Cuộc gọi thoại' : 'Cuộc gọi video'} - ${conversation.name}`
+      const title = `${type === 'voice' ? '🎙️ Cuộc gọi thoại' : '📹 Cuộc gọi video'} - ${conversation.name}`
       const resp = await meetingsApi.startMeeting(token, conversation.id, title, [], type)
       const mGuid = resp?.meetingGuid || resp?.id;
       if (mGuid) {
-        sendMessage(conversation.id, `📹 Cuộc họp: ${title}\n[MEETING_GUID:${mGuid}]`, 'Text');
+        // [Fix 7] Gửi tin nhắn với meeting URL đầy đủ để người khác click join
+        const meetingUrl = `${window.location.origin}/call/${mGuid}?type=${type}`;
+        sendMessage(conversation.id, `📹 ${title}\nNhấn để tham gia ngay!\n[MEETING_GUID:${mGuid}]\n🔗 ${meetingUrl}`, 'Text');
         setShowLobby({ meetingId: mGuid, type, title })
+        // Copy link vào clipboard
+        try {
+          await navigator.clipboard.writeText(meetingUrl);
+          toast.success('📋 Đã copy link phòng họp!', { duration: 3000 });
+        } catch { /* clipboard không bắt buộc */ }
       }
     } catch { toast.error(`Không thể bắt đầu cuộc gọi.`) }
   }

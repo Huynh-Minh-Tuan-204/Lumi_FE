@@ -15,7 +15,7 @@ import {
   Mic, MicOff, Video, VideoOff, PhoneOff, 
   Monitor, MoreHorizontal, Users, MessageSquare, 
   X, Send, Smile, ShieldCheck, Minimize2, Maximize2, Download, FileText, Image as ImageIcon,
-  Circle, StopCircle
+  Circle, StopCircle, Share2
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { VideoPlayer } from '@/features/call/video-player'
@@ -36,6 +36,17 @@ function formatDuration(seconds: number) {
   const m = Math.floor((seconds % 3600) / 60)
   const s = seconds % 60
   return [h > 0 ? h : null, m, s].filter(x => x !== null).map(x => x!.toString().padStart(2, '0')).join(':')
+}
+
+// [Fix 5] Adaptive grid config based on participant count
+function getGridConfig(count: number) {
+  if (count === 1) return { cols: 'grid-cols-1', maxW: 'max-w-3xl', aspect: 'aspect-video' }
+  if (count === 2) return { cols: 'grid-cols-2', maxW: 'max-w-4xl', aspect: 'aspect-video' }
+  if (count === 3) return { cols: 'grid-cols-2', maxW: 'max-w-5xl', aspect: 'aspect-[4/3]' }
+  if (count <= 4) return { cols: 'grid-cols-2', maxW: 'max-w-5xl', aspect: 'aspect-square' }
+  if (count <= 6) return { cols: 'grid-cols-3', maxW: 'max-w-6xl', aspect: 'aspect-[4/3]' }
+  if (count <= 9) return { cols: 'grid-cols-3', maxW: 'max-w-6xl', aspect: 'aspect-square' }
+  return { cols: 'grid-cols-4', maxW: 'max-w-7xl', aspect: 'aspect-square' }
 }
 
 // Fixed Attachment Renderer inside Call Chat
@@ -172,6 +183,20 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
               </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* [Fix 7] Copy Link button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-white/60 hover:text-white text-[10px] font-black uppercase tracking-widest gap-2"
+              onClick={async () => {
+                const url = `${window.location.origin}/call/${callId}`;
+                await navigator.clipboard.writeText(url).catch(() => {});
+                toast.success('Đã copy link phòng họp!');
+              }}
+            >
+              <Share2 className="h-3.5 w-3.5" />
+              Copy Link
+            </Button>
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -187,25 +212,38 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
 
       <main className="flex-1 flex min-h-0 relative">
         <section className="flex-1 p-6 relative overflow-hidden flex flex-col items-center justify-center">
-            {/* Main Video Grid */}
+            {/* [Fix 5] Adaptive Video Grid */}
             {(() => {
-                const gridClassName = (() => {
-                  if (activePeers <= 1) return "grid-cols-1 max-w-4xl"
-                  if (activePeers <= 2) return "grid-cols-2 max-w-4xl"
-                  if (activePeers <= 4) return "grid-cols-2"
-                  if (activePeers <= 6) return "grid-cols-3"
-                  return "grid-cols-4"
-                })()
+                const { cols, maxW, aspect } = getGridConfig(activePeers)
+                const hasOddLast = allStreams.length % 2 !== 0 && allStreams.length > 1 && cols === 'grid-cols-2'
 
                 return (
                     <div className={cn(
-                        "grid gap-4 w-full h-full max-w-7xl mx-auto items-center justify-center p-4",
-                        gridClassName
+                        'grid gap-3 w-full h-full items-center justify-items-center p-4 mx-auto',
+                        maxW, cols
                     )}>
-                {allStreams.map(p => (
-                    <VideoPlayer key={p.id} stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
-                ))}
-            </div>
+                    {allStreams.map((p, idx) => (
+                        <div
+                          key={p.id}
+                          className={cn(
+                            'relative w-full rounded-2xl overflow-hidden',
+                            aspect,
+                            // Center the last odd tile
+                            hasOddLast && idx === allStreams.length - 1 && 'col-span-2 max-w-[50%] justify-self-center'
+                          )}
+                        >
+                            <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
+                            {/* [Fix 5] Reconnecting overlay for remote peers without stream */}
+                            {!p.isLocal && !p.stream && (
+                                <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 animate-pulse">
+                                    <div className="h-10 w-10 rounded-full border-4 border-yellow-500 border-t-transparent animate-spin" />
+                                    <p className="text-xs font-bold text-yellow-400 uppercase tracking-widest">Đang kết nối lại...</p>
+                                    <p className="text-[10px] text-white/50">{p.name}</p>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
                 )
             })()}
 
@@ -242,16 +280,30 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                     
                     <div className="w-px h-10 bg-white/10 mx-1" />
 
+                    {/* [Fix 6] Record button with better UI feedback */}
                     <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      onClick={isRecording ? stopRecording : startRecording} 
+                      variant="ghost"
+                      size="icon"
+                      onClick={isRecording ? stopRecording : startRecording}
                       className={cn(
-                        "h-14 w-14 rounded-full transition-all duration-300", 
-                        isRecording ? "bg-red-500/20 text-red-500 animate-pulse" : "bg-white/5 text-white/50 hover:text-red-500"
+                        'h-14 w-14 rounded-full transition-all duration-300',
+                        isRecording
+                          ? 'bg-red-500 text-white shadow-xl shadow-red-500/40 scale-110'
+                          : 'bg-white/5 text-white/60 hover:bg-white/10 hover:text-red-400'
                       )}
+                      title={isRecording ? 'Dừng ghi hình' : 'Bắt đầu ghi hình'}
                     >
-                        {isRecording ? <StopCircle className="h-6 w-6 fill-red-500" /> : <Circle className="h-6 w-6" />}
+                        {isRecording ? (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <div className="h-3 w-3 rounded-sm bg-white animate-pulse" />
+                            <span className="text-[8px] font-black">STOP</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-0.5">
+                            <div className="h-3 w-3 rounded-full bg-red-500" />
+                            <span className="text-[8px] font-black opacity-60">REC</span>
+                          </div>
+                        )}
                     </Button>
                     
                     <Button onClick={() => { setIsEnding(true); endCall(); onEndCall(); }} className="h-14 px-8 rounded-full bg-red-600 hover:bg-red-700 text-white font-black uppercase text-xs tracking-[0.1em] shadow-xl shadow-red-600/30 transition-transform active:scale-95 z-50">

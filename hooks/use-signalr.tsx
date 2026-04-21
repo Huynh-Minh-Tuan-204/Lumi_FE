@@ -221,11 +221,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       
       // 2. Logic giải mã thông minh
       if (messageType === 'PLAIN' || !messageType || messageType === 'Text') {
-        // KIỂM TRA A: Nếu không có IV -> Đây là tin nhắn cũ (Legacy), hiển thị bình thường
-        if (!iv || (typeof iv === 'string' && iv.trim() === "")) {
-             displayContent = content; 
+        // [FORCE E2EE] Tin nhắn văn bản từ user bắt buộc phải có IV/SIG.
+        // Các tin nhắn không có metadata sẽ bị coi là bị hạ cấp (Downgrade Attack) hoặc không an toàn.
+        if (!iv || !sig) {
+             displayContent = "🚨 [Tin nhắn bị hạ cấp (Plain) - Từ chối hiển thị]"; 
         } 
-        // KIỂM TRA B: Có IV -> Tin nhắn E2EE, tiến hành giải mã
         else {
             let senderSessionKey = (userRef.current && senderId === userRef.current.id) 
                 ? mySenderKeyRef.current 
@@ -246,14 +246,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                 : peerIdentityKeysRef.current.get(senderId);
 
             if (senderSessionKey && iv && sig && senderIdKey) {
-               // Đủ chìa khóa -> Giải mã!
                try {
                   displayContent = await decryptMessagePro(content, iv, sig, senderSessionKey, senderIdKey);
-               } catch (e) { displayContent = content || "[Lỗi giải mã]"; }
+               } catch (e) { displayContent = "🚨 [Lỗi giải mã E2EE]"; }
             } else {
-               // Thiếu chìa khóa do F5 hoặc chưa bắt tay -> Hiện thông báo chờ
-               displayContent = "⏳ [Tin nhắn bảo mật]";
-               // Xin lại chìa khóa (Handshake) để chuẩn bị cho các tin nhắn sau
+               displayContent = "⏳ [Đang đợi bắt tay hoặc khôi phục khóa...]";
                if (conversationId) initiateE2EEHandshake(conversationId);
             }
         }
@@ -481,16 +478,30 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connectionRef.current = connection
 
     return () => {
+      // [Fix 4.2] Explicitly remove all handlers to prevent duplicates on remount
+      const handlers = [
+        'ReceiveSecureIdentity', 'ReceiveSecureSenderKey', 'ReceiveMessage',
+        'UserLeftConversation', 'InitialOnlineUsers', 'ReceiveNotification',
+        'receiveSecurityAlert', 'receiveGeneralAnnouncement', 'UserStatusChanged',
+        'IncomingCall', 'CallDeclined', 'MeetingStarted', 'GlobalMeetingStarted',
+        'MeetingEnded', 'ReceiveGroupUpdate', 'UserUpdated', 'UserTyping',
+        'MessagePinned', 'MessageDeleted', 'UserReadConversation',
+        'ReminderTriggered', 'ScheduleCreated', 'ScheduleStatusUpdated',
+        'ScheduleDeleted', 'UserLeft'
+      ]
+      handlers.forEach(h => connection.off(h))
       connection.stop()
     }
 
   }, [token, identityKeys, myRSAKeys])
 
   const sendMessage = useCallback(async (conversationId: number, plaintext: string, messageType: string = 'PLAIN', parentMessageId?: number) => {
-    if (connectionRef.current?.state !== signalR.HubConnectionState.Connected) return;
+    if (connectionRef.current?.state !== signalR.HubConnectionState.Connected) {
+      toast.error('Mất kết nối. Đang kết nối lại...')
+      return
+    }
 
-    // 1. Phải có khóa của mình trước
-    // 1. Phải có khóa của mình trước
+    // 1. Đảm bảo có sender key của mình
     if (!mySenderKeyRef.current) {
       console.log('[E2EE] Đang nạp/tạo Sender Key...');
       const stored = await saveOrLoadSenderKey(conversationId);
@@ -502,42 +513,26 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         mySenderKeyRef.current = newKey;
       }
       setMySenderKey(mySenderKeyRef.current);
-      setKeyVersion(v => v + 1); // Trigger re-render to ensure messages can decrypt
+      setKeyVersion(v => v + 1);
     }
 
-    // 2. [SỬA] Nếu chưa có peer key, PHẢI chờ handshake xong trước khi gửi
-    if (peerIdentityKeysRef.current.size === 0) {
-      try {
-        console.log('[E2EE] Peer keys not found, initiating handshake and waiting...');
-        await initiateE2EEHandshake(conversationId);
-        
-        // Chờ thêm để nhận ReceiveSecureSenderKey từ peer (tối đa 3 giây)
-        await new Promise<void>((resolve) => {
-          const start = Date.now();
-          const check = setInterval(() => {
-            if (peerSenderKeysRef.current.size > 0 || Date.now() - start > 3000) {
-              clearInterval(check);
-              resolve();
-            }
-          }, 100);
-        });
-      } catch (e) {
-        console.warn('[E2EE] Handshake failed, sending anyway:', e);
-      }
-    }
-
-    if (!identityKeysRef.current) {
-      toast.error("Đang thiết lập khóa bảo mật, vui lòng thử lại...");
+    if (!identityKeysRef.current || !mySenderKeyRef.current) {
+      toast.error('Hệ thống mã hóa chưa sẵn sàng. Vui lòng thử lại.');
       return;
     }
 
+    // [Fix 2.2] Nếu chưa có peer key, trigger handshake BẤT ĐỒNG BỘ - KHÔNG block gửi tin
+    // Peer sẽ nhận được SenderKey sau khi handshake hoàn tất và có thể giải mã tin nhắn
+    if (peerIdentityKeysRef.current.size === 0) {
+      initiateE2EEHandshake(conversationId).catch(console.warn);
+    }
+
+    const effectiveMessageType = (!messageType || messageType === '') ? 'PLAIN' : messageType;
+
     try {
-      // Normalizing messageType: treat empty or undefined as 'PLAIN'
-      const effectiveMessageType = (messageType === '' || !messageType) ? 'PLAIN' : messageType;
+      let contentToSend = plaintext, ivToSend = '', sigToSend = '';
 
-      let contentToSend = plaintext, ivToSend = "", sigToSend = "";
-
-      if (effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text') {
+      if (effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text' || effectiveMessageType === 'PLAIN_SECURE') {
         const encrypted = await encryptMessagePro(plaintext, mySenderKeyRef.current!, identityKeysRef.current.privateKey);
         contentToSend = encrypted.content;
         ivToSend = encrypted.iv;
@@ -545,10 +540,19 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }
 
       const clientMessageId = crypto.randomUUID();
-      await connectionRef.current.invoke('SendMessageSecure', conversationId, contentToSend, ivToSend, sigToSend, effectiveMessageType, parentMessageId || 0, clientMessageId);
+      await connectionRef.current.invoke(
+        'SendMessageSecure',
+        conversationId,
+        contentToSend,
+        ivToSend,
+        sigToSend,
+        effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text' ? 'PLAIN_SECURE' : effectiveMessageType,
+        parentMessageId || 0,
+        clientMessageId
+      );
     } catch (err) {
-      console.error("Failed to send encrypted message:", err);
-      toast.error("Lỗi khi mã hóa tin nhắn.");
+      console.error('Failed to send encrypted message:', err);
+      toast.error('Lỗi khi gửi tin nhắn. Vui lòng thử lại.');
     }
   }, [initiateE2EEHandshake])
 

@@ -86,14 +86,18 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
 
     pc.onnegotiationneeded = async () => {
+      // [Fix 3.2] Guard: wait for SignalR to be connected before negotiating
+      if (!signalRRef.current?.isConnected) {
+        console.warn('[WebRTC] SignalR not ready for negotiation, retrying in 1s...')
+        setTimeout(() => pc.dispatchEvent(new Event('negotiationneeded')), 1000)
+        return
+      }
       try {
         peerState.makingOffer = true
         await pc.setLocalDescription()
-        if (signalRRef.current?.isConnected) {
-          await signalRRef.current.sendOffer(callId, targetUserId, pc.localDescription!)
-        }
+        await signalRRef.current.sendOffer(callId, targetUserId, pc.localDescription!)
       } catch (err) {
-        console.error(`WebRTC error with ${targetUserName}`, err)
+        console.error(`[WebRTC] Negotiation error with ${targetUserName}:`, err)
       } finally {
         peerState.makingOffer = false
       }
@@ -112,62 +116,68 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   const joinCall = useCallback(async (callId: string, type: 'video' | 'voice') => {
     if (!token || !user) return
-    if (activeCallId === callId) return // Already in this call
-    if (lastEndedCallIdRef.current === callId) return // Just ended this call, prevent zombie re-join
+    if (activeCallId === callId) return
+    if (lastEndedCallIdRef.current === callId) return
+
+    // [Fix 1.2] Graceful media acquisition with no-throw on permission errors
+    let stream: MediaStream
+    let hasCamera = type === 'video'
+    let hasMic = true
 
     try {
-      // Thử lấy stream với cấu hình đầy đủ (audio + video nếu video call)
-      let stream: MediaStream
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: type === 'video'
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' })
+    } catch (err1: any) {
+      if (err1.name === 'NotAllowedError' || err1.name === 'PermissionDeniedError') {
+        toast.error('🎙️ Bạn cần cấp quyền Microphone/Camera để tham gia cuộc gọi. Kiểm tra icon khoá trên thanh địa chỉ trình duyệt.', {
+          duration: 8000,
+          action: {
+            label: 'Hướng dẫn',
+            onClick: () => window.open('https://support.google.com/chrome/answer/2693767', '_blank')
+          }
         })
-      } catch (deviceErr: any) {
-        const isNotFound = deviceErr?.name === 'NotFoundError' || deviceErr?.name === 'DevicesNotFoundError'
-        const isNotAllowed = deviceErr?.name === 'NotAllowedError' || deviceErr?.name === 'PermissionDeniedError'
-
-        if (isNotAllowed) {
-          // User từ chối quyền → không có cách fix tự động
-          toast.error('Trình duyệt bị từ chối quyền camera/microphone. Vui lòng cấp quyền trong cài đặt trình duyệt.')
-          throw deviceErr
-        }
-
-        if (isNotFound && type === 'video') {
-          // Không có camera → thử lại với audio only
-          console.warn('[Call] Không tìm thấy camera, thử tham gia bằng audio only...')
-          try {
-            stream = await navigator.mediaDevices.getUserMedia({
-              audio: true,
-              video: false
-            })
-            // Thông báo cho user biết đang ở chế độ audio only
-            toast.warning('Không tìm thấy camera. Tham gia bằng audio only.')
-            // Force camera state = off vì không có video track
-            setIsCameraOn(false)
-          } catch (audioErr: any) {
-            // Không có cả microphone
-            toast.error('Không thể truy cập microphone. Kiểm tra quyền trình duyệt và kết nối thiết bị.')
-            throw audioErr
-          }
-        } else {
-          // Lỗi khác (NotReadableError - thiết bị đang bị dùng bởi app khác)
-          const isInUse = deviceErr?.name === 'NotReadableError'
-          if (isInUse) {
-            toast.error('Camera/Microphone đang được sử dụng bởi ứng dụng khác. Vui lòng đóng ứng dụng đó và thử lại.')
-          } else {
-            toast.error(`Lỗi thiết bị media: ${deviceErr?.message || 'Unknown error'}`)
-          }
-          throw deviceErr
-        }
+        return // KHÔNG throw – không crash UI
       }
-      
-      localStreamRef.current = stream
-      setLocalStream(stream)
-      setActiveCallId(callId)
-      const hasVideo = stream.getVideoTracks().length > 0
-      setIsCameraOn(hasVideo)
 
+      if ((err1.name === 'NotFoundError' || err1.name === 'DevicesNotFoundError') && type === 'video') {
+        console.warn('[Call] Camera không tìm thấy, thử audio-only...')
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+          hasCamera = false
+          toast.warning('📷 Không tìm thấy camera. Tham gia bằng giọng nói.', { duration: 5000 })
+        } catch (err2: any) {
+          if (err2.name === 'NotAllowedError') {
+            toast.error('🎙️ Vui lòng cấp quyền Microphone trong cài đặt trình duyệt.')
+            return
+          }
+          // Không có cả mic lẫn camera – join ở chế độ view-only
+          console.warn('[Call] Không có thiết bị media, joining view-only')
+          stream = new MediaStream()
+          hasCamera = false
+          hasMic = false
+          toast.warning('⚠️ Không tìm thấy thiết bị âm thanh/video. Tham gia ở chế độ xem.', { duration: 5000 })
+        }
+      } else if (err1.name === 'NotReadableError') {
+        toast.error('🎙️ Thiết bị đang được sử dụng bởi ứng dụng khác. Vui lòng đóng ứng dụng đó và thử lại.')
+        return
+      } else if (err1.name === 'NotFoundError' || err1.name === 'DevicesNotFoundError') {
+        toast.error('🎙️ Không tìm thấy microphone. Kiểm tra kết nối thiết bị.')
+        return
+      } else {
+        toast.error(`Lỗi thiết bị không xác định: ${err1.message}`)
+        console.error('[Call] Unhandled media error:', err1)
+        return
+      }
+    }
+
+    // [Fix 3.1] Gán stream vào ref TRƯỚC KHI tạo SignalR connection
+    // để onMeetingMemberList luôn thấy stream đã sẵn sàng
+    localStreamRef.current = stream!
+    setLocalStream(stream!)
+    setActiveCallId(callId)
+    setIsCameraOn(hasCamera)
+    setIsMuted(!hasMic)
+
+    try {
       const signalR = new CallSignalR({
         onUserJoined: async (_connId, remoteUserId, displayName) => {
           if (remoteUserId === user.id) return
@@ -176,26 +186,26 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             createPeerConnection(callId, remoteUserId, displayName, isPolite)
           }
         },
-        onUserLeft: (_connId, remoteUserId, displayName) => {
+        onUserLeft: (_connId, remoteUserId, _displayName) => {
           removePeer(remoteUserId)
         },
         onReceiveOffer: async (offer, fromUserId) => {
           let peer = peersRef.current.get(fromUserId)
           if (!peer) {
-            peer = createPeerConnection(callId, fromUserId, "User", user.id > fromUserId)
+            peer = createPeerConnection(callId, fromUserId, 'User', user.id > fromUserId)
           }
           const pc = peer.connection
-          const offerCollision = offer.type === "offer" && (peer.makingOffer || pc.signalingState !== "stable")
+          const offerCollision = offer.type === 'offer' && (peer.makingOffer || pc.signalingState !== 'stable')
           peer.ignoreOffer = !peer.isPolite && offerCollision
           if (peer.ignoreOffer) return
-          
+
           if (offerCollision) {
-            await Promise.all([pc.setLocalDescription({ type: "rollback" }), pc.setRemoteDescription(offer)])
+            await Promise.all([pc.setLocalDescription({ type: 'rollback' }), pc.setRemoteDescription(offer)])
           } else {
             await pc.setRemoteDescription(offer)
           }
-          
-          if (offer.type === "offer") {
+
+          if (offer.type === 'offer') {
             await pc.setLocalDescription()
             await signalR.sendAnswer(callId, fromUserId, pc.localDescription!)
           }
@@ -211,48 +221,65 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           }
         },
         onMeetingMemberList: (members) => {
-          // [FIX] Mesh P2P: Khi vào phòng, chủ động kết nối với toàn bộ người đang có mặt
-          console.log('[Call] Received member list:', members);
+          // [Fix 3.1] Stream đã sẵn sàng trước khi join, nên createPeerConnection sẽ thấy đúng stream
+          console.log('[Call] Member list received:', members.length, 'members')
+          console.log('[Call] Local stream ready:', localStreamRef.current ? 'YES' : 'NULL')
           members.forEach((member: any) => {
-            const memberId = member.userId || member.UserId;
-            const displayName = member.userName || member.DisplayName || member.fullName || 'User';
-            
-            if (user && memberId !== user.id && !peersRef.current.has(memberId)) {
-              console.log(`[Call] Auto-initiating connection with existing member: ${memberId}`);
-              // isPolite: user với ID lớn hơn sẽ là polite side để giải quyết xung đột negotiation
-              const isPolite = user.id > memberId;
-              createPeerConnection(callId, memberId, displayName, isPolite);
+            const memberId = Number(member.userId || member.UserId)
+            const displayName = member.userName || member.DisplayName || member.fullName || 'User'
+            if (!user || memberId === user.id) return
+            if (peersRef.current.has(memberId)) {
+              console.log(`[Call] Already connected to ${memberId}, skipping`)
+              return
             }
-          });
+            console.log(`[Call] Creating peer with member ${memberId} (${displayName})`)
+            const isPolite = user.id > memberId
+            createPeerConnection(callId, memberId, displayName, isPolite)
+          })
         }
       })
 
       signalRRef.current = signalR
       await signalR.connect(token)
-      
-      // CRITICAL: Fetch ICE Servers TRƯỚC KHI joinCall để đảm bảo
-      // tất cả peer connections được tạo với TURN server đầy đủ.
-      // Nếu fetch fail → giữ nguyên STUN default, vẫn join được (chỉ không qua TURN).
+
+      // [Fix 1.1] Fetch ICE servers with filtering and debug log
       try {
         const servers = await signalR.getIceServers()
-        const normalized = servers.map((s: any) => ({
-          urls: s.urls || s.Urls || s.url || s.Url,
-          username: s.username || s.Username,
-          credential: s.credential || s.Credential
-        }));
-        iceServersRef.current = normalized;
-        const urlsLog = normalized.map((s: any) => s.urls);
-        console.log('[WebRTC] ICE Servers loaded:', urlsLog);
+        console.log('[WebRTC] Raw ICE Servers from server:', JSON.stringify(servers))
+
+        const normalized: RTCIceServer[] = (servers || [])
+          .filter((s: any) => {
+            const urls = s?.urls || s?.Urls
+            return urls && (typeof urls === 'string' ? urls.length > 0 : urls.length > 0)
+          })
+          .map((s: any) => {
+            const entry: RTCIceServer = { urls: s.urls || s.Urls }
+            const username = s.username || s.Username
+            const credential = s.credential || s.Credential
+            if (username) entry.username = username
+            if (credential) entry.credential = credential
+            return entry
+          })
+
+        if (normalized.length > 0) {
+          iceServersRef.current = normalized
+          console.log('[WebRTC] ICE Servers normalized:', normalized.map(s => s.urls))
+        } else {
+          console.warn('[WebRTC] No valid ICE servers from backend, using defaults')
+        }
       } catch (iceErr) {
-        console.warn('[WebRTC] Could not fetch ICE servers from BE, using defaults:', iceErr)
+        console.warn('[WebRTC] Could not fetch ICE servers, using defaults:', iceErr)
       }
 
-      // Join AFTER ICE servers are ready
+      // Join AFTER stream is assigned and ICE servers are ready
       await signalR.joinCall(callId)
-      
     } catch (err) {
-      console.error("Join call failed", err)
-      throw err
+      console.error('[Call] Join call setup failed', err)
+      // Don't re-throw – clean up state instead
+      setActiveCallId(null)
+      setLocalStream(null)
+      localStreamRef.current = null
+      stream!.getTracks().forEach(t => t.stop())
     }
   }, [token, user, activeCallId, createPeerConnection, removePeer])
 
