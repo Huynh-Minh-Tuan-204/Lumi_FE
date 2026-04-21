@@ -75,7 +75,7 @@ function PinInput({
 
 type RestoreStep = 'prompt' | 'loading' | 'done' | 'wrong-pin' | 'no-backup'
 
-export function E2EERestorePrompt({ conversationId, onRestored, onDismiss }: E2EERestorePromptProps) {
+export function E2EERestorePrompt({ conversationId, onRestored, onDismiss, isMandatory }: E2EERestorePromptProps) {
     const { token } = useAuth()
     const [step, setStep] = useState<RestoreStep>('prompt')
     const [pin, setPin] = useState('')

@@ -77,7 +77,7 @@ function PinInput({
     )
 }
 
-export function E2EEBackupSetup({ onClose }: E2EEBackupSetupProps) {
+export function E2EEBackupSetup({ onClose, isMandatory }: E2EEBackupSetupProps) {
     const { token } = useAuth()
     const [step, setStep] = useState<Step>('intro')
     const [pin, setPin] = useState('')
