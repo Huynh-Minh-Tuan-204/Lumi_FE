@@ -41,8 +41,15 @@ export function DecryptedText({
             }
             const senderId = message.senderId;
             const content = message.encryptedContent || message.message;
-            const iv = message.iv;
-            const sig = message.signature || message.sig;
+            let iv = message.iv;
+            let sig = message.signature || message.sig;
+
+            // Handle merged IV|Sig from backend or legacy storage
+            if (iv && typeof iv === 'string' && iv.includes('|') && !sig) {
+                const parts = iv.split('|');
+                iv = parts[0];
+                sig = parts[1];
+            }
 
             if (!content || content === "[Attachment]") {
                 setDecrypted("");
@@ -50,7 +57,8 @@ export function DecryptedText({
             }
             try {
                 const isMessageOwn = user && senderId === user.id;
-                const senderKey = isMessageOwn ? mySenderKey : peerSenderKeys?.get(senderId);
+                const compositeKey = `${senderId}-${message.conversationId}`;
+                const senderKey = isMessageOwn ? mySenderKey : (peerSenderKeys?.get(compositeKey as any) || peerSenderKeys?.get(senderId));
                 const senderIdPubKey = isMessageOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderId);
 
                 if (iv && sig && senderKey && senderIdPubKey) {

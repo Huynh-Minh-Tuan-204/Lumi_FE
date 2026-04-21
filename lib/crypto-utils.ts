@@ -74,6 +74,61 @@ export async function importIdentityPublicKey(base64: string): Promise<CryptoKey
 }
 
 // ==========================================
+// PEER KEY PERSISTENCE
+// ==========================================
+const PEER_ID_KEY_PREFIX = 'PeerIdKey';
+const PEER_SENDER_KEY_PREFIX = 'PeerSenderKey';
+
+export async function savePeerIdentityKey(userId: number, key: CryptoKey): Promise<void> {
+    await saveKey(`${PEER_ID_KEY_PREFIX}:${userId}`, key);
+}
+
+export async function savePeerSenderKey(userId: number, conversationId: number, key: CryptoKey): Promise<void> {
+    await saveKey(`${PEER_SENDER_KEY_PREFIX}:${userId}:${conversationId}`, key);
+}
+
+export async function loadPersistentPeerKeys(): Promise<{
+    peerIdentityKeys: Map<number, CryptoKey>,
+    peerSenderKeys: Map<string, CryptoKey>
+}> {
+    const peerIdentityKeys = new Map<number, CryptoKey>();
+    const peerSenderKeys = new Map<string, CryptoKey>();
+    
+    try {
+        const db = await getDB();
+        return new Promise((resolve) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const store = tx.objectStore(STORE_NAME);
+            const request = store.openCursor();
+            
+            request.onsuccess = (event: any) => {
+                const cursor = event.target.result;
+                if (cursor) {
+                    const key = cursor.key;
+                    if (typeof key === 'string') {
+                        if (key.startsWith(PEER_ID_KEY_PREFIX + ':')) {
+                            const userId = parseInt(key.split(':')[1]);
+                            if (!isNaN(userId)) peerIdentityKeys.set(userId, cursor.value);
+                        } else if (key.startsWith(PEER_SENDER_KEY_PREFIX + ':')) {
+                            const parts = key.split(':');
+                            const userId = parts[1];
+                            const convId = parts[2];
+                            peerSenderKeys.set(`${userId}-${convId}`, cursor.value);
+                        }
+                    }
+                    cursor.continue();
+                } else {
+                    resolve({ peerIdentityKeys, peerSenderKeys });
+                }
+            };
+            request.onerror = () => resolve({ peerIdentityKeys, peerSenderKeys });
+        });
+    } catch {
+        return { peerIdentityKeys, peerSenderKeys };
+    }
+}
+
+// ==========================================
 // PHẦN 3: RSA (TRAO ĐỔI KHÓA)
 // ==========================================
 

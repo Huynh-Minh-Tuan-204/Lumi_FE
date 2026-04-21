@@ -206,9 +206,15 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         },
         onReceiveIceCandidate: async (candidate, fromUserId) => {
           const peer = peersRef.current.get(fromUserId)
-          if (peer && !peer.ignoreOffer) {
-            await peer.connection.addIceCandidate(candidate).catch(() => {})
-          }
+          if (!peer) return;
+          try {
+             if (candidate) {
+                // Perfect Negotiation: Handle candidates regardless of polite status
+                await peer.connection.addIceCandidate(candidate).catch(() => {
+                    // Ignore candidates arriving at the wrong time/state
+                })
+             }
+          } catch (e) {}
         },
         onMeetingMemberList: () => {}
       })
