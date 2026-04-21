@@ -14,6 +14,7 @@ interface E2EERestorePromptProps {
     conversationId?: number
     onRestored?: () => void
     onDismiss?: () => void
+    isMandatory?: boolean
 }
 
 /** Ô PIN input tái sử dụng từ backup-setup */
@@ -185,7 +186,7 @@ export function E2EERestorePrompt({ conversationId, onRestored, onDismiss }: E2E
 
             {/* Actions */}
             <div className="flex gap-3">
-                {onDismiss && (
+                {onDismiss && !isMandatory && (
                     <Button
                         variant="ghost"
                         size="sm"

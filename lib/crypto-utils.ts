@@ -9,7 +9,7 @@
 
 const DB_NAME = 'LumiCryptoDB';
 const STORE_NAME = 'Keys';
-const IDENTITY_KEY_ALIAS = 'IdentityKey';
+export const IDENTITY_KEY_ALIAS = 'IdentityKey';
 const RSA_KEY_ALIAS = 'EphemeralRSAKey';
 const MY_SENDER_KEY_ALIAS = 'MySenderKey';
 const PEER_IDENTITY_KEY_ALIAS = 'PeerIdentityKey';
@@ -310,7 +310,8 @@ export function base64ToBuffer(base64: string): ArrayBuffer {
         return new ArrayBuffer(0);
     }
 }
-// ==========================================
+
+// ==========================================
 // PHẦN 6: E2EE PIN BACKUP (ZERO-KNOWLEDGE)
 // ==========================================
 

@@ -63,6 +63,7 @@ import { decryptMessagePro, decryptFilePro, saveOrLoadSenderKey, saveOrLoadPeerI
 import { DecryptedText } from '@/features/chat/decrypted-text'
 import { AttachmentImage } from '@/features/chat/attachment-image'
 import { MessageItem } from '@/features/chat/message-item'
+import { E2EEGatekeeper } from '@/features/shared/e2ee-gatekeeper'
 
 interface Message {
   id: number
@@ -468,7 +469,8 @@ export function ChatArea({
 
   return (
     <TooltipProvider>
-    <div className={cn('flex flex-col bg-background h-full overflow-hidden relative', className)}>
+    <E2EEGatekeeper>
+    <div className={cn("flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden", className)}>
       <header className="flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-md z-30 border-b shrink-0">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border-2 border-primary/10">
@@ -649,6 +651,7 @@ export function ChatArea({
          </div>
       </div>
     )}
+    </E2EEGatekeeper>
     </TooltipProvider>
   )
 }

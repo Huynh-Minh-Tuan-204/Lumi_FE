@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth-context'
 
 interface E2EEBackupSetupProps {
     onClose: () => void
+    isMandatory?: boolean
 }
 
 type Step = 'intro' | 'enter-pin' | 'confirm-pin' | 'saving' | 'done' | 'error'
@@ -117,12 +118,14 @@ export function E2EEBackupSetup({ onClose }: E2EEBackupSetupProps) {
             <div className="relative w-full max-w-md mx-4 bg-card rounded-3xl shadow-2xl border border-border overflow-hidden animate-in zoom-in-95">
 
                 {/* Close */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 h-8 w-8 rounded-full hover:bg-muted flex items-center justify-center transition-colors z-10"
-                >
-                    <X className="h-4 w-4" />
-                </button>
+                {!isMandatory && (
+                    <button
+                        onClick={onClose}
+                        className="absolute top-4 right-4 h-8 w-8 rounded-full hover:bg-muted flex items-center justify-center transition-colors z-10"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                )}
 
                 {/* ─── INTRO ─── */}
                 {step === 'intro' && (
@@ -242,10 +245,12 @@ export function E2EEBackupSetup({ onClose }: E2EEBackupSetupProps) {
                             <p className="text-sm text-muted-foreground">{errorMsg}</p>
                         </div>
                         <div className="flex gap-3 w-full">
-                            <Button variant="outline" onClick={onClose} className="flex-1 h-12 rounded-2xl font-black">
-                                Đóng
-                            </Button>
-                            <Button onClick={() => { setStep('intro'); setPin(''); setConfirmPin(''); setErrorMsg('') }} className="flex-1 h-12 rounded-2xl font-black">
+                            {!isMandatory && (
+                                <Button variant="outline" onClick={onClose} className="flex-1 h-12 rounded-2xl font-black">
+                                    Đóng
+                                </Button>
+                            )}
+                            <Button onClick={() => { setStep('intro'); setPin(''); setConfirmPin(''); setErrorMsg('') }} className={cn("flex-1 h-12 rounded-2xl font-black", isMandatory && "w-full")}>
                                 Thử lại
                             </Button>
                         </div>
