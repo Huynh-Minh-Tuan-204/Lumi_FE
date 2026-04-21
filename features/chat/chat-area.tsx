@@ -87,7 +87,8 @@ function DecryptedAttachment({
     peerSenderKeys, 
     peerIdentityKeys, 
     identityKeys,
-    senderId
+    senderId,
+    keyVersion
 }: { 
     attachment: any, 
     token: string, 

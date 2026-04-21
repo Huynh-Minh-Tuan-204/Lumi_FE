@@ -114,7 +114,7 @@ export function CreateEventModal({ token, isOpen, onClose, initialParticipants =
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[550px] rounded-3xl p-0 overflow-hidden bg-background border-white/5">
+      <DialogContent className="sm:max-w-[550px] rounded-3xl p-0 overflow-hidden bg-background border-white/5" aria-describedby={undefined}>
         <DialogDescription className="sr-only">
           Tạo lịch hẹn và mời thành viên trong hội thoại tham gia thảo luận.
         </DialogDescription>

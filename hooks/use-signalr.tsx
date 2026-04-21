@@ -228,7 +228,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                 ? mySenderKeyRef.current 
                 : peerSenderKeysRef.current.get(senderId);
             
-            // [FIX] Nếu là tin nhắn của mình gửi từ máy khác/phiên khác nhưng mình đã có key trong IndexedDB
+            // [FIX Task 1] Nếu là tin nhắn của mình gửi từ máy khác/phiên khác nhưng mình đã có key trong IndexedDB
             if (!senderSessionKey && userRef.current && senderId === userRef.current.id && conversationId) {
                 const stored = await saveOrLoadSenderKey(conversationId);
                 if (stored) {
@@ -487,6 +487,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     if (connectionRef.current?.state !== signalR.HubConnectionState.Connected) return;
 
     // 1. Phải có khóa của mình trước
+    // 1. Phải có khóa của mình trước
     if (!mySenderKeyRef.current) {
       console.log('[E2EE] Đang nạp/tạo Sender Key...');
       const stored = await saveOrLoadSenderKey(conversationId);
@@ -498,7 +499,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         mySenderKeyRef.current = newKey;
       }
       setMySenderKey(mySenderKeyRef.current);
-      setKeyVersion(v => v + 1);
+      setKeyVersion(v => v + 1); // Trigger re-render to ensure messages can decrypt
     }
 
     // 2. [SỬA] Nếu chưa có peer key, PHẢI chờ handshake xong trước khi gửi
