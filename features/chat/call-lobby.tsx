@@ -49,10 +49,12 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
   const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle')
   const signalRRef = useRef<CallSignalR | null>(null)
   
-  const isMicOnRef = useRef(isMicOn)
-  const isCamOnRef = useRef(isCamOn)
-  useEffect(() => { isMicOnRef.current = isMicOn }, [isMicOn])
-  useEffect(() => { isCamOnRef.current = isCamOn }, [isCamOn])
+  const isMicOnRef = useRef(isMicOn);
+  const isCamOnRef = useRef(isCamOn);
+
+  // Sync refs when state changes (does not trigger useEffect reconnections)
+  useEffect(() => { isMicOnRef.current = isMicOn; }, [isMicOn]);
+  useEffect(() => { isCamOnRef.current = isCamOn; }, [isCamOn]);
 
   const stopPreview = useCallback(() => {
     if (stream) {
@@ -87,7 +89,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
                     setRequestStatus('accepted');
                     toast.success("Yêu cầu tham gia đã được chấp nhận!");
                     stopPreview();
-                    if (typeof onJoin === 'function') onJoin(isMicOnRef.current, isCamOnRef.current);
+                    if (typeof onJoin === 'function') onJoin(isMicOnRef.current, isCamOnRef.current); // Use Ref
                 }
             },
             onJoinRequestDeclined: (mId, reason) => {
@@ -112,7 +114,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
     return () => {
         signalRRef.current?.disconnect();
     }
-  }, [token, meetingId]); // Removed mic/cam/onJoin/stopPreview from deps
+  }, [token, meetingId]) // Removed toggles from dependencies
 
   // 2. Local Preview
   useEffect(() => {
@@ -121,42 +123,38 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
     let currentStream: MediaStream | null = null;
 
     async function startPreview() {
-      try {
-        if (!isCamOn && !isMicOn) {
-            setStream(null)
-            return
-        }
+      if (!isCamOn && !isMicOn) {
+          setStream(null);
+          return;
+      }
 
-        try {
-          const localStream = await navigator.mediaDevices.getUserMedia({
-            video: isCamOn ? { width: 1280, height: 720 } : false,
-            audio: isMicOn
-          })
-          currentStream = localStream;
-          setStream(localStream)
-          if (videoRef.current) {
-            videoRef.current.srcObject = localStream
-            videoRef.current.onloadedmetadata = () => {
-               videoRef.current?.play().catch(e => console.error("Play error:", e))
-            }
+      try {
+        const localStream = await navigator.mediaDevices.getUserMedia({
+          video: isCamOn ? { width: 1280, height: 720 } : false,
+          audio: isMicOn
+        })
+        currentStream = localStream;
+        setStream(localStream)
+        if (videoRef.current) {
+          videoRef.current.srcObject = localStream
+          videoRef.current.onloadedmetadata = () => {
+             videoRef.current?.play().catch(e => console.error("Play error:", e))
           }
-        } catch (innerErr: any) {
-          if (innerErr.name === 'NotFoundError' || innerErr.name === 'DevicesNotFoundError') {
-            toast.warning("Không tìm thấy camera hoặc microphone.");
-          } else if (innerErr.name === 'NotAllowedError' || innerErr.name === 'PermissionDeniedError') {
-            toast.warning("Quyền truy cập Camera/Mic bị từ chối.");
-          } else {
-            toast.warning("Lỗi khi truy cập thiết bị âm thanh/hình ảnh.");
-          }
-          console.error("Lỗi thiết bị:", innerErr)
         }
-      } catch (err) {
-        console.error("Unexpected error in preview:", err)
+      } catch (innerErr: any) {
+        if (innerErr.name === 'NotFoundError' || innerErr.name === 'DevicesNotFoundError') {
+          toast.warning("Không tìm thấy camera hoặc microphone.");
+        } else if (innerErr.name === 'NotAllowedError' || innerErr.name === 'PermissionDeniedError') {
+          toast.warning("Quyền truy cập Camera/Mic bị từ chối.");
+        } else {
+          toast.warning("Lỗi khi truy cập thiết bị âm thanh/hình ảnh.");
+        }
+        console.error("Lỗi thiết bị:", innerErr)
       }
     }
 
     startPreview()
-
+    
     return () => {
       if (currentStream) {
         currentStream.getTracks().forEach(t => t.stop());

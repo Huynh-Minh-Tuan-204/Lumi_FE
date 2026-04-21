@@ -1,10 +1,12 @@
 'use client'
 
-const RTC_CONFIGURATION: RTCConfiguration = {
+const DEFAULT_RTC_CONFIGURATION: RTCConfiguration = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
   ],
 }
 
@@ -23,14 +25,8 @@ export class WebRTCClient {
   private hooks: WebRTCHooks
   private isClosed: boolean = false
 
-  constructor(hooks: WebRTCHooks = {}, customIceServers?: RTCIceServer[]) {
+  constructor(hooks: WebRTCHooks = {}, configuration: RTCConfiguration = DEFAULT_RTC_CONFIGURATION) {
     this.hooks = hooks
-    const configuration = {
-      ...RTC_CONFIGURATION,
-      iceServers: customIceServers && customIceServers.length > 0 
-        ? [...RTC_CONFIGURATION.iceServers!, ...customIceServers]
-        : RTC_CONFIGURATION.iceServers
-    }
     this.peerConnection = new RTCPeerConnection(configuration)
     this.setupPeerConnection()
   }

@@ -97,7 +97,7 @@ function DecryptedAttachment({
     peerIdentityKeys: Map<number, any>,
     identityKeys: any,
     senderId: number,
-    keyVersion: number
+    keyVersion?: number
 }) {
     const [url, setUrl] = useState<string>("");
     const [loading, setLoading] = useState(true);
@@ -496,7 +496,6 @@ export function ChatArea({
                     peerSenderKeys={peerSenderKeys}
                     peerIdentityKeys={peerIdentityKeys}
                     identityKeys={identityKeys}
-                    keyVersion={keyVersion}
                     initiateHandshake={initiateE2EEHandshake}
                     onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
                     togglePinMessage={togglePinMessage}
@@ -521,6 +520,7 @@ export function ChatArea({
                         </div>
                       )
                     )}
+                    keyVersion={keyVersion}
                   />
                 )
               })}

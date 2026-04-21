@@ -10,6 +10,8 @@
 const DB_NAME = 'LumiCryptoDB';
 const STORE_NAME = 'Keys';
 const IDENTITY_KEY_ALIAS = 'IdentityKey';
+const RSA_KEY_ALIAS = 'EphemeralRSAKey';
+const MY_SENDER_KEY_ALIAS = 'MySenderKey';
 
 // ==========================================
 // PHẦN 1: INDEXEDDB PERSISTENCE
@@ -74,85 +76,8 @@ export async function importIdentityPublicKey(base64: string): Promise<CryptoKey
 }
 
 // ==========================================
-// PEER KEY PERSISTENCE
-// ==========================================
-const PEER_ID_KEY_PREFIX = 'PeerIdKey';
-const PEER_SENDER_KEY_PREFIX = 'PeerSenderKey';
-
-export async function savePeerIdentityKey(userId: number, key: CryptoKey): Promise<void> {
-    await saveKey(`${PEER_ID_KEY_PREFIX}:${userId}`, key);
-}
-
-export async function savePeerSenderKey(userId: number, conversationId: number, key: CryptoKey): Promise<void> {
-    await saveKey(`${PEER_SENDER_KEY_PREFIX}:${userId}:${conversationId}`, key);
-}
-
-export async function loadPersistentPeerKeys(): Promise<{
-    peerIdentityKeys: Map<number, CryptoKey>,
-    peerSenderKeys: Map<string, CryptoKey>
-}> {
-    const peerIdentityKeys = new Map<number, CryptoKey>();
-    const peerSenderKeys = new Map<string, CryptoKey>();
-    
-    try {
-        const db = await getDB();
-        return new Promise((resolve) => {
-            const tx = db.transaction(STORE_NAME, 'readonly');
-            const store = tx.objectStore(STORE_NAME);
-            const request = store.openCursor();
-            
-            request.onsuccess = (event: any) => {
-                const cursor = event.target.result;
-                if (cursor) {
-                    const key = cursor.key;
-                    if (typeof key === 'string') {
-                        if (key.startsWith(PEER_ID_KEY_PREFIX + ':')) {
-                            const userId = parseInt(key.split(':')[1]);
-                            if (!isNaN(userId)) peerIdentityKeys.set(userId, cursor.value);
-                        } else if (key.startsWith(PEER_SENDER_KEY_PREFIX + ':')) {
-                            const parts = key.split(':');
-                            const userId = parts[1];
-                            const convId = parts[2];
-                            peerSenderKeys.set(`${userId}-${convId}`, cursor.value);
-                        }
-                    }
-                    cursor.continue();
-                } else {
-                    resolve({ peerIdentityKeys, peerSenderKeys });
-                }
-            };
-            request.onerror = () => resolve({ peerIdentityKeys, peerSenderKeys });
-        });
-    } catch {
-        return { peerIdentityKeys, peerSenderKeys };
-    }
-}
-
-// ==========================================
 // PHẦN 3: RSA (TRAO ĐỔI KHÓA)
 // ==========================================
-
-const RSA_KEY_ALIAS = 'EphemeralRSAKey';
-
-export async function getOrCreateRSAKeyPair(): Promise<CryptoKeyPair> {
-    const existing = await loadKey(RSA_KEY_ALIAS);
-    if (existing) return existing;
-
-    const keys = await window.crypto.subtle.generateKey(
-        { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
-        true,
-        ["encrypt", "decrypt"]
-    );
-    await saveKey(RSA_KEY_ALIAS, keys);
-    return keys;
-}
-
-export async function clearRSAKeyPair(): Promise<void> {
-    const db = await getDB();
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).delete(RSA_KEY_ALIAS);
-    return new Promise((resolve) => (tx.oncomplete = resolve));
-}
 
 export async function generateEphemeralRSAKeyPair(): Promise<CryptoKeyPair> {
     return await window.crypto.subtle.generateKey(
@@ -165,6 +90,22 @@ export async function generateEphemeralRSAKeyPair(): Promise<CryptoKeyPair> {
         true,
         ["encrypt", "decrypt"]
     );
+}
+
+export async function getOrCreateRSAKeyPair(): Promise<CryptoKeyPair> {
+    const existing = await loadKey(RSA_KEY_ALIAS);
+    if (existing) return existing;
+
+    const keys = await generateEphemeralRSAKeyPair();
+    await saveKey(RSA_KEY_ALIAS, keys);
+    return keys;
+}
+
+export async function clearRSAKeyPair(): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(RSA_KEY_ALIAS);
+    return new Promise((resolve) => (tx.oncomplete = resolve));
 }
 
 export async function exportPublicKey(key: CryptoKey): Promise<string> {
@@ -212,7 +153,13 @@ export async function verifySignature(data: string, signatureBase64: string, pub
 // PHẦN 5: AES-GCM (NHẮN TIN)
 // ==========================================
 
-const MY_SENDER_KEY_ALIAS = 'MySenderKey';
+export async function generateSenderKey(): Promise<CryptoKey> {
+    return await window.crypto.subtle.generateKey(
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+    );
+}
 
 export async function saveOrLoadSenderKey(conversationId: number, key?: CryptoKey): Promise<CryptoKey | null> {
     const alias = `${MY_SENDER_KEY_ALIAS}:${conversationId}`;
@@ -221,14 +168,6 @@ export async function saveOrLoadSenderKey(conversationId: number, key?: CryptoKe
         return key;
     }
     return await loadKey(alias);
-}
-
-export async function generateSenderKey(): Promise<CryptoKey> {
-    return await window.crypto.subtle.generateKey(
-        { name: "AES-GCM", length: 256 },
-        true,
-        ["encrypt", "decrypt"]
-    );
 }
 
 export async function encryptSessionKeyForPeer(sessionKey: CryptoKey, peerPublicKey: CryptoKey): Promise<string> {

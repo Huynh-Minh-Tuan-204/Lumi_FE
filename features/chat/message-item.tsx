@@ -14,12 +14,12 @@ interface MessageItemProps {
   peerSenderKeys: Map<number, any>
   peerIdentityKeys: Map<number, any>
   identityKeys: any
-  keyVersion: number
   initiateHandshake: (cid: number) => Promise<void>
   onJoinMeeting: (meetingId: string) => void
   togglePinMessage: (messageId: number) => void
   setReplyingTo: (message: any) => void
   attachmentsRenderer: (m: any) => React.ReactNode
+  keyVersion?: number
 }
 
 export function MessageItem({
@@ -30,12 +30,12 @@ export function MessageItem({
   peerSenderKeys,
   peerIdentityKeys,
   identityKeys,
-  keyVersion,
   initiateHandshake,
   onJoinMeeting,
   togglePinMessage,
   setReplyingTo,
-  attachmentsRenderer
+  attachmentsRenderer,
+  keyVersion
 }: MessageItemProps) {
   return (
     <div id={`message-${message.id}`} className={cn("flex gap-3 animate-in slide-in-from-bottom-2", isOwn ? "flex-row-reverse" : "flex-row")}>

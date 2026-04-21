@@ -352,10 +352,11 @@ export default function GroupsPage() {
               <CardContent>
                 {group.lastMessage ? (
                   <p className="text-sm text-muted-foreground truncate italic">
-                    🔒 Tin nhắn đã được mã hóa
+                    {typeof group.lastMessage === 'object' && (group.lastMessage as any).encryptedContent 
+                      ? "🔒 Tin nhắn đã được mã hóa" 
+                      : (group.lastMessage as any).encryptedContent || (group.lastMessage as any)}
                   </p>
                 ) : (
-
                   <p className="text-sm text-muted-foreground italic">
                     Chưa có tin nhắn nào
                   </p>

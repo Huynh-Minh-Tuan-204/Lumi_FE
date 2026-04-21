@@ -206,15 +206,9 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         },
         onReceiveIceCandidate: async (candidate, fromUserId) => {
           const peer = peersRef.current.get(fromUserId)
-          if (!peer) return;
-          try {
-             if (candidate) {
-                // Perfect Negotiation: Handle candidates regardless of polite status
-                await peer.connection.addIceCandidate(candidate).catch(() => {
-                    // Ignore candidates arriving at the wrong time/state
-                })
-             }
-          } catch (e) {}
+          if (peer && !peer.ignoreOffer) {
+            await peer.connection.addIceCandidate(candidate).catch(() => {})
+          }
         },
         onMeetingMemberList: () => {}
       })
@@ -227,16 +221,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       // Nếu fetch fail → giữ nguyên STUN default, vẫn join được (chỉ không qua TURN).
       try {
         const servers = await signalR.getIceServers()
-        if (servers && servers.length > 0) {
-          const normalized = servers.map((s: any) => ({
-            urls: s.urls || s.Urls || s.url || s.Url,
-            username: s.username || s.Username,
-            credential: s.credential || s.Credential
-          }));
-          // Merge with defaults to ensure we always have STUN at least
-          iceServersRef.current = [...RTC_CONFIG.iceServers!, ...normalized];
-          console.log('[WebRTC] ICE Servers loaded and merged:', iceServersRef.current.map(s => s.urls));
-        }
+        const normalized = servers.map((s: any) => ({
+          urls: s.urls || s.Urls || s.url || s.Url,
+          username: s.username || s.Username,
+          credential: s.credential || s.Credential
+        }));
+        iceServersRef.current = normalized;
+        const urlsLog = normalized.map((s: any) => s.urls);
+        console.log('[WebRTC] ICE Servers loaded:', urlsLog);
       } catch (iceErr) {
         console.warn('[WebRTC] Could not fetch ICE servers from BE, using defaults:', iceErr)
       }

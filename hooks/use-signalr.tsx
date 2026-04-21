@@ -12,8 +12,7 @@ import {
   getOrCreateRSAKeyPair, exportPublicKey, importPublicKey,
   generateSenderKey, saveOrLoadSenderKey, encryptSessionKeyForPeer, decryptSessionKey,
   encryptMessagePro, decryptMessagePro, signData, verifySignature,
-  base64ToBuffer, bufferToBase64,
-  savePeerIdentityKey, savePeerSenderKey, loadPersistentPeerKeys
+  base64ToBuffer, bufferToBase64
 } from '@/lib/crypto-utils'
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -74,20 +73,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           setMyRSAKeys(keys);
           myRSAKeysRef.current = keys;
           setKeyVersion(v => v + 1);
-      });
-
-      // Restore Peer Keys from Persistence
-      loadPersistentPeerKeys().then(({ peerIdentityKeys, peerSenderKeys }) => {
-        peerIdentityKeys.forEach((key, userId) => {
-           peerIdentityKeysRef.current.set(userId, key);
-        });
-        peerSenderKeys.forEach((key, compositeId) => {
-           const [uId] = compositeId.split('-').map(Number);
-           peerSenderKeysRef.current.set(uId, key); 
-           // Also store with composite key for multi-group safety
-           (peerSenderKeysRef.current as any).set(compositeId, key);
-        });
-        setKeyVersion(v => v + 1);
       });
     }
   }, []);
@@ -173,7 +158,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
         // 1. Lưu lại Public Key của người vừa chào sân (A)
         peerIdentityKeysRef.current.set(senderId, peerIdPubKey);
-        savePeerIdentityKey(senderId, peerIdPubKey).catch(console.error);
         setKeyVersion(v => v + 1);
 
         // Đảm bảo mình đã có SenderKey của mình
@@ -182,8 +166,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           if (stored) {
             mySenderKeyRef.current = stored;
           } else {
-            mySenderKeyRef.current = await generateSenderKey();
-            await saveOrLoadSenderKey(conversationId, mySenderKeyRef.current);
+            const newKey = await generateSenderKey();
+            await saveOrLoadSenderKey(conversationId, newKey);
+            mySenderKeyRef.current = newKey;
           }
           setMySenderKey(mySenderKeyRef.current);
           setKeyVersion(v => v + 1);
@@ -211,12 +196,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connection.on("ReceiveSecureSenderKey", async (senderId: number, encryptedKeyBase64: string, conversationId: number) => {
        if (!myRSAKeysRef.current) return;
        try {
-           const senderKey = await decryptSessionKey(encryptedKeyBase64, myRSAKeysRef.current.privateKey);
-           const compositeKey = `${senderId}-${conversationId}`;
-           peerSenderKeysRef.current.set(senderId, senderKey);
-           (peerSenderKeysRef.current as any).set(compositeKey, senderKey);
-           savePeerSenderKey(senderId, conversationId, senderKey).catch(console.error);
-           setKeyVersion(v => v + 1);
+          const senderKey = await decryptSessionKey(encryptedKeyBase64, myRSAKeysRef.current.privateKey);
+          peerSenderKeysRef.current.set(senderId, senderKey);
+          setKeyVersion(v => v + 1);
        } catch (e) {
           console.error("Handshake Decrypt Key error", e);
        }
@@ -242,11 +224,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         } 
         // KIỂM TRA B: Có IV -> Tin nhắn E2EE, tiến hành giải mã
         else {
-            const compositeKey = `${senderId}-${conversationId}`;
-            const senderSessionKey = (userRef.current && senderId === userRef.current.id) 
-                ? mySenderKeyRef.current 
-                : (peerSenderKeysRef.current.get(compositeKey as any) || peerSenderKeysRef.current.get(senderId));
-            
+            const senderSessionKey = (userRef.current && senderId === userRef.current.id) ? mySenderKeyRef.current : peerSenderKeysRef.current.get(senderId);
             const senderIdKey = (userRef.current && senderId === userRef.current.id) ? identityKeysRef.current?.publicKey : peerIdentityKeysRef.current.get(senderId);
 
             if (senderSessionKey && iv && sig && senderIdKey) {
@@ -498,15 +476,16 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const sendMessage = useCallback(async (conversationId: number, plaintext: string, messageType: string = 'PLAIN', parentMessageId?: number) => {
     if (connectionRef.current?.state !== signalR.HubConnectionState.Connected) return;
 
-    // 1. Phải có key của mình trước
+    // 1. Phải có khóa của mình trước
     if (!mySenderKeyRef.current) {
-      console.log('[E2EE] Khởi tạo Sender Key cho bản thân...');
+      console.log('[E2EE] Đang nạp/tạo Sender Key...');
       const stored = await saveOrLoadSenderKey(conversationId);
       if (stored) {
         mySenderKeyRef.current = stored;
       } else {
-        mySenderKeyRef.current = await generateSenderKey();
-        await saveOrLoadSenderKey(conversationId, mySenderKeyRef.current);
+        const newKey = await generateSenderKey();
+        await saveOrLoadSenderKey(conversationId, newKey);
+        mySenderKeyRef.current = newKey;
       }
       setMySenderKey(mySenderKeyRef.current);
       setKeyVersion(v => v + 1);
@@ -515,7 +494,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     // 2. [SỬA] Nếu chưa có peer key, PHẢI chờ handshake xong trước khi gửi
     if (peerIdentityKeysRef.current.size === 0) {
       try {
-        console.log('[E2EE] Peer keys not found, initiating handshake...');
+        console.log('[E2EE] Peer keys not found, initiating handshake and waiting...');
         await initiateE2EEHandshake(conversationId);
         
         // Chờ thêm để nhận ReceiveSecureSenderKey từ peer (tối đa 3 giây)
@@ -539,7 +518,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const effectiveMessageType = (!messageType || messageType === '') ? 'PLAIN' : messageType;
+      // Normalizing messageType: treat empty or undefined as 'PLAIN'
+      const effectiveMessageType = (messageType === '' || !messageType) ? 'PLAIN' : messageType;
+
       let contentToSend = plaintext, ivToSend = "", sigToSend = "";
 
       if (effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text') {
@@ -642,7 +623,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         activeMeeting,
         initiateE2EEHandshake,
         onTriggeredReminder: (cb: any) => { },
-        mySenderKey: mySenderKey,
+        mySenderKey,
         peerSenderKeys: peerSenderKeysRef.current,
         peerIdentityKeys: peerIdentityKeysRef.current,
         identityKeys: identityKeysRef.current,
