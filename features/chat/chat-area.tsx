@@ -59,7 +59,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { CallLobby } from '@/features/chat/call-lobby'
 import { SystemMessageGroup } from '@/features/chat/system-message-group'
-import { decryptMessagePro, encryptFilePro, decryptFilePro } from '@/lib/crypto-utils'
+import { decryptMessagePro, decryptFilePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey } from '@/lib/crypto-utils'
 import { DecryptedText } from '@/features/chat/decrypted-text'
 import { AttachmentImage } from '@/features/chat/attachment-image'
 import { MessageItem } from '@/features/chat/message-item'
@@ -98,6 +98,7 @@ function DecryptedAttachment({
     peerIdentityKeys: Map<number, any>,
     identityKeys: any,
     senderId: number,
+    conversationId?: number,
     keyVersion?: number
 }) {
     const [url, setUrl] = useState<string>("");
@@ -109,22 +110,48 @@ function DecryptedAttachment({
             try {
                 const blob = await attachmentsApi.downloadBlob(token, attachment.id);
                 
-                const iv = attachment.iv || (attachment as any).IV;
+                let iv = attachment.iv || (attachment as any).IV;
+                let sig = attachment.signature || (attachment as any).sig || attachment.Signature || (attachment as any).Signature;
+
+                // [FIX] Handle legacy format where sig is appended to iv with |
+                if (iv && typeof iv === 'string' && iv.includes('|') && !sig) {
+                    const parts = iv.split('|');
+                    iv = parts[0];
+                    sig = parts[1];
+                }
+
                 const isLegacy = !iv || iv === 'legacy-unencrypted';
                 
                 // 1. Check if attachment is E2EE
-                if (!isLegacy && attachment.iv && (attachment.signature || (attachment as any).sig)) {
+                if (!isLegacy && iv && sig) {
                     const isOwn = user && senderId === user.id;
-                    const senderKey = isOwn ? mySenderKey : peerSenderKeys.get(senderId);
-                    const senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);
                     
-                    if (senderKey && senderIdPubKey) {
+                    // [FIX] If it's our own attachment but mySenderKey is null (after F5), try to recover it
+                    let currentSenderKey = isOwn ? mySenderKey : peerSenderKeys.get(senderId);
+                    let senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);
+                    
+                    if (conversationId) {
+                        if (isOwn && !currentSenderKey) {
+                            const stored = await saveOrLoadSenderKey(conversationId);
+                            if (stored) currentSenderKey = stored;
+                        } else if (!isOwn && !currentSenderKey) {
+                            const stored = await saveOrLoadPeerSenderKey(conversationId, senderId);
+                            if (stored) currentSenderKey = stored;
+                        }
+                    }
+
+                    if (!isOwn && !senderIdPubKey) {
+                        const stored = await saveOrLoadPeerIdentityKey(senderId);
+                        if (stored) senderIdPubKey = stored;
+                    }
+                    
+                    if (currentSenderKey && senderIdPubKey) {
                         try {
                            const decryptedBlob = await decryptFilePro(
                                blob, 
-                               attachment.iv, 
-                               attachment.signature || (attachment as any).sig, 
-                               senderKey, 
+                               iv, 
+                               sig, 
+                               currentSenderKey, 
                                senderIdPubKey
                            );
                            setUrl(URL.createObjectURL(decryptedBlob));
@@ -133,7 +160,8 @@ function DecryptedAttachment({
                            setError(true);
                         }
                     } else {
-                        // Keys not ready
+                        // Keys not ready — wait for keyVersion to trigger re-run
+                        console.log('[Attachment] Keys not ready for decryption...');
                     }
                 } else {
                     // Legacy or plain file
@@ -515,6 +543,7 @@ export function ChatArea({
                                 peerIdentityKeys={peerIdentityKeys} 
                                 identityKeys={identityKeys}
                                 senderId={msg.senderId}
+                                conversationId={conversation.id}
                                 keyVersion={keyVersion}
                             />
                           ))}

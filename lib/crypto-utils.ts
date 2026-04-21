@@ -12,6 +12,8 @@ const STORE_NAME = 'Keys';
 const IDENTITY_KEY_ALIAS = 'IdentityKey';
 const RSA_KEY_ALIAS = 'EphemeralRSAKey';
 const MY_SENDER_KEY_ALIAS = 'MySenderKey';
+const PEER_IDENTITY_KEY_ALIAS = 'PeerIdentityKey';
+const PEER_SENDER_KEY_ALIAS = 'PeerSenderKey';
 
 // ==========================================
 // PHẦN 1: INDEXEDDB PERSISTENCE
@@ -157,6 +159,24 @@ export async function generateSenderKey(): Promise<CryptoKey> {
 
 export async function saveOrLoadSenderKey(conversationId: number, key?: CryptoKey): Promise<CryptoKey | null> {
     const alias = `${MY_SENDER_KEY_ALIAS}:${conversationId}`;
+    if (key) {
+        await saveKey(alias, key);
+        return key;
+    }
+    return await loadKey(alias);
+}
+
+export async function saveOrLoadPeerIdentityKey(userId: number, key?: CryptoKey): Promise<CryptoKey | null> {
+    const alias = `${PEER_IDENTITY_KEY_ALIAS}:${userId}`;
+    if (key) {
+        await saveKey(alias, key);
+        return key;
+    }
+    return await loadKey(alias);
+}
+
+export async function saveOrLoadPeerSenderKey(conversationId: number, userId: number, key?: CryptoKey): Promise<CryptoKey | null> {
+    const alias = `${PEER_SENDER_KEY_ALIAS}:${conversationId}:${userId}`;
     if (key) {
         await saveKey(alias, key);
         return key;

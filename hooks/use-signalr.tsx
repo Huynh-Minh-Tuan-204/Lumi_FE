@@ -10,7 +10,8 @@ import { HUB_URL } from '@/constants/api.constants'
 import { 
   getOrCreateIdentityKey, exportIdentityPublicKey, importIdentityPublicKey,
   getOrCreateRSAKeyPair, exportPublicKey, importPublicKey,
-  generateSenderKey, saveOrLoadSenderKey, encryptSessionKeyForPeer, decryptSessionKey,
+  generateSenderKey, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey,
+  encryptSessionKeyForPeer, decryptSessionKey,
   encryptMessagePro, decryptMessagePro, signData, verifySignature,
   base64ToBuffer, bufferToBase64
 } from '@/lib/crypto-utils'
@@ -158,6 +159,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
         // 1. Lưu lại Public Key của người vừa chào sân (A)
         peerIdentityKeysRef.current.set(senderId, peerIdPubKey);
+        await saveOrLoadPeerIdentityKey(senderId, peerIdPubKey);
         setKeyVersion(v => v + 1);
 
         // Đảm bảo mình đã có SenderKey của mình
@@ -196,9 +198,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connection.on("ReceiveSecureSenderKey", async (senderId: number, encryptedKeyBase64: string, conversationId: number) => {
        if (!myRSAKeysRef.current) return;
        try {
-          const senderKey = await decryptSessionKey(encryptedKeyBase64, myRSAKeysRef.current.privateKey);
-          peerSenderKeysRef.current.set(senderId, senderKey);
-          setKeyVersion(v => v + 1);
+           const senderKey = await decryptSessionKey(encryptedKeyBase64, myRSAKeysRef.current.privateKey);
+           peerSenderKeysRef.current.set(senderId, senderKey);
+           await saveOrLoadPeerSenderKey(conversationId, senderId, senderKey);
+           setKeyVersion(v => v + 1);
        } catch (e) {
           console.error("Handshake Decrypt Key error", e);
        }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { decryptMessagePro } from '@/lib/crypto-utils'
+import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey } from '@/lib/crypto-utils'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Video as VideoIcon } from 'lucide-react'
@@ -41,8 +41,15 @@ export function DecryptedText({
             }
             const senderId = message.senderId;
             const content = message.encryptedContent || message.message;
-            const iv = message.iv;
-            const sig = message.signature || message.sig;
+            let iv = message.iv || message.Iv;
+            let sig = message.signature || message.sig || message.Signature || message.Sig;
+
+            // [FIX] Handle legacy format where sig is appended to iv with |
+            if (iv && typeof iv === 'string' && iv.includes('|') && !sig) {
+                const parts = iv.split('|');
+                iv = parts[0];
+                sig = parts[1];
+            }
 
             if (!content || content === "[Attachment]") {
                 setDecrypted("");
@@ -50,19 +57,40 @@ export function DecryptedText({
             }
             try {
                 const isMessageOwn = user && senderId === user.id;
-                const senderKey = isMessageOwn ? mySenderKey : peerSenderKeys?.get(senderId);
-                const senderIdPubKey = isMessageOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderId);
+                // [FIX] If it's our own message but mySenderKey is null (after F5), try to recover it
+                let currentSenderKey = isMessageOwn ? mySenderKey : peerSenderKeys?.get(senderId);
+                let senderIdPubKey = isMessageOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderId);
+                
+                if (message.conversationId) {
+                    if (isMessageOwn && !currentSenderKey) {
+                        const stored = await saveOrLoadSenderKey(message.conversationId);
+                        if (stored) currentSenderKey = stored;
+                    } else if (!isMessageOwn && !currentSenderKey) {
+                        const stored = await saveOrLoadPeerSenderKey(message.conversationId, senderId);
+                        if (stored) currentSenderKey = stored;
+                    }
+                }
 
-                if (iv && sig && senderKey && senderIdPubKey) {
-                    const result = await decryptMessagePro(content, iv, sig, senderKey, senderIdPubKey);
+                if (!isMessageOwn && !senderIdPubKey) {
+                    const stored = await saveOrLoadPeerIdentityKey(senderId);
+                    if (stored) senderIdPubKey = stored;
+                }
+
+                if (iv && sig && currentSenderKey && senderIdPubKey) {
+                    const result = await decryptMessagePro(content, iv, sig, currentSenderKey, senderIdPubKey);
                     setDecrypted(result);
                 } else if (!iv || !sig) {
+                    // If no crypto metadata, it's either legacy plain text or corrupted.
                     setDecrypted(content);
                 } else {
+                    // Missing keys (not in memory AND not in IndexedDB)
                     setDecrypted("⏳ [Mã hóa đầu cuối]");
                     if (message.conversationId) initiateHandshake(message.conversationId);
                 }
-            } catch (e) { setDecrypted(content || "[Lỗi giải mã]"); }
+            } catch (e) { 
+                console.error("Decryption failed:", e);
+                setDecrypted(content || "[Lỗi giải mã]"); 
+            }
         };
         decrypt();
     }, [message.id, message.encryptedContent, message.message, mySenderKey, keyVersion]);
