@@ -5,6 +5,7 @@ import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, save
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Video as VideoIcon } from 'lucide-react'
+import { E2EERestorePrompt } from '@/features/shared/e2ee-restore-prompt'
 
 interface DecryptedTextProps {
   message: any
@@ -32,6 +33,7 @@ export function DecryptedText({
     keyVersion
 }: DecryptedTextProps) {
     const [decrypted, setDecrypted] = useState<string>("⌛ [Đang giải mã...]");
+    const [needsRestore, setNeedsRestore] = useState(false);
 
     useEffect(() => {
         const decrypt = async () => {
@@ -79,12 +81,15 @@ export function DecryptedText({
                 if (iv && sig && currentSenderKey && senderIdPubKey) {
                     const result = await decryptMessagePro(content, iv, sig, currentSenderKey, senderIdPubKey);
                     setDecrypted(result);
+                    setNeedsRestore(false);
                 } else if (!iv || !sig) {
                     // If no crypto metadata, it's either legacy plain text or corrupted.
                     setDecrypted(content);
+                    setNeedsRestore(false);
                 } else {
-                    // Missing keys (not in memory AND not in IndexedDB)
+                    // Missing keys – show restore prompt
                     setDecrypted("⏳ [Mã hóa đầu cuối]");
+                    setNeedsRestore(true);
                     if (message.conversationId) initiateHandshake(message.conversationId);
                 }
             } catch (e) { 
@@ -94,6 +99,16 @@ export function DecryptedText({
         };
         decrypt();
     }, [message.id, message.encryptedContent, message.message, mySenderKey, keyVersion]);
+
+    // Show inline restore prompt when keys are missing
+    if (needsRestore && !isOwn) {
+        return (
+            <E2EERestorePrompt
+                conversationId={message.conversationId}
+                onDismiss={() => setNeedsRestore(false)}
+            />
+        );
+    }
 
     if (decrypted.includes('[MEETING_GUID:')) {
         return (

@@ -8,15 +8,17 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { User, Globe, Moon, Shield, Save, Upload, Camera } from 'lucide-react'
+import { User, Globe, Moon, Shield, Save, Upload, Camera, KeyRound, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState, useRef } from 'react'
 import { adminApi, authApi } from '@/lib/api'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { E2EEBackupSetup } from '@/features/shared/e2ee-backup-setup'
 
 export default function SettingsPage() {
   const { user, token, updateUser } = useAuth()
   const [isSaving, setIsSaving] = useState(false)
+  const [showBackupSetup, setShowBackupSetup] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [profile, setProfile] = useState({
     fullName: user?.fullName || '',
@@ -169,6 +171,44 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ─── E2EE Security Card ─── */}
+      <Card className="border-primary/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-primary" />
+            Bảo mật E2EE
+          </CardTitle>
+          <CardDescription>
+            Sao lưu khóa mã hóa đầu cuối để đồng bộ tin nhắn trên thiết bị mới
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-4 p-4 rounded-2xl bg-primary/5 border border-primary/10">
+            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <KeyRound className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-black">Mã PIN sao lưu khóa E2EE</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                Tạo mã PIN 6 số để mã hóa và lưu khóa E2EE lên server.
+                Khi đăng nhập trên thiết bị mới, nhập PIN để khôi phục toàn bộ tin nhắn đã mã hóa.
+                <strong className="block mt-1">Server không lưu PIN của bạn.</strong>
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={() => setShowBackupSetup(true)}
+            variant="outline"
+            className="w-full sm:w-auto rounded-xl font-black uppercase tracking-widest h-10 border-primary/30 hover:border-primary hover:bg-primary/5"
+          >
+            <KeyRound className="h-4 w-4 mr-2" />
+            Tạo / Cập nhật mã PIN backup
+          </Button>
+        </CardContent>
+      </Card>
+
+      {showBackupSetup && <E2EEBackupSetup onClose={() => setShowBackupSetup(false)} />}
     </div>
   )
 }

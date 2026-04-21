@@ -7,4 +7,5 @@ export * from './users-api'
 export * from './announcements-api'
 export * from './schedules-api'
 export * from './recordings-api'
+export * from './e2ee-api'
 
