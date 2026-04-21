@@ -81,7 +81,7 @@ function CallChatDecryptedText(props: any) {
 export function VideoCallUI({ callId, callType, participantName, onEndCall, initialMic = true, initialCam = true }: VideoCallUIProps) {
   const { user, token } = useAuth()
   const signalRData = useSignalR()
-  const { sendMessage, lastMessage, mySenderKey, peerSenderKeys, peerIdentityKeys, identityKeys, initiateE2EEHandshake } = signalRData
+  const { sendMessage, lastMessage, mySenderKey, peerSenderKeys, peerIdentityKeys, identityKeys, initiateE2EEHandshake, keyVersion } = signalRData
   
   const { 
     joinCall, endCall, activeCallId, localStream, remotePeers,
@@ -309,7 +309,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                                             <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">{msg.sender}</p>
                                         </div>
                                         <div className={cn("px-4 py-2.5 text-xs rounded-2xl max-w-[85%] break-words shadow-sm", msg.senderId === user?.id ? "bg-primary text-white rounded-tr-none" : "bg-white/5 border border-white/10 rounded-tl-none")}>
-                                            <CallChatDecryptedText message={msg} user={user} mySenderKey={mySenderKey} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} token={token} />
+                                            <CallChatDecryptedText message={msg} user={user} mySenderKey={mySenderKey} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} token={token} keyVersion={keyVersion} />
                                         </div>
                                     </div>
                                 ))}

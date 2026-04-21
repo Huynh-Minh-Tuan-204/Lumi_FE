@@ -221,14 +221,16 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       // Nếu fetch fail → giữ nguyên STUN default, vẫn join được (chỉ không qua TURN).
       try {
         const servers = await signalR.getIceServers()
-        const normalized = servers.map((s: any) => ({
-          urls: s.urls || s.Urls || s.url || s.Url,
-          username: s.username || s.Username,
-          credential: s.credential || s.Credential
-        }));
-        iceServersRef.current = normalized;
-        const urlsLog = normalized.map((s: any) => s.urls);
-        console.log('[WebRTC] ICE Servers loaded:', urlsLog);
+        if (servers && servers.length > 0) {
+          const normalized = servers.map((s: any) => ({
+            urls: s.urls || s.Urls || s.url || s.Url,
+            username: s.username || s.Username,
+            credential: s.credential || s.Credential
+          }));
+          // Merge with defaults to ensure we always have STUN at least
+          iceServersRef.current = [...RTC_CONFIG.iceServers!, ...normalized];
+          console.log('[WebRTC] ICE Servers loaded and merged:', iceServersRef.current.map(s => s.urls));
+        }
       } catch (iceErr) {
         console.warn('[WebRTC] Could not fetch ICE servers from BE, using defaults:', iceErr)
       }

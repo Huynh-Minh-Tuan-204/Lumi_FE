@@ -14,6 +14,7 @@ interface MessageItemProps {
   peerSenderKeys: Map<number, any>
   peerIdentityKeys: Map<number, any>
   identityKeys: any
+  keyVersion: number
   initiateHandshake: (cid: number) => Promise<void>
   onJoinMeeting: (meetingId: string) => void
   togglePinMessage: (messageId: number) => void
@@ -29,6 +30,7 @@ export function MessageItem({
   peerSenderKeys,
   peerIdentityKeys,
   identityKeys,
+  keyVersion,
   initiateHandshake,
   onJoinMeeting,
   togglePinMessage,
@@ -52,6 +54,7 @@ export function MessageItem({
               initiateHandshake={initiateHandshake} 
               onJoinMeeting={onJoinMeeting} 
               isOwn={isOwn} 
+              keyVersion={keyVersion}
             />
             <div className={cn("absolute bottom-0 opacity-0 group-hover/msg:opacity-100 flex items-center gap-1 transition-opacity", isOwn ? "-left-20" : "-right-20")}>
               <button 

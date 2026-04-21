@@ -1446,7 +1446,7 @@ export default function GroupsPage() {
                 Táº¡o nhĂ³m
               </Button>
             </DialogTrigger>
-            <DialogContent aria-describedby={undefined} className="sm:max-w-md">
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Táº¡o nhĂ³m má»›i</DialogTitle>
                 <DialogDescription>
@@ -1588,7 +1588,7 @@ export default function GroupsPage() {
 
       {/* Add member dialog */}
       <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
-        <DialogContent aria-describedby={undefined} className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>ThĂªm thĂ nh viĂªn</DialogTitle>
             <DialogDescription>
@@ -1647,7 +1647,7 @@ export default function GroupsPage() {
 
       {/* Rename dialog */}
       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
-        <DialogContent aria-describedby={undefined} className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Äá»•i tĂªn nhĂ³m</DialogTitle>
             <DialogDescription>
@@ -1682,7 +1682,7 @@ export default function GroupsPage() {
 
       {/* View Members dialog */}
       <Dialog open={isViewMembersDialogOpen} onOpenChange={setIsViewMembersDialogOpen}>
-        <DialogContent aria-describedby={undefined} className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>ThĂ nh viĂªn nhĂ³m</DialogTitle>
             <DialogDescription>
@@ -3583,13 +3583,13 @@ export default function UsersPage() {
     setIsCreating(true)
     try {
       await adminApi.createUser(token, {
-        EmployeeCode: newUser.employeeCode,
-        Username: newUser.username,
-        Password: newUser.password,
-        FullName: newUser.fullName,
-        Email: newUser.email,
-        Phone: newUser.phone,
-        RoleId: newUser.roleId,
+        employeeCode: newUser.employeeCode,
+        username: newUser.username,
+        password: newUser.password,
+        fullName: newUser.fullName,
+        email: newUser.email,
+        phone: newUser.phone,
+        roleId: newUser.roleId,
       })
       toast.success('ÄĂ£ táº¡o ngÆ°á»i dĂ¹ng thĂ nh cĂ´ng')
       setIsCreateDialogOpen(false)
@@ -3697,7 +3697,7 @@ export default function UsersPage() {
               ThĂªm ngÆ°á»i dĂ¹ng
             </Button>
           </DialogTrigger>
-          <DialogContent aria-describedby={undefined} className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Táº¡o ngÆ°á»i dĂ¹ng má»›i</DialogTitle>
               <DialogDescription>
@@ -11953,7 +11953,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
       try {
         const meeting = await meetingsApi.getMeeting(token, callId)
         const cid = meeting.conversationId || meeting.ConversationId
-        const hId = meeting.creatorId || meeting.CreatorId || meeting.hostId || meeting.HostId || meeting.creator?.id || meeting.Creator?.Id || meeting.host?.id || meeting.Host?.Id
+        const hId = meeting.creatorId || meeting.CreatorId || meeting.hostId || meeting.HostId || 
+                   meeting.createdBy || meeting.CreatedBy ||
+                   meeting.creator?.id || meeting.Creator?.Id || meeting.host?.id || meeting.Host?.Id
         const finalHostId = hId ? Number(hId) : null;
         setConvId(cid); setConversationId(cid); setHostId(finalHostId);
         const history = await conversationsApi.getMessages(token, cid)
@@ -12626,12 +12628,14 @@ import {
   Pin, 
   PinOff,
   Search,
+  PhoneCall,
+  Maximize2,
+  ImageOff,
+  AlertCircle,
+  MessageSquare,
   Video as VideoIcon,
   Activity as ActivityIcon,
-  X,
-  MessageSquare,
-  PhoneCall,
-  Maximize2
+  X
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -12748,6 +12752,7 @@ function DecryptedAttachment({
         return () => { if (url) URL.revokeObjectURL(url); };
     }, [attachment.id, mySenderKey, peerSenderKeys.size, peerIdentityKeys.size]);
 
+    const isImg = attachment.mimeType?.startsWith('image/');
     if (loading) return (
         <div className="flex items-center gap-3 p-3 rounded-2xl border w-[280px] bg-muted animate-pulse">
             <div className="h-10 w-10 rounded-lg bg-background/50" />
@@ -12756,13 +12761,31 @@ function DecryptedAttachment({
     );
 
     if (error || !url) return (
-        <div className="flex items-center gap-3 p-3 rounded-2xl border w-[280px] bg-destructive/10 border-destructive/20 text-destructive">
-            <div className="h-10 w-10 rounded-lg bg-destructive/20 flex items-center justify-center"><X className="h-5 w-5" /></div>
-            <div className="flex-1 overflow-hidden"><p className="text-xs font-bold truncate">{attachment.fileName}</p><p className="text-[10px] uppercase font-black">Lá»—i báº£o máº­t/háº¿t háº¡n</p></div>
+        <div className={cn(
+            "flex flex-col items-center justify-center gap-3 p-6 rounded-2xl border w-[280px] min-h-[160px] text-center",
+            senderId === user?.id ? "bg-primary/5 border-primary/10" : "bg-muted/30 border-muted-foreground/10"
+        )}>
+            <div className="relative">
+                <ImageOff className="h-10 w-10 text-muted-foreground/30" />
+                <AlertCircle className="h-4 w-4 text-muted-foreground/40 absolute -bottom-1 -right-1" />
+            </div>
+            <div className="space-y-1.5">
+                <p className="text-sm font-bold text-muted-foreground/80">
+                    {isImg ? "áº¢nh khĂ´ng tá»“n táº¡i" : "Tá»‡p khĂ´ng tá»“n táº¡i"}
+                </p>
+                <p className="text-[10px] leading-relaxed text-muted-foreground/60 max-w-[200px] mx-auto">
+                    Ná»™i dung khĂ´ng cĂ³ trĂªn mĂ¡y nĂ y vĂ  khĂ´ng cĂ²n trĂªn mĂ¡y chá»§ Ä‘á»ƒ táº£i vá».
+                </p>
+                <button 
+                  className="text-[10px] font-bold text-primary hover:underline mt-2 flex items-center justify-center gap-1 mx-auto"
+                  onClick={() => toast.info("LiĂªn há»‡ ngÆ°á»i gá»­i Ä‘á»ƒ nháº­n láº¡i tá»‡p nĂ y.")}
+                >
+                    TĂ¬m hiá»ƒu thĂªm
+                </button>
+            </div>
         </div>
     );
 
-    const isImg = attachment.mimeType?.startsWith('image/');
     if (isImg) return (
         <div className="relative group/img max-w-sm rounded-xl overflow-hidden shadow-md">
             <AttachmentImage 
@@ -15760,10 +15783,14 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       // Náº¿u fetch fail â†’ giá»¯ nguyĂªn STUN default, váº«n join Ä‘Æ°á»£c (chá»‰ khĂ´ng qua TURN).
       try {
         const servers = await signalR.getIceServers()
-        if (servers && servers.length > 0) {
-          iceServersRef.current = servers
-          console.log('[WebRTC] ICE Servers loaded:', servers.map((s: any) => s.urls))
-        }
+        const normalized = servers.map((s: any) => ({
+          urls: s.urls || s.Urls || s.url || s.Url,
+          username: s.username || s.Username,
+          credential: s.credential || s.Credential
+        }));
+        iceServersRef.current = normalized;
+        const urlsLog = normalized.map((s: any) => s.urls);
+        console.log('[WebRTC] ICE Servers loaded:', urlsLog);
       } catch (iceErr) {
         console.warn('[WebRTC] Could not fetch ICE servers from BE, using defaults:', iceErr)
       }
@@ -15838,22 +15865,39 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isScreenSharing])
 
-  const startRecording = useCallback(() => {
-    if (!localStreamRef.current) {
-      console.warn('[Recording] No local stream available')
-      return
-    }
-    
+  const startRecording = useCallback(async () => {
     try {
-      // Mix audio cá»§a táº¥t cáº£ participants (local + remote peers)
+      // 1. Capture Screen (Quay mĂ n hĂ¬nh) instead of just local camera
+      // This ensures we record the UI and all participants
+      let screenStream: MediaStream;
+      try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({ 
+          video: true, 
+          audio: true // Capture system/tab audio if possible
+        });
+      } catch (screenErr) {
+        console.warn('[Recording] Screen capture failed or canceled, falling back to local stream:', screenErr);
+        if (!localStreamRef.current) throw new Error('No media stream available for recording');
+        screenStream = localStreamRef.current;
+      }
+
+      // 2. Mix audio cá»§a táº¥t cáº£ participants
       const audioContext = new AudioContext()
       const mixedDestination = audioContext.createMediaStreamDestination()
 
-      // Add local audio
-      const localAudioTracks = localStreamRef.current.getAudioTracks()
-      if (localAudioTracks.length > 0) {
-        const localSource = audioContext.createMediaStreamSource(localStreamRef.current)
-        localSource.connect(mixedDestination)
+      // Add audio from screen capture (system audio)
+      if (screenStream.getAudioTracks().length > 0) {
+        const screenSource = audioContext.createMediaStreamSource(screenStream);
+        screenSource.connect(mixedDestination);
+      }
+
+      // Add local microphone audio (if not already in screenStream)
+      if (localStreamRef.current && localStreamRef.current !== screenStream) {
+        const micTracks = localStreamRef.current.getAudioTracks();
+        if (micTracks.length > 0) {
+          const micSource = audioContext.createMediaStreamSource(localStreamRef.current);
+          micSource.connect(mixedDestination);
+        }
       }
 
       // Add remote peer audio
@@ -15868,8 +15912,8 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         }
       })
 
-      // Composite stream: local video + mixed audio tá»« táº¥t cáº£
-      const videoTracks = localStreamRef.current.getVideoTracks()
+      // Composite stream: screen video + mixed audio
+      const videoTracks = screenStream.getVideoTracks()
       const compositeStream = new MediaStream([
         ...videoTracks,
         ...mixedDestination.stream.getAudioTracks()
@@ -15897,10 +15941,12 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         // Upload lĂªn BE náº¿u cĂ³ meetingId
         if (activeCallId && token) {
           try {
-            // Resolve meeting numeric ID tá»« activeCallId (GUID)
+            // Fix 404: Use API_BASE_URL (which is already configured correctly)
+            const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api').replace(/\/$/, "");
+            
             const meetingRes = await fetch(
-              `${process.env.NEXT_PUBLIC_API_URL || ''}/api/Meetings/${activeCallId}`,
-              { headers: { Authorization: `Bearer ${token}` } }
+              `${baseUrl}/Meetings/${activeCallId}`,
+              { headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' } }
             )
             if (meetingRes.ok) {
               const meetingData = await meetingRes.json()
@@ -15913,10 +15959,10 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
                 formData.append('iv', '') // KhĂ´ng encrypt phĂ­a client cho recording
 
                 const uploadRes = await fetch(
-                  `${process.env.NEXT_PUBLIC_API_URL || ''}/api/Recordings/upload`,
+                  `${baseUrl}/Recordings/upload`,
                   {
                     method: 'POST',
-                    headers: { Authorization: `Bearer ${token}` },
+                    headers: { Authorization: `Bearer ${token}`, 'ngrok-skip-browser-warning': 'true' },
                     body: formData
                   }
                 )
@@ -16117,22 +16163,25 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
-    if (!token) {
-      setNotifications([]);
-      setOnlineUsers(new Set());
-      setLastMessage(null);
-      setLastReadUpdate(null);
-      setIncomingCall(null);
-      setCallDeclined(null);
-      setLastGroupUpdate(null);
-      setTypingUsers([]);
-      setLastUserUpdate(null);
-      setPinnedMessages(null);
-      setLastDeletedMessage(null);
-      setLastScheduleUpdate(null);
-      setActiveMeeting(null);
-      setIsConnected(false);
-      setIsReconnecting(false);
+    // Wait for everything to be ready before connecting
+    if (!token || !identityKeys || !myRSAKeys) {
+      if (!token) {
+        setNotifications([]);
+        setOnlineUsers(new Set());
+        setLastMessage(null);
+        setLastReadUpdate(null);
+        setIncomingCall(null);
+        setCallDeclined(null);
+        setLastGroupUpdate(null);
+        setTypingUsers([]);
+        setLastUserUpdate(null);
+        setPinnedMessages(null);
+        setLastDeletedMessage(null);
+        setLastScheduleUpdate(null);
+        setActiveMeeting(null);
+        setIsConnected(false);
+        setIsReconnecting(false);
+      }
       return
     }
 
@@ -16491,47 +16540,30 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
   const sendMessage = useCallback(async (conversationId: number, plaintext: string, messageType: string = 'PLAIN', parentMessageId?: number) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
-      // Guard: Äáº£m báº£o E2EE key sáºµn sĂ ng trÆ°á»›c khi encrypt
-      // Náº¿u chÆ°a cĂ³ sender key â†’ trigger handshake vĂ  Ä‘á»£i tá»‘i Ä‘a 4 giĂ¢y
+      
+      // Tá»± táº¡o khĂ³a ngay láº­p tá»©c náº¿u chÆ°a cĂ³, KHĂ”NG Äá»¨NG Äá»¢I!
       if (!mySenderKeyRef.current) {
-        console.log('[E2EE] Sender key chÆ°a sáºµn sĂ ng, Ä‘ang khá»Ÿi táº¡o handshake...')
-        try {
-          await initiateE2EEHandshake(conversationId)
-        } catch (hsErr) {
-          console.warn('[E2EE] Handshake failed:', hsErr)
-        }
+        console.log('[E2EE] Khá»Ÿi táº¡o Sender Key cho báº£n thĂ¢n...');
+        mySenderKeyRef.current = await generateSenderKey();
+        setKeyVersion(v => v + 1);
         
-        // Äá»£i key Ä‘Æ°á»£c set (polling 200ms, tá»‘i Ä‘a 4s)
-        let waited = 0
-        while (!mySenderKeyRef.current && waited < 4000) {
-          await new Promise(resolve => setTimeout(resolve, 200))
-          waited += 200
-        }
-        
-        // Náº¿u sau 4s váº«n khĂ´ng cĂ³ key â†’ bĂ¡o lá»—i, khĂ´ng gá»­i
-        if (!mySenderKeyRef.current) {
-          console.error('[E2EE] KhĂ´ng thá»ƒ khá»Ÿi táº¡o encryption key sau 4 giĂ¢y')
-          toast.error('ChÆ°a thiáº¿t láº­p mĂ£ hĂ³a. Vui lĂ²ng thá»­ láº¡i hoáº·c reload trang.')
-          return
-        }
-        
-        console.log('[E2EE] Key sáºµn sĂ ng sau', waited, 'ms')
+        // Sau khi cĂ³ khĂ³a mĂ¬nh, váº«y tay gá»i má»i ngÆ°á»i Ä‘á»ƒ láº¥y khĂ³a há» (KhĂ´ng cáº§n Ä‘á»£i)
+        initiateE2EEHandshake(conversationId).catch(e => console.warn(e));
       }
+
       try {
+        // Normalizing messageType: treat empty or undefined as 'PLAIN'
+        const effectiveMessageType = (messageType === '' || !messageType) ? 'PLAIN' : messageType;
+
         let contentToSend = plaintext;
         let ivToSend = "";
         let sigToSend = "";
 
-        if (messageType === 'PLAIN') {
-          if (!mySenderKeyRef.current) {
-            mySenderKeyRef.current = await generateSenderKey();
-            setKeyVersion(v => v + 1);
-          }
-
+        if (effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text') {
+          // Check if we have keys for others, if not, handshake first but DON'T BLOCK
           if (peerIdentityKeysRef.current.size === 0) {
-              toast.error("Vui lĂ²ng Ä‘á»£i 1 giĂ¢y Ä‘á»ƒ thiáº¿t láº­p mĂ£ hĂ³a...");
-              initiateE2EEHandshake(conversationId);
-              return;
+              console.log('[E2EE] Peer keys not found, initiating handshake...');
+              initiateE2EEHandshake(conversationId).catch(e => console.warn(e));
           }
 
           if (!identityKeysRef.current) {
@@ -16539,20 +16571,21 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          const encrypted = await encryptMessagePro(plaintext, mySenderKeyRef.current, identityKeysRef.current.privateKey);
+          const encrypted = await encryptMessagePro(plaintext, mySenderKeyRef.current!, identityKeysRef.current.privateKey);
           contentToSend = encrypted.content;
           ivToSend = encrypted.iv;
           sigToSend = encrypted.sig;
         }
 
         const clientMessageId = crypto.randomUUID();
-        await connectionRef.current.invoke('SendMessageSecure', conversationId, contentToSend, ivToSend, sigToSend, messageType, parentMessageId || 0, clientMessageId);
+        await connectionRef.current.invoke('SendMessageSecure', conversationId, contentToSend, ivToSend, sigToSend, effectiveMessageType, parentMessageId || 0, clientMessageId);
       } catch (err) {
         console.error("Failed to send encrypted message:", err);
         toast.error("Lá»—i khi mĂ£ hĂ³a tin nháº¯n.");
       }
     }
   }, [initiateE2EEHandshake])
+
 
   const markAsRead = useCallback(async (conversationId: number, messageId: number = 0) => {
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected) {
@@ -17803,11 +17836,11 @@ export const announcementsApi = {
     request<any>('/Announcements', {
       method: 'POST',
       body: JSON.stringify({ 
-        Title: data.title, 
-        EncryptedContent: data.encryptedContent, 
-        IV: data.iv, 
-        Signature: data.signature,
-        UserIds: data.userIds 
+        title: data.title, 
+        encryptedContent: data.encryptedContent, 
+        iv: data.iv, 
+        signature: data.signature,
+        userIds: data.userIds 
       }),
       token,
     }),
@@ -17901,13 +17934,13 @@ export const authApi = {
   login: (username: string, password: string) =>
     request<LoginResponse>('/Auth/login', {
       method: 'POST',
-      body: JSON.stringify({ Username: username, Password: password } as LoginDto),
+      body: JSON.stringify({ username, password } as LoginDto),
     }),
 
   refreshToken: (refreshToken: string) =>
     request<{ accessToken: string; refreshToken: string }>('/Auth/refresh-token', {
       method: 'POST',
-      body: JSON.stringify({ RefreshToken: refreshToken } as RefreshTokenRequestDto),
+      body: JSON.stringify({ refreshToken } as RefreshTokenRequestDto),
     }),
 
   getMe: (token: string) =>
@@ -17936,7 +17969,7 @@ export const authApi = {
     request<{ message: string }>('/Auth/change-password-first-time', {
       method: 'POST',
       token,
-      body: JSON.stringify({ OldPassword: oldPassword, NewPassword: newPassword }),
+      body: JSON.stringify({ oldPassword, newPassword }),
     }),
 }
 
@@ -18229,14 +18262,14 @@ export const meetingsApi = {
   startGlobalMeeting: (token: string, title?: string, callType: string = 'video') =>
     request<any>(`/Meetings/start-global`, {
       method: 'POST',
-      body: JSON.stringify({ Title: title, Type: callType }),
+      body: JSON.stringify({ title: title, type: callType }),
       token
     }),
 
   startMeeting: (token: string, conversationId: number, title: string, participantIds: number[], callType: string = 'video') =>
     request<any>(`/Meetings/start/${conversationId}`, {
       method: 'POST',
-      body: JSON.stringify({ Title: title, Type: callType, ParticipantIds: participantIds }),
+      body: JSON.stringify({ title: title, type: callType, participantIds: participantIds }),
       token,
     }),
 
@@ -18390,7 +18423,7 @@ export const adminApi = {
   changeRole: (token: string, id: number, roleId: number) =>
     request<{ message: string }>(`/Admin/change-role/${id}`, {
       method: 'PUT',
-      body: JSON.stringify({ RoleId: roleId }),
+      body: JSON.stringify({ roleId: roleId }),
       token,
     }),
 
@@ -18410,13 +18443,13 @@ export const adminApi = {
     request<any>('/Announcements', {
       method: "POST",
       body: JSON.stringify({
-        Title: data.title,
-        EncryptedContent: data.encryptedContent,
-        IV: data.iv,
-        Signature: data.signature,
-        UserIds: data.userIds,
-        Category: data.category || "General",
-        ForceConfirmed: data.forceConfirmed || false
+        title: data.title,
+        encryptedContent: data.encryptedContent,
+        iv: data.iv,
+        signature: data.signature,
+        userIds: data.userIds,
+        category: data.category || "General",
+        forceConfirmed: data.forceConfirmed || false
       }),
       token,
     }),
@@ -18478,50 +18511,50 @@ export interface TokenResponse {
   refreshToken: string
 }
 
-// ========== DTOs PascalCase (khá»›p C#) ==========
+// ========== DTOs camelCase (khá»›p CamelCase policy cá»§a .NET) ==========
 export interface LoginDto {
-  Username: string
-  Password: string
+  username: string
+  password: string
 }
 
 export interface RegisterDto {
-  EmployeeCode: string
-  Username: string
-  Password: string
-  FullName: string
-  Email: string
-  Phone: string
-  RoleId: number
+  employeeCode: string
+  username: string
+  password: string
+  fullName: string
+  email: string
+  phone: string
+  roleId: number
 }
 
 export interface RefreshTokenRequestDto {
-  RefreshToken: string
+  refreshToken: string
 }
 
 export interface TokenResponseDto {
-  AccessToken: string
-  RefreshToken: string
+  accessToken: string
+  refreshToken: string
 }
 
 export interface CreateGroupDto {
-  Name: string;
-  MemberIds: number[];
+  name: string;
+  memberIds: number[];
 }
 
 export interface AddMemberDto {
-  UserId: number;
-  RoleInConversation: string;
+  userId: number;
+  roleInConversation: string;
 }
 
 export interface CreateAnnouncementDto {
-  Message: string;
-  IV: string;
+  message: string;
+  iv: string;
 }
 
 export interface StartMeetingDto {
-  Title: string;
-  ScheduledAt?: string;
-  ParticipantIds: number[];
+  title: string;
+  scheduledAt?: string;
+  participantIds: number[];
 }
 
 

@@ -16,6 +16,7 @@ interface DecryptedTextProps {
   initiateHandshake: (cid: number) => Promise<void>
   onJoinMeeting?: (meetingId: string) => void
   isOwn?: boolean
+  keyVersion: number
 }
 
 export function DecryptedText({ 
@@ -27,7 +28,8 @@ export function DecryptedText({
     identityKeys,
     initiateHandshake,
     onJoinMeeting,
-    isOwn
+    isOwn,
+    keyVersion
 }: DecryptedTextProps) {
     const [decrypted, setDecrypted] = useState<string>("⌛ [Đang giải mã...]");
 
@@ -63,7 +65,7 @@ export function DecryptedText({
             } catch (e) { setDecrypted(content || "[Lỗi giải mã]"); }
         };
         decrypt();
-    }, [message.id, message.encryptedContent, message.message, mySenderKey, peerSenderKeys?.size, peerIdentityKeys?.size]);
+    }, [message.id, message.encryptedContent, message.message, mySenderKey, keyVersion]);
 
     if (decrypted.includes('[MEETING_GUID:')) {
         return (

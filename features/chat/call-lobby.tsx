@@ -48,6 +48,11 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
   const [isWaiting, setIsWaiting] = useState(false)
   const [requestStatus, setRequestStatus] = useState<'idle' | 'pending' | 'accepted' | 'declined'>('idle')
   const signalRRef = useRef<CallSignalR | null>(null)
+  
+  const isMicOnRef = useRef(isMicOn)
+  const isCamOnRef = useRef(isCamOn)
+  useEffect(() => { isMicOnRef.current = isMicOn }, [isMicOn])
+  useEffect(() => { isCamOnRef.current = isCamOn }, [isCamOn])
 
   const stopPreview = useCallback(() => {
     if (stream) {
@@ -82,7 +87,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
                     setRequestStatus('accepted');
                     toast.success("Yêu cầu tham gia đã được chấp nhận!");
                     stopPreview();
-                    if (typeof onJoin === 'function') onJoin(isMicOn, isCamOn);
+                    if (typeof onJoin === 'function') onJoin(isMicOnRef.current, isCamOnRef.current);
                 }
             },
             onJoinRequestDeclined: (mId, reason) => {
@@ -107,19 +112,18 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
     return () => {
         signalRRef.current?.disconnect();
     }
-  }, [token, meetingId, onJoin, onCancel, isMicOn, isCamOn, stopPreview])
+  }, [token, meetingId]); // Removed mic/cam/onJoin/stopPreview from deps
 
   // 2. Local Preview
   useEffect(() => {
     if (!isAuthorized || isWaiting) return
 
+    let currentStream: MediaStream | null = null;
+
     async function startPreview() {
       try {
         if (!isCamOn && !isMicOn) {
-            if (stream) {
-              stream.getTracks().forEach(t => t.stop())
-              setStream(null)
-            }
+            setStream(null)
             return
         }
 
@@ -128,6 +132,7 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
             video: isCamOn ? { width: 1280, height: 720 } : false,
             audio: isMicOn
           })
+          currentStream = localStream;
           setStream(localStream)
           if (videoRef.current) {
             videoRef.current.srcObject = localStream
@@ -151,6 +156,12 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
     }
 
     startPreview()
+
+    return () => {
+      if (currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
+      }
+    };
   }, [isCamOn, isMicOn, isAuthorized, isWaiting])
 
   if (isLoading) {

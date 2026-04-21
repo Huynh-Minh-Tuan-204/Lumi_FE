@@ -23,9 +23,15 @@ export class WebRTCClient {
   private hooks: WebRTCHooks
   private isClosed: boolean = false
 
-  constructor(hooks: WebRTCHooks = {}) {
+  constructor(hooks: WebRTCHooks = {}, customIceServers?: RTCIceServer[]) {
     this.hooks = hooks
-    this.peerConnection = new RTCPeerConnection(RTC_CONFIGURATION)
+    const configuration = {
+      ...RTC_CONFIGURATION,
+      iceServers: customIceServers && customIceServers.length > 0 
+        ? [...RTC_CONFIGURATION.iceServers!, ...customIceServers]
+        : RTC_CONFIGURATION.iceServers
+    }
+    this.peerConnection = new RTCPeerConnection(configuration)
     this.setupPeerConnection()
   }
 

@@ -77,6 +77,28 @@ export async function importIdentityPublicKey(base64: string): Promise<CryptoKey
 // PHẦN 3: RSA (TRAO ĐỔI KHÓA)
 // ==========================================
 
+const RSA_KEY_ALIAS = 'EphemeralRSAKey';
+
+export async function getOrCreateRSAKeyPair(): Promise<CryptoKeyPair> {
+    const existing = await loadKey(RSA_KEY_ALIAS);
+    if (existing) return existing;
+
+    const keys = await window.crypto.subtle.generateKey(
+        { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+        true,
+        ["encrypt", "decrypt"]
+    );
+    await saveKey(RSA_KEY_ALIAS, keys);
+    return keys;
+}
+
+export async function clearRSAKeyPair(): Promise<void> {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(RSA_KEY_ALIAS);
+    return new Promise((resolve) => (tx.oncomplete = resolve));
+}
+
 export async function generateEphemeralRSAKeyPair(): Promise<CryptoKeyPair> {
     return await window.crypto.subtle.generateKey(
         {
@@ -134,6 +156,17 @@ export async function verifySignature(data: string, signatureBase64: string, pub
 // ==========================================
 // PHẦN 5: AES-GCM (NHẮN TIN)
 // ==========================================
+
+const MY_SENDER_KEY_ALIAS = 'MySenderKey';
+
+export async function saveOrLoadSenderKey(conversationId: number, key?: CryptoKey): Promise<CryptoKey | null> {
+    const alias = `${MY_SENDER_KEY_ALIAS}:${conversationId}`;
+    if (key) {
+        await saveKey(alias, key);
+        return key;
+    }
+    return await loadKey(alias);
+}
 
 export async function generateSenderKey(): Promise<CryptoKey> {
     return await window.crypto.subtle.generateKey(
