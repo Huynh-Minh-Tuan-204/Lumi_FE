@@ -239,6 +239,13 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
             const isPolite = user.id > memberId
             createPeerConnection(callId, memberId, displayName, isPolite)
           })
+        },
+        onConnectionStateChange: (state) => {
+          if (state === signalR.HubConnectionState.Disconnected) {
+            toast.warning('Mất kết nối server, đang chờ ổn định lại...', { duration: 5000 })
+          } else if (state === signalR.HubConnectionState.Connected) {
+            toast.success('Đã kết nối lại server cuộc gọi')
+          }
         }
       })
 
