@@ -72,7 +72,7 @@ export function DecryptedText({
                 if (isMessageOwn) {
                     currentSenderKey = mySenderKeys?.get(conversationId) ?? mySenderKey ?? undefined;
                 } else {
-                    currentSenderKey = peerSenderKeys?.get(senderId);
+                    currentSenderKey = peerSenderKeys?.get(`${conversationId}:${senderId}`);
                 }
                 let senderIdPubKey: CryptoKey | undefined = isMessageOwn
                     ? identityKeys?.publicKey

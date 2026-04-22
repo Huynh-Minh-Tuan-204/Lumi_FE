@@ -56,7 +56,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const myRSAKeysRef = useRef<CryptoKeyPair | null>(null);
   
   const peerIdentityKeysRef = useRef<Map<number, CryptoKey>>(new Map());
-  const peerSenderKeysRef = useRef<Map<number, CryptoKey>>(new Map());
+  const peerSenderKeysRef = useRef<Map<string, CryptoKey>>(new Map());
   const mySenderKeysRef = useRef<Map<number, CryptoKey>>(new Map());
   const [mySenderKey, setMySenderKey] = useState<CryptoKey | null>(null); // Still keep for backward compatibility or active conversation
   
@@ -109,11 +109,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         const peerSenderKeyMap = await loadAllPeerSenderKeys();
         if (peerSenderKeyMap.size > 0) {
           peerSenderKeyMap.forEach((convMap, userId) => {
-            // Use the most recent key for each user (last entry in map)
-            const lastKey = [...convMap.values()].pop();
-            if (lastKey) peerSenderKeysRef.current.set(userId, lastKey);
+            convMap.forEach((key, convId) => {
+               peerSenderKeysRef.current.set(`${convId}:${userId}`, key);
+            });
           });
-          console.log(`[E2EE] Preloaded peer sender keys for ${peerSenderKeyMap.size} user(s) from IndexedDB.`);
+          console.log(`[E2EE] Preloaded ${peerSenderKeyMap.size} users' peer sender keys from IndexedDB.`);
         }
 
         if (mySenderKeys.size > 0 || peerIdKeys.size > 0 || peerSenderKeyMap.size > 0) {
@@ -258,7 +258,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
        if (!myRSAKeysRef.current) return;
        try {
            const senderKey = await decryptSessionKey(encryptedKeyBase64, myRSAKeysRef.current.privateKey);
-           peerSenderKeysRef.current.set(senderId, senderKey);
+           peerSenderKeysRef.current.set(`${conversationId}:${senderId}`, senderKey);
            await saveOrLoadPeerSenderKey(conversationId, senderId, senderKey);
            setKeyVersion(v => v + 1);
        } catch (e) {
@@ -292,7 +292,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         else {
             let senderSessionKey = (userRef.current && senderId === userRef.current.id) 
                 ? mySenderKeysRef.current.get(conversationId) 
-                : peerSenderKeysRef.current.get(senderId);
+                : peerSenderKeysRef.current.get(`${conversationId}:${senderId}`);
             
             // [FIX Task 1] Nếu là tin nhắn của mình gửi từ máy khác/phiên khác nhưng mình đã có key trong IndexedDB
             if (!senderSessionKey && userRef.current && senderId === userRef.current.id && conversationId) {
