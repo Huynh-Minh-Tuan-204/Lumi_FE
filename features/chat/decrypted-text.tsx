@@ -42,9 +42,12 @@ export function DecryptedText({
                 return;
             }
             const senderId = message.senderId;
-            const content = message.encryptedContent || message.message;
-            let iv = message.iv || message.Iv;
+            const content = message.encryptedContent || message.message || message.Content;
+            let iv = message.iv || message.Iv || message.IV;
             let sig = message.signature || message.sig || message.Signature || message.Sig;
+
+            // Diagnostic Log (can be removed later)
+            console.log(`[E2EE Debug] Msg ${message.id}: iv=${!!iv}, sig=${!!sig}, contentLen=${content?.length}`);
 
             // [FIX] Handle legacy format where sig is appended to iv with |
             if (iv && typeof iv === 'string' && iv.includes('|') && !sig) {

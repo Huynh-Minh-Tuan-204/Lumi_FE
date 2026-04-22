@@ -384,7 +384,10 @@ export function ChatArea({
       const news = await conversationsApi.getMessages(token, conversation.id)
       setMessages(news.map((m: any) => ({
         ...m, id: m.id || m.Id, conversationId: m.conversationId || conversation.id,
-        isPinned: m.isPinned || m.IsPinned, encryptedContent: m.encryptedContent || m.content || ""
+        isPinned: m.isPinned || m.IsPinned, 
+        encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || "",
+        iv: m.iv || m.Iv,
+        sig: m.sig || m.Signature || m.Sig
       })))
       toast.success('Gửi tệp thành công!')
     } catch (err) { 
@@ -421,7 +424,9 @@ export function ChatArea({
             id: lastMessage.id, conversationId: lastMessage.conversationId, senderId: lastMessage.senderId,
             senderName: lastMessage.senderName || lastMessage.sender, encryptedContent: lastMessage.content || lastMessage.message || "",
             messageType: lastMessage.messageType || 'Text', createdAt: lastMessage.createdAt || new Date().toISOString(),
-            attachments: lastMessage.attachments || [], isPinned: lastMessage.isPinned, iv: lastMessage.iv, sig: lastMessage.sig
+            attachments: lastMessage.attachments || [], isPinned: lastMessage.isPinned, 
+            iv: lastMessage.iv || lastMessage.Iv, 
+            sig: lastMessage.sig || lastMessage.Signature || lastMessage.Sig
           }];
        });
        markAsRead(conversation.id);
@@ -471,8 +476,8 @@ export function ChatArea({
 
   return (
     <TooltipProvider>
-    <E2EEGatekeeper>
     <div className={cn("flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden", className)}>
+      <E2EEGatekeeper>
       <header className="flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-md z-30 border-b shrink-0">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border-2 border-primary/10">
@@ -652,9 +657,22 @@ export function ChatArea({
             <Button onClick={() => endCall()} variant="destructive" size="sm" className="h-8 rounded-xl px-4 font-black uppercase text-[9px] tracking-widest">Kết thúc</Button>
          </div>
       </div>
+     )}
+      </E2EEGatekeeper>
+    </div>
+    {showLobby && (
+      <CallLobby 
+        meetingId={showLobby.meetingId} 
+        type={showLobby.type} 
+        title={showLobby.title} 
+        conversationId={conversation.id}
+        onJoin={(mic, cam) => {
+           setShowLobby(null);
+           router.push(`/call/${showLobby.meetingId}?mic=${mic}&cam=${cam}`);
+        }}
+        onCancel={() => setShowLobby(null)} 
+      />
     )}
-    </E2EEGatekeeper>
     </TooltipProvider>
   )
 }
-

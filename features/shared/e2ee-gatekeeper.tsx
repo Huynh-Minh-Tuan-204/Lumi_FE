@@ -15,7 +15,7 @@ export function E2EEGatekeeper({ children }: E2EEGatekeeperProps) {
 
     if (status === 'loading') {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm">
+            <div className="w-full h-full flex flex-col items-center justify-center bg-background/50 backdrop-blur-sm z-[100]">
                 <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
                 <p className="text-sm font-black uppercase tracking-widest animate-pulse">
                     Đang kiểm tra bảo mật E2EE...
@@ -26,7 +26,7 @@ export function E2EEGatekeeper({ children }: E2EEGatekeeperProps) {
 
     if (status === 'needs-restore') {
         return (
-            <div className="flex-1 flex items-center justify-center p-6 bg-slate-950/20 relative overflow-hidden">
+            <div className="w-full h-full flex items-center justify-center p-6 bg-slate-950/20 relative overflow-hidden z-[100]">
                 {/* Background decorative elements */}
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[120px]" />
@@ -57,7 +57,7 @@ export function E2EEGatekeeper({ children }: E2EEGatekeeperProps) {
 
     if (status === 'needs-setup') {
         return (
-            <div className="flex-1 flex items-center justify-center p-6 bg-slate-950/20 relative overflow-hidden">
+            <div className="w-full h-full flex items-center justify-center p-6 bg-slate-950/20 relative overflow-hidden z-[100]">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[120px]" />
                 
                 <div className="w-full max-w-md z-10">
