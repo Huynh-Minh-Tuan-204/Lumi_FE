@@ -157,8 +157,8 @@ export async function generateSenderKey(): Promise<CryptoKey> {
     );
 }
 
-export async function saveOrLoadSenderKey(conversationId: number, key?: CryptoKey): Promise<CryptoKey | null> {
-    const alias = `${MY_SENDER_KEY_ALIAS}:${conversationId}`;
+export async function saveOrLoadSenderKey(conversationId: number | string, key?: CryptoKey): Promise<CryptoKey | null> {
+    const alias = `${MY_SENDER_KEY_ALIAS}:${String(conversationId)}`;
     if (key) {
         await saveKey(alias, key);
         return key;
@@ -166,8 +166,8 @@ export async function saveOrLoadSenderKey(conversationId: number, key?: CryptoKe
     return await loadKey(alias);
 }
 
-export async function saveOrLoadPeerIdentityKey(userId: number, key?: CryptoKey): Promise<CryptoKey | null> {
-    const alias = `${PEER_IDENTITY_KEY_ALIAS}:${userId}`;
+export async function saveOrLoadPeerIdentityKey(userId: number | string, key?: CryptoKey): Promise<CryptoKey | null> {
+    const alias = `${PEER_IDENTITY_KEY_ALIAS}:${String(userId)}`;
     if (key) {
         await saveKey(alias, key);
         return key;
@@ -175,8 +175,8 @@ export async function saveOrLoadPeerIdentityKey(userId: number, key?: CryptoKey)
     return await loadKey(alias);
 }
 
-export async function saveOrLoadPeerSenderKey(conversationId: number, userId: number, key?: CryptoKey): Promise<CryptoKey | null> {
-    const alias = `${PEER_SENDER_KEY_ALIAS}:${conversationId}:${userId}`;
+export async function saveOrLoadPeerSenderKey(conversationId: number | string, userId: number | string, key?: CryptoKey): Promise<CryptoKey | null> {
+    const alias = `${PEER_SENDER_KEY_ALIAS}:${String(conversationId)}:${String(userId)}`;
     if (key) {
         await saveKey(alias, key);
         return key;

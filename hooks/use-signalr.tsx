@@ -55,8 +55,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   
   const peerIdentityKeysRef = useRef<Map<number, CryptoKey>>(new Map());
   const peerSenderKeysRef = useRef<Map<number, CryptoKey>>(new Map());
-  const mySenderKeyRef = useRef<CryptoKey | null>(null);
-  const [mySenderKey, setMySenderKey] = useState<CryptoKey | null>(null);
+  const mySenderKeysRef = useRef<Map<number, CryptoKey>>(new Map());
+  const [mySenderKey, setMySenderKey] = useState<CryptoKey | null>(null); // Still keep for backward compatibility or active conversation
   
   // Sync user object into a ref to avoid stale closures in SignalR listeners 
   // without re-creating the entire connection every time user profile updates.
@@ -169,23 +169,24 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         await saveOrLoadPeerIdentityKey(senderId, peerIdPubKey);
         setKeyVersion(v => v + 1);
 
-        // Đảm bảo mình đã có SenderKey của mình
-        if (!mySenderKeyRef.current) {
+        // Đảm bảo mình đã có SenderKey của mình cho conversation này
+        let myKey = mySenderKeysRef.current.get(conversationId);
+        if (!myKey) {
           const stored = await saveOrLoadSenderKey(conversationId);
           if (stored) {
-            mySenderKeyRef.current = stored;
+            myKey = stored;
           } else {
-            const newKey = await generateSenderKey();
-            await saveOrLoadSenderKey(conversationId, newKey);
-            mySenderKeyRef.current = newKey;
+            myKey = await generateSenderKey();
+            await saveOrLoadSenderKey(conversationId, myKey);
           }
-          setMySenderKey(mySenderKeyRef.current);
+          mySenderKeysRef.current.set(conversationId, myKey);
+          setMySenderKey(myKey);
           setKeyVersion(v => v + 1);
         }
 
         // 2. Bọc SenderKey CỦA MÌNH bằng RSA của A, và gửi đích danh cho A
         const peerRSAPubKey = await importPublicKey(rsaPubKeyBase64);
-        const encryptedKey = await encryptSessionKeyForPeer(mySenderKeyRef.current, peerRSAPubKey);
+        const encryptedKey = await encryptSessionKeyForPeer(myKey, peerRSAPubKey);
         
         await connection.invoke("SendSecureSenderKey", conversationId, senderId, encryptedKey);
 
@@ -239,14 +240,14 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         } 
         else {
             let senderSessionKey = (userRef.current && senderId === userRef.current.id) 
-                ? mySenderKeyRef.current 
+                ? mySenderKeysRef.current.get(conversationId) 
                 : peerSenderKeysRef.current.get(senderId);
             
             // [FIX Task 1] Nếu là tin nhắn của mình gửi từ máy khác/phiên khác nhưng mình đã có key trong IndexedDB
             if (!senderSessionKey && userRef.current && senderId === userRef.current.id && conversationId) {
                 const stored = await saveOrLoadSenderKey(conversationId);
                 if (stored) {
-                    mySenderKeyRef.current = stored;
+                    mySenderKeysRef.current.set(conversationId, stored);
                     setMySenderKey(stored);
                     senderSessionKey = stored;
                 }
@@ -512,22 +513,23 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // 1. Đảm bảo có sender key của mình
-    if (!mySenderKeyRef.current) {
-      console.log('[E2EE] Đang nạp/tạo Sender Key...');
+    // 1. Đảm bảo có sender key của mình cho conversation này
+    let currentKey = mySenderKeysRef.current.get(conversationId);
+    if (!currentKey) {
+      console.log(`[E2EE] Đang nạp/tạo Sender Key cho conversation ${conversationId}...`);
       const stored = await saveOrLoadSenderKey(conversationId);
       if (stored) {
-        mySenderKeyRef.current = stored;
+        currentKey = stored;
       } else {
-        const newKey = await generateSenderKey();
-        await saveOrLoadSenderKey(conversationId, newKey);
-        mySenderKeyRef.current = newKey;
+        currentKey = await generateSenderKey();
+        await saveOrLoadSenderKey(conversationId, currentKey);
       }
-      setMySenderKey(mySenderKeyRef.current);
+      mySenderKeysRef.current.set(conversationId, currentKey);
+      setMySenderKey(currentKey);
       setKeyVersion(v => v + 1);
     }
 
-    if (!identityKeysRef.current || !mySenderKeyRef.current) {
+    if (!identityKeysRef.current || !currentKey) {
       toast.error('Hệ thống mã hóa chưa sẵn sàng. Vui lòng thử lại.');
       return;
     }
@@ -544,7 +546,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       let contentToSend = plaintext, ivToSend = '', sigToSend = '';
 
       if (effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text' || effectiveMessageType === 'PLAIN_SECURE') {
-        const encrypted = await encryptMessagePro(plaintext, mySenderKeyRef.current!, identityKeysRef.current.privateKey);
+        const encrypted = await encryptMessagePro(plaintext, currentKey!, identityKeysRef.current.privateKey);
         contentToSend = encrypted.content;
         ivToSend = encrypted.iv;
         sigToSend = encrypted.sig;

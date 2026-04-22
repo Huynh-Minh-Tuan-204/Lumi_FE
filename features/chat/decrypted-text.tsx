@@ -61,23 +61,31 @@ export function DecryptedText({
             }
             try {
                 const isMessageOwn = user && senderId === user.id;
-                // [FIX] If it's our own message but mySenderKey is null (after F5), try to recover it
                 let currentSenderKey = isMessageOwn ? mySenderKey : peerSenderKeys?.get(senderId);
                 let senderIdPubKey = isMessageOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderId);
                 
+                // [FIX 1] Always try to load the correct SenderKey for THIS conversation if it's our own message
+                // This handles the case where the global mySenderKey is for a different conversation or null after F5
                 if (message.conversationId) {
-                    if (isMessageOwn && !currentSenderKey) {
+                    if (isMessageOwn) {
+                        // If we don't have it or it's potentially from another conversation, try loading from DB
                         const stored = await saveOrLoadSenderKey(message.conversationId);
                         if (stored) currentSenderKey = stored;
-                    } else if (!isMessageOwn && !currentSenderKey) {
+                    } else if (!currentSenderKey) {
                         const stored = await saveOrLoadPeerSenderKey(message.conversationId, senderId);
                         if (stored) currentSenderKey = stored;
                     }
                 }
 
+                // [FIX 2] If identity public key is missing for peer, try loading from DB
                 if (!isMessageOwn && !senderIdPubKey) {
                     const stored = await saveOrLoadPeerIdentityKey(senderId);
                     if (stored) senderIdPubKey = stored;
+                }
+
+                // [FIX 3] If we still don't have keys, and we have identityKeys, we might need to load our own public key
+                if (isMessageOwn && !senderIdPubKey && identityKeys?.publicKey) {
+                    senderIdPubKey = identityKeys.publicKey;
                 }
 
                 if (!currentSenderKey || !senderIdPubKey) {
