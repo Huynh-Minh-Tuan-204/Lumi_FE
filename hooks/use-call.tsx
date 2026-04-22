@@ -226,13 +226,16 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
           console.log('[Call] Local stream ready:', localStreamRef.current ? 'YES' : 'NULL')
           members.forEach((member: any) => {
             const memberId = Number(member.userId || member.UserId)
-            const displayName = member.userName || member.DisplayName || member.fullName || 'User'
+            const displayName = member.displayName || member.userName || member.DisplayName || member.fullName || 'User'
+            
+            console.log(`[Call] Processing member ${memberId} (${displayName})`)
+            
             if (!user || memberId === user.id) return
             if (peersRef.current.has(memberId)) {
               console.log(`[Call] Already connected to ${memberId}, skipping`)
               return
             }
-            console.log(`[Call] Creating peer with member ${memberId} (${displayName})`)
+            
             const isPolite = user.id > memberId
             createPeerConnection(callId, memberId, displayName, isPolite)
           })
