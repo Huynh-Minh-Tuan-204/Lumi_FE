@@ -62,29 +62,28 @@ export function DecryptedText({
                 return;
             }
             try {
-                // Normalize IDs to numbers to prevent Map.get() type mismatch (string vs number)
-                const senderId = Number(message.senderId);
-                const conversationId = Number(message.conversationId);
-                const isMessageOwn = user && senderId === Number(user.id);
+                const senderIdNum = Number(message.senderId);
+                const conversationIdNum = Number(message.conversationId);
+                const isMessageOwn = user && senderIdNum === Number(user.id);
 
                 // For own messages: look up per-conversation key from the map (most accurate)
                 let currentSenderKey: CryptoKey | undefined;
                 if (isMessageOwn) {
-                    currentSenderKey = mySenderKeys?.get(conversationId) ?? mySenderKey ?? undefined;
+                    currentSenderKey = mySenderKeys?.get(conversationIdNum) ?? mySenderKey ?? undefined;
                 } else {
-                    currentSenderKey = peerSenderKeys?.get(`${conversationId}:${senderId}`);
+                    currentSenderKey = peerSenderKeys?.get(`${conversationIdNum}:${senderIdNum}`);
                 }
                 let senderIdPubKey: CryptoKey | undefined = isMessageOwn
                     ? identityKeys?.publicKey
-                    : peerIdentityKeys?.get(senderId);
+                    : peerIdentityKeys?.get(senderIdNum);
 
                 // IndexedDB fallback — covers cases where in-memory map was populated after this component mounted
-                if (conversationId) {
+                if (conversationIdNum) {
                     if (isMessageOwn && !currentSenderKey) {
-                        const stored = await saveOrLoadSenderKey(conversationId);
+                        const stored = await saveOrLoadSenderKey(conversationIdNum);
                         if (stored) currentSenderKey = stored;
                     } else if (!isMessageOwn && !currentSenderKey) {
-                        const stored = await saveOrLoadPeerSenderKey(conversationId, senderId);
+                        const stored = await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum);
                         if (stored) currentSenderKey = stored;
                     }
                 }
@@ -96,7 +95,7 @@ export function DecryptedText({
 
                 // Peer identity key from IndexedDB
                 if (!isMessageOwn && !senderIdPubKey) {
-                    const stored = await saveOrLoadPeerIdentityKey(senderId);
+                    const stored = await saveOrLoadPeerIdentityKey(senderIdNum);
                     if (stored) senderIdPubKey = stored;
                 }
 
@@ -131,8 +130,8 @@ export function DecryptedText({
                     setNeedsRestore(!isMessageOwn); // Only show restore prompt for peer messages
                     
                     // [AUTO-HANDSHAKE] Tự động yêu cầu khóa nếu chưa có public key và không phải tin nhắn của mình
-                    if (!isMessageOwn && !senderIdPubKey && initiateHandshake && conversationId) {
-                        initiateHandshake(conversationId).catch(() => {});
+                    if (!isMessageOwn && !senderIdPubKey && initiateHandshake && conversationIdNum) {
+                        initiateHandshake(conversationIdNum).catch(() => {});
                     }
                 }
             } catch (e) { 
@@ -141,7 +140,7 @@ export function DecryptedText({
             }
         };
         decrypt();
-    }, [message.id, message.encryptedContent, message.message, keyVersion]);
+    }, [message.id, message.encryptedContent, message.message, keyVersion, mySenderKey, mySenderKeys, peerSenderKeys]);
 
     // Show inline restore prompt when keys are missing
     if (needsRestore && !isOwn) {

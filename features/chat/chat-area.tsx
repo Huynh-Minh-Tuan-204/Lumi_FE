@@ -142,24 +142,27 @@ function DecryptedAttachment({
                 const isLegacy = !iv || iv === 'legacy-unencrypted';
 
                 if (!isLegacy && iv && sig) {
-                    const isOwn = user && Number(senderId) === Number(user.id);
+                    const senderIdNum = Number(senderId);
+                    const conversationIdNum = Number(conversationId);
+                    const isOwn = user && senderIdNum === Number(user.id);
+                    
                     let currentSenderKey = isOwn 
-                        ? (mySenderKeys?.get(conversationId!) ?? mySenderKey) 
-                        : peerSenderKeys.get(`${conversationId}:${senderId}`);
-                    let senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(Number(senderId));
+                        ? (mySenderKeys?.get(conversationIdNum) ?? mySenderKey) 
+                        : peerSenderKeys.get(`${conversationIdNum}:${senderIdNum}`);
+                    let senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderIdNum);
 
-                    if (conversationId) {
+                    if (conversationIdNum) {
                         if (isOwn && !currentSenderKey) {
-                            const stored = await saveOrLoadSenderKey(conversationId);
+                            const stored = await saveOrLoadSenderKey(conversationIdNum);
                             if (stored) currentSenderKey = stored;
                         } else if (!isOwn && !currentSenderKey) {
-                            const stored = await saveOrLoadPeerSenderKey(conversationId, senderId);
+                            const stored = await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum);
                             if (stored) currentSenderKey = stored;
                         }
                     }
 
                     if (!isOwn && !senderIdPubKey) {
-                        const stored = await saveOrLoadPeerIdentityKey(senderId);
+                        const stored = await saveOrLoadPeerIdentityKey(senderIdNum);
                         if (stored) senderIdPubKey = stored;
                     }
 
@@ -206,7 +209,7 @@ function DecryptedAttachment({
             cancelled = true;
             if (objectUrl) URL.revokeObjectURL(objectUrl);
         };
-    }, [attachment.id, mySenderKey, keyVersion]);
+    }, [attachment.id, mySenderKey, mySenderKeys, peerSenderKeys, keyVersion]);
 
     const isImg = attachment.mimeType?.startsWith('image/');
     if (loading) return (
