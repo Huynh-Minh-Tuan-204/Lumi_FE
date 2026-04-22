@@ -336,7 +336,11 @@ export default function ChatPage() {
       />
 
       {/* 2. Conversations Sidebar */}
-      <div className={cn("w-80 border-r shrink-0 h-full flex flex-col bg-background z-30")}>
+      <div className={cn(
+        "w-80 border-r shrink-0 h-full flex flex-col bg-background z-30 transition-all duration-300",
+        selectedId && "hidden md:flex", // Hide on mobile if chat is open
+        !selectedId && "flex w-full md:w-80" // Full width on mobile if no chat open
+      )}>
         <ChatSidebar 
           conversations={conversations}
           selectedConversation={selectedConversation}
@@ -347,11 +351,16 @@ export default function ChatPage() {
           onlineUsers={onlineUsers}
           unreadCounts={{}}
           onRefreshConversations={loadConversations}
+          isMobile={true}
         />
       </div>
 
       {/* 3. Main Chat Area */}
-      <main className="flex-1 h-full min-w-0 bg-background relative z-10 transition-all duration-300">
+      <main className={cn(
+        "flex-1 h-full min-w-0 bg-background relative z-10 transition-all duration-300",
+        !selectedId && "hidden md:block", // Hide on mobile if no chat selected
+        selectedId && "block"
+      )}>
         <ChatArea 
           conversation={selectedConversation}
           onBack={() => setSelectedId(null)}
@@ -360,6 +369,7 @@ export default function ChatPage() {
           onToggleSearch={() => setRightSidebar(prev => prev === 'search' ? null : 'search')}
           onToggleCalendar={() => setShowCreateEvent(true)}
           onRefreshConversations={loadConversations}
+          isMobile={true}
         />
       </main>
 

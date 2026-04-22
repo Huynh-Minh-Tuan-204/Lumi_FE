@@ -211,37 +211,38 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
 
       <main className="flex-1 flex min-h-0 relative">
         <section className="flex-1 p-6 relative overflow-hidden flex flex-col items-center justify-center">
-            {/* [Fix 5] Robust Flexible Tiling System */}
+            {/* [Fix 5] Robust CSS Grid Tiling System */}
             <div className="flex-1 w-full h-full p-4 flex items-center justify-center overflow-hidden">
-                <div className={cn(
-                    "flex flex-wrap gap-4 items-center justify-center w-full max-w-7xl mx-auto overflow-y-auto max-h-full scrollbar-hide py-4"
-                )}>
-                    {allStreams.map((p) => {
-                        // Dynamic width based on peer count
-                        const widthClass = activePeers === 1 ? 'w-full max-w-5xl' :
-                                         activePeers === 2 ? 'w-full md:w-[calc(50%-1rem)]' :
-                                         activePeers <= 4 ? 'w-[calc(50%-1rem)]' :
-                                         'w-[calc(50%-1rem)] md:w-[calc(33.33%-1rem)]';
-
-                        return (
-                            <div
-                                key={p.id}
-                                className={cn(
-                                    'relative rounded-2xl overflow-hidden bg-[#121212] border border-white/5 shadow-2xl transition-all duration-500 aspect-video group',
-                                    widthClass
-                                )}
-                            >
-                                <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
-                                
-                                {!p.isLocal && !p.stream && (
-                                    <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 animate-pulse">
-                                        <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-                                        <p className="text-[10px] font-black text-primary uppercase tracking-widest">Đang kết nối...</p>
-                                    </div>
-                                )}
-                            </div>
-                        )
-                    })}
+                <div 
+                    className="grid gap-4 w-full h-full max-w-7xl mx-auto items-center justify-center content-center overflow-y-auto scrollbar-hide py-4"
+                    style={{
+                        gridTemplateColumns: `repeat(${
+                            activePeers === 1 ? 1 : 
+                            activePeers === 2 ? (isMobile ? 1 : 2) : 
+                            activePeers <= 4 ? 2 : 
+                            activePeers <= 6 ? 3 : 4
+                        }, minmax(0, 1fr))`,
+                        gridAutoRows: 'min-content'
+                    }}
+                >
+                    {allStreams.map((p) => (
+                        <div
+                            key={p.id}
+                            className={cn(
+                                'relative rounded-2xl overflow-hidden bg-[#121212] border border-white/5 shadow-2xl transition-all duration-500 aspect-video group w-full',
+                                activePeers === 1 && "max-w-5xl mx-auto"
+                            )}
+                        >
+                            <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
+                            
+                            {!p.isLocal && !p.stream && (
+                                <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 animate-pulse">
+                                    <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">Đang kết nối...</p>
+                                </div>
+                            )}
+                        </div>
+                    ))}
                 </div>
             </div>
 
