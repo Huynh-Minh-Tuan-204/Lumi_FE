@@ -298,7 +298,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                } catch (e) { displayContent = "🚨 [Lỗi giải mã E2EE]"; }
             } else {
                displayContent = "⏳ [Đang đợi bắt tay hoặc khôi phục khóa...]";
-               if (conversationId) initiateE2EEHandshake(conversationId);
             }
         }
       }
