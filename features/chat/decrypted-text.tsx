@@ -47,8 +47,6 @@ export function DecryptedText({
             let iv = message.iv || message.Iv || message.IV;
             let sig = message.signature || message.sig || message.Signature || message.Sig;
 
-            // Diagnostic Log (can be removed later)
-            console.log(`[E2EE Debug] Msg ${message.id}: iv=${!!iv}, sig=${!!sig}, contentLen=${content?.length}`);
 
             // [FIX] Handle legacy format where sig is appended to iv with |
             if (iv && typeof iv === 'string' && iv.includes('|') && !sig) {
@@ -83,7 +81,7 @@ export function DecryptedText({
                 }
 
                 if (!currentSenderKey || !senderIdPubKey) {
-                    console.error(`🔴 [E2EE Error] Missing keys for Decryption! MsgId=${message.id}, isOwn=${isMessageOwn}, hasSenderKey=${!!currentSenderKey}, hasPubKey=${!!senderIdPubKey}`);
+                    console.warn(`[E2EE Info] Waiting for keys to decrypt MsgId=${message.id}. isOwn=${isMessageOwn}, hasSenderKey=${!!currentSenderKey}, hasPubKey=${!!senderIdPubKey}`);
                 }
 
                 if (iv && sig && currentSenderKey && senderIdPubKey) {

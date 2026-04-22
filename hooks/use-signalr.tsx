@@ -268,8 +268,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }
 
       setLastMessage({
-        id, conversationId, senderId, sender: senderName, message: displayContent,
-        iv, messageType, stickerUrl, isPinned, time: new Date(createdAt),
+        id, conversationId, senderId, sender: senderName, message: displayContent, content: content,
+        iv, sig, messageType, stickerUrl, isPinned, time: new Date(createdAt),
         attachments: attachments || [], isSystem: false, avatarPath, parentMessageId
       });
     });
