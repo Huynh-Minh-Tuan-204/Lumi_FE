@@ -105,13 +105,12 @@ export function DecryptedText({
                         const result = await decryptMessagePro(content, iv, sig, currentSenderKey, senderIdPubKey);
                         setDecrypted(result);
                         setNeedsRestore(false);
-                    } catch (e) {
-                        console.error('Decryption failed:', e);
+                        console.warn('Lỗi giải mã (thường do khóa cũ):', e);
                         const errorCode = (e as any)?.code || (e as any)?.name;
                         if (errorCode === 'SIG_INVALID') {
                             setDecrypted('⚠️ [Không xác thực được chữ ký – Có thể sai khóa nhận dạng]');
                         } else if (errorCode === 'OperationError') {
-                            setDecrypted('🔑 [Khóa giải mã không khớp – Tin nhắn từ phiên cũ]');
+                            setDecrypted('🔑 [Tin nhắn được bảo mật từ phiên làm việc trước]');
                         } else {
                             setDecrypted('❌ [Lỗi giải mã không xác định]');
                         }

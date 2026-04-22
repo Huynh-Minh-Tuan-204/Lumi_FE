@@ -155,7 +155,14 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) return;
+    if (connectionRef.current) {
+        const state = connectionRef.current.state;
+        if (state === signalR.HubConnectionState.Connected || 
+            state === signalR.HubConnectionState.Connecting || 
+            state === signalR.HubConnectionState.Reconnecting) {
+            return;
+        }
+    }
 
     const fetchHistory = async () => {
       try {
