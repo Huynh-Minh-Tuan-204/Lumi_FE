@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useRef, useCallback, useEff
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
 import { CallSignalR } from '@/lib/call-signalr'
+import * as signalR from '@microsoft/signalr'
 import { UserPeer, PeerState, CallContextType } from '@/types/call.types'
 import { RTC_FALLBACK_CONFIG as RTC_CONFIG } from '@/constants/call.constants'
 
@@ -178,7 +179,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setIsMuted(!hasMic)
 
     try {
-      const signalR = new CallSignalR({
+      const signalRClient = new CallSignalR({
         onUserJoined: async (_connId, remoteUserId, displayName) => {
           if (remoteUserId === user.id) return
           const isPolite = user.id > remoteUserId
@@ -207,7 +208,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
           if (offer.type === 'offer') {
             await pc.setLocalDescription()
-            await signalR.sendAnswer(callId, fromUserId, pc.localDescription!)
+            await signalRClient.sendAnswer(callId, fromUserId, pc.localDescription!)
           }
         },
         onReceiveAnswer: async (answer, fromUserId) => {
@@ -249,12 +250,12 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         }
       })
 
-      signalRRef.current = signalR
-      await signalR.connect(token)
+      signalRRef.current = signalRClient
+      await signalRClient.connect(token)
 
       // [Fix 1.1] Fetch ICE servers with filtering and debug log
       try {
-        const servers = await signalR.getIceServers()
+        const servers = await signalRClient.getIceServers()
         console.log('[WebRTC] Raw ICE Servers from server:', JSON.stringify(servers))
 
         const normalized: RTCIceServer[] = (servers || [])
@@ -282,7 +283,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Join AFTER stream is assigned and ICE servers are ready
-      await signalR.joinCall(callId)
+      await signalRClient.joinCall(callId)
     } catch (err) {
       console.error('[Call] Join call setup failed', err)
       // Don't re-throw – clean up state instead
