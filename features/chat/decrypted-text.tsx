@@ -37,7 +37,8 @@ export function DecryptedText({
 
     useEffect(() => {
         const decrypt = async () => {
-            if (message.messageType !== 'PLAIN' && message.messageType !== 'Text' && message.messageType !== 'PLAIN_SECURE' && message.messageType) {
+            // Relaxed type check: if messageType is corrupted (e.g. contains the signature base64), it will be long.
+            if (message.messageType && !['PLAIN', 'Text', 'PLAIN_SECURE'].includes(message.messageType) && message.messageType.length < 20) {
                 setDecrypted(message.content || message.encryptedContent || message.message || "");
                 return;
             }

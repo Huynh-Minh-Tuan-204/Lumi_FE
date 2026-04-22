@@ -555,8 +555,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         'SendMessageSecure',
         conversationId,
         contentToSend,
-        ivToSend,
-        sigToSend,
+        ivToSend && sigToSend ? `${ivToSend}|${sigToSend}` : ivToSend,
         effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text' ? 'PLAIN_SECURE' : effectiveMessageType,
         parentMessageId || 0,
         clientMessageId
