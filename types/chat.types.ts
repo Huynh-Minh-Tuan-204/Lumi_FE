@@ -47,6 +47,7 @@ export interface SignalRHookReturn {
   initiateE2EEHandshake: (conversationId: number) => Promise<void>
   hideMessageForMe: (messageId: number) => Promise<void>
   mySenderKey: CryptoKey | null
+  mySenderKeys: Map<number, CryptoKey>
   peerSenderKeys: Map<number, CryptoKey>
   peerIdentityKeys: Map<number, CryptoKey>
   identityKeys: CryptoKeyPair | null

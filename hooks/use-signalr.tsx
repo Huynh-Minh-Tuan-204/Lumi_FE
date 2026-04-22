@@ -690,6 +690,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         initiateE2EEHandshake,
         onTriggeredReminder: (cb: any) => { },
         mySenderKey,
+        mySenderKeys: mySenderKeysRef.current,
         peerSenderKeys: peerSenderKeysRef.current,
         peerIdentityKeys: peerIdentityKeysRef.current,
         identityKeys: identityKeysRef.current,

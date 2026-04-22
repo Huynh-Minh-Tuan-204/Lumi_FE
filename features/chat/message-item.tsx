@@ -11,6 +11,7 @@ interface MessageItemProps {
   isOwn: boolean
   user: any
   mySenderKey: any
+  mySenderKeys: Map<number, any>
   peerSenderKeys: Map<number, any>
   peerIdentityKeys: Map<number, any>
   identityKeys: any
@@ -27,6 +28,7 @@ export function MessageItem({
   isOwn,
   user,
   mySenderKey,
+  mySenderKeys,
   peerSenderKeys,
   peerIdentityKeys,
   identityKeys,
@@ -47,7 +49,8 @@ export function MessageItem({
             <DecryptedText 
               message={message} 
               user={user} 
-              mySenderKey={mySenderKey} 
+              mySenderKey={mySenderKey}
+              mySenderKeys={mySenderKeys}
               peerSenderKeys={peerSenderKeys} 
               peerIdentityKeys={peerIdentityKeys} 
               identityKeys={identityKeys} 

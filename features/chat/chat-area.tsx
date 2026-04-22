@@ -282,7 +282,8 @@ export function ChatArea({
     activeMeeting, 
     initiateE2EEHandshake, 
     hideMessageForMe, 
-    mySenderKey, 
+    mySenderKey,
+    mySenderKeys,
     peerSenderKeys, 
     peerIdentityKeys, 
     identityKeys, 
@@ -522,7 +523,7 @@ export function ChatArea({
                 <Pin className="h-3.5 w-3.5 text-primary fill-primary" />
                 <div className="flex-1 min-w-0">
                    <p className="text-[9px] font-black uppercase text-primary/60 mb-0.5 tracking-widest">TIN NHẮN GHIM</p>
-                   <div className="text-xs font-bold truncate opacity-90"><span className="text-primary">{latestPin.senderName}:</span> <DecryptedText message={latestPin} user={user} mySenderKey={mySenderKey} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} isOwn={latestPin.senderId === user?.id} keyVersion={keyVersion} /></div>
+                   <div className="text-xs font-bold truncate opacity-90"><span className="text-primary">{latestPin.senderName}:</span> <DecryptedText message={latestPin} user={user} mySenderKey={mySenderKey} mySenderKeys={mySenderKeys} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} isOwn={latestPin.senderId === user?.id} keyVersion={keyVersion} /></div>
                 </div>
              </div>
              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}><ChevronDown className={cn("h-4 w-4 transition-transform", isPinnedListExpanded && "rotate-180")} /></Button>
@@ -563,6 +564,7 @@ export function ChatArea({
                 isOwn={isOwn}
                 user={user}
                 mySenderKey={mySenderKey}
+                mySenderKeys={mySenderKeys}
                 peerSenderKeys={peerSenderKeys}
                 peerIdentityKeys={peerIdentityKeys}
                 identityKeys={identityKeys}

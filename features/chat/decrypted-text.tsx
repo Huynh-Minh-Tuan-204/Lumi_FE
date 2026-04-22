@@ -11,6 +11,7 @@ interface DecryptedTextProps {
   message: any
   user: any
   mySenderKey: any
+  mySenderKeys: Map<number, any>
   peerSenderKeys: Map<number, any>
   peerIdentityKeys: Map<number, any>
   identityKeys: any
@@ -23,7 +24,8 @@ interface DecryptedTextProps {
 export function DecryptedText({ 
     message, 
     user, 
-    mySenderKey, 
+    mySenderKey,
+    mySenderKeys,
     peerSenderKeys, 
     peerIdentityKeys, 
     identityKeys,
@@ -60,27 +62,39 @@ export function DecryptedText({
                 return;
             }
             try {
-                const isMessageOwn = user && senderId === user.id;
-                let currentSenderKey = isMessageOwn ? mySenderKey : peerSenderKeys?.get(senderId);
-                let senderIdPubKey = isMessageOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderId);
+                // Normalize IDs to numbers to prevent Map.get() type mismatch (string vs number)
+                const senderId = Number(message.senderId);
+                const conversationId = Number(message.conversationId);
+                const isMessageOwn = user && senderId === Number(user.id);
 
-                if (message.conversationId) {
+                // For own messages: look up per-conversation key from the map (most accurate)
+                let currentSenderKey: CryptoKey | undefined;
+                if (isMessageOwn) {
+                    currentSenderKey = mySenderKeys?.get(conversationId) ?? mySenderKey ?? undefined;
+                } else {
+                    currentSenderKey = peerSenderKeys?.get(senderId);
+                }
+                let senderIdPubKey: CryptoKey | undefined = isMessageOwn
+                    ? identityKeys?.publicKey
+                    : peerIdentityKeys?.get(senderId);
+
+                // IndexedDB fallback — covers cases where in-memory map was populated after this component mounted
+                if (conversationId) {
                     if (isMessageOwn && !currentSenderKey) {
-                        // Exact lookup by conversationId. Do NOT fall back to another conversation's key.
-                        const stored = await saveOrLoadSenderKey(message.conversationId);
+                        const stored = await saveOrLoadSenderKey(conversationId);
                         if (stored) currentSenderKey = stored;
                     } else if (!isMessageOwn && !currentSenderKey) {
-                        const stored = await saveOrLoadPeerSenderKey(message.conversationId, senderId);
+                        const stored = await saveOrLoadPeerSenderKey(conversationId, senderId);
                         if (stored) currentSenderKey = stored;
                     }
                 }
 
-                // For own messages: always use our own identity public key for signature verification
+                // Own identity key for signature verification
                 if (isMessageOwn && !senderIdPubKey && identityKeys?.publicKey) {
                     senderIdPubKey = identityKeys.publicKey;
                 }
 
-                // For peer messages: try loading identity key from IndexedDB
+                // Peer identity key from IndexedDB
                 if (!isMessageOwn && !senderIdPubKey) {
                     const stored = await saveOrLoadPeerIdentityKey(senderId);
                     if (stored) senderIdPubKey = stored;
