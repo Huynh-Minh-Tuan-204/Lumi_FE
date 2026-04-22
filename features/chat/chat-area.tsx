@@ -143,7 +143,9 @@ function DecryptedAttachment({
 
                 if (!isLegacy && iv && sig) {
                     const isOwn = user && Number(senderId) === Number(user.id);
-                    let currentSenderKey = isOwn ? (mySenderKeys?.get(conversationId!) ?? mySenderKey) : peerSenderKeys.get(Number(senderId));
+                    let currentSenderKey = isOwn 
+                        ? (mySenderKeys?.get(conversationId!) ?? mySenderKey) 
+                        : peerSenderKeys.get(`${conversationId}:${senderId}`);
                     let senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(Number(senderId));
 
                     if (conversationId) {
@@ -629,7 +631,7 @@ export function ChatArea({
           <div className="flex items-center justify-between bg-muted/40 rounded-xl p-2 px-3 border-l-2 border-primary">
              <div className="flex items-center gap-3 min-w-0">
                 <Reply className="h-3 w-3 text-primary opacity-60 shrink-0" />
-                <div className="min-w-0"><p className="text-[9px] font-black uppercase text-primary">Đang trả lời {replyingTo.senderName}</p><p className="text-xs truncate opacity-60 italic">{replyingTo.encryptedContent}</p></div>
+                <div className="min-w-0"><p className="text-[9px] font-black uppercase text-primary">Đang trả lời {replyingTo.senderName}</p><p className="text-xs truncate opacity-60 italic">{replyingTo.messageType === 'PLAIN_SECURE' || replyingTo.messageType === 'PLAIN' ? '🔒 [Tin nhắn mã hóa]' : replyingTo.encryptedContent}</p></div>
              </div>
              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full shrink-0" onClick={() => setReplyingTo(null)}><X className="h-3.5 w-3.5" /></Button>
           </div>

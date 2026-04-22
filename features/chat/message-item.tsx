@@ -12,7 +12,7 @@ interface MessageItemProps {
   user: any
   mySenderKey: any
   mySenderKeys: Map<number, any>
-  peerSenderKeys: Map<number, any>
+  peerSenderKeys: Map<string, any>
   peerIdentityKeys: Map<number, any>
   identityKeys: any
   initiateHandshake: (cid: number) => Promise<void>

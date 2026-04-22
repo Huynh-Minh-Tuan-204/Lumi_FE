@@ -50,6 +50,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const [lastScheduleUpdate, setLastScheduleUpdate] = useState<{ type: 'created' | 'status' | 'deleted', data: any } | null>(null)
   const [lastUserLeft, setLastUserLeft] = useState<number | null>(null)
   const [activeMeeting, setActiveMeeting] = useState<{ meetingId: string; conversationId: number; title: string; callType: string; hostName: string } | null>(null)
+  const [lastAddedConversationId, setLastAddedConversationId] = useState<number | null>(null);
   const [identityKeys, setIdentityKeys] = useState<CryptoKeyPair | null>(null);
   const [myRSAKeys, setMyRSAKeys] = useState<CryptoKeyPair | null>(null);
   const identityKeysRef = useRef<CryptoKeyPair | null>(null);
@@ -462,6 +463,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       setLastGroupUpdate({ conversationId, avatarPath: avatarWithCache, backgroundPath: bgWithCache })
     })
 
+    connection.on('AddedToConversation', (conversationId: number) => {
+        connection.invoke('JoinGroup', conversationId).catch(() => {});
+        setLastAddedConversationId(conversationId);
+    })
+
     connection.on('UserUpdated', (userId: number, avatarPath: string) => {
       const pathWithTime = `${avatarPath}?v=${Date.now()}`
       setLastUserUpdate({ userId, avatarPath: pathWithTime })
@@ -715,6 +721,7 @@ await connectionRef.current.invoke(
           } catch (e) { }
         },
         pinnedMessages,
+        lastAddedConversationId,
         lastDeletedMessage,
         lastScheduleUpdate,
         lastUserLeft,

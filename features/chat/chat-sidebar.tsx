@@ -73,7 +73,7 @@ export function ChatSidebar({
   onRefreshConversations,
 }: ChatSidebarProps) {
   const { token } = useAuth()
-  const { lastLeftConversationId } = useSignalR() as any
+  const { lastLeftConversationId, lastAddedConversationId } = useSignalR() as any
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterMode, setFilterMode] = useState<'all' | 'unread'>('all')
@@ -91,6 +91,12 @@ export function ChatSidebar({
       setConversations(prev => prev.filter(c => c.id !== lastLeftConversationId));
     }
   }, [lastLeftConversationId]);
+
+  useEffect(() => {
+    if (lastAddedConversationId && onRefreshConversations) {
+        onRefreshConversations();
+    }
+  }, [lastAddedConversationId, onRefreshConversations]);
 
   const uniqueConversations = useMemo(() => {
     const seen = new Set();
