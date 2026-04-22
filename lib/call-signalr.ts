@@ -115,49 +115,74 @@ export class CallSignalR {
     this.connection = null
   }
 
+  private async invokeSafe(methodName: string, ...args: any[]): Promise<void> {
+    if (!this.connection) return
+    
+    // If starting, wait for it
+    if (this.startPromise) {
+        try { await this.startPromise } catch {}
+    }
+
+    if (this.connection.state !== signalR.HubConnectionState.Connected) {
+        // Log and wait a bit if it's connecting/reconnecting
+        if (this.connection.state === signalR.HubConnectionState.Connecting || 
+            this.connection.state === signalR.HubConnectionState.Reconnecting) {
+            console.warn(`[SignalR] Waiting for connection before ${methodName}...`)
+            await new Promise(r => setTimeout(r, 500))
+        }
+        
+        if (this.connection.state !== signalR.HubConnectionState.Connected) {
+            console.error(`[SignalR] Cannot invoke ${methodName}: State is ${this.connection.state}`)
+            return
+        }
+    }
+
+    try {
+        await this.connection.invoke(methodName, ...args)
+    } catch (err) {
+        console.error(`[SignalR] Invoke ${methodName} failed:`, err)
+    }
+  }
+
   async joinCall(callId: string): Promise<void> {
-    if (!this.isConnected) return
-    await this.connection?.invoke('JoinCall', callId)
+    await this.invokeSafe('JoinCall', callId)
   }
 
   async leaveCall(callId: string): Promise<void> {
-    if (!this.connection) throw new Error('SignalR not connected')
-    await this.connection.invoke('LeaveCall', callId).catch(() => undefined)
+    await this.invokeSafe('LeaveCall', callId)
   }
 
   async sendOffer(callId: string, targetUserId: number, offer: RTCSessionDescriptionInit): Promise<void> {
-    if (!this.isConnected) return
-    await this.connection?.invoke('SendOffer', callId, targetUserId, offer)
+    await this.invokeSafe('SendOffer', callId, targetUserId, offer)
   }
 
   async sendAnswer(callId: string, targetUserId: number, answer: RTCSessionDescriptionInit): Promise<void> {
-    if (!this.isConnected) return
-    await this.connection?.invoke('SendAnswer', callId, targetUserId, answer)
+    await this.invokeSafe('SendAnswer', callId, targetUserId, answer)
   }
 
   async sendIceCandidate(callId: string, targetUserId: number, candidate: RTCIceCandidateInit): Promise<void> {
-    if (!this.isConnected) return
-    await this.connection?.invoke('SendIceCandidate', callId, targetUserId, candidate)
+    await this.invokeSafe('SendIceCandidate', callId, targetUserId, candidate)
   }
 
   async requestJoin(meetingId: number): Promise<void> {
-    if (!this.isConnected) return
-    await this.connection?.invoke('RequestJoin', meetingId)
+    await this.invokeSafe('RequestJoin', meetingId)
   }
 
   async acceptJoinRequest(meetingId: number, attendeeId: number): Promise<void> {
-    if (!this.isConnected) return
-    await this.connection?.invoke('AcceptJoinRequest', meetingId, attendeeId)
+    await this.invokeSafe('AcceptJoinRequest', meetingId, attendeeId)
   }
 
   async declineJoinRequest(meetingId: number, attendeeId: number): Promise<void> {
-    if (!this.isConnected) return
-    await this.connection?.invoke('DeclineJoinRequest', meetingId, attendeeId)
+    await this.invokeSafe('DeclineJoinRequest', meetingId, attendeeId)
   }
 
   async getIceServers(): Promise<RTCIceServer[]> {
     if (!this.isConnected) return []
-    return await this.connection?.invoke('GetIceServers')
+    try {
+        return await this.connection!.invoke('GetIceServers')
+    } catch {
+        return []
+    }
   }
 }
 

@@ -211,26 +211,24 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
 
       <main className="flex-1 flex min-h-0 relative">
         <section className="flex-1 p-6 relative overflow-hidden flex flex-col items-center justify-center">
-            {/* [Fix 5] Adaptive Video Grid */}
-            {(() => {
-                const { gridClass, maxW, aspect } = getGridConfig(activePeers)
-                // Center the last item if we have 3 or odd members in a 2-col layout
-                const isCenteredLast = activePeers === 3 || (activePeers > 1 && activePeers % 2 !== 0 && gridClass.includes('grid-cols-2'))
+            {/* [Fix 5] Robust Flexible Tiling System */}
+            <div className="flex-1 w-full h-full p-4 flex items-center justify-center overflow-hidden">
+                <div className={cn(
+                    "flex flex-wrap gap-4 items-center justify-center w-full max-w-7xl mx-auto overflow-y-auto max-h-full scrollbar-hide py-4"
+                )}>
+                    {allStreams.map((p) => {
+                        // Dynamic width based on peer count
+                        const widthClass = activePeers === 1 ? 'w-full max-w-5xl' :
+                                         activePeers === 2 ? 'w-full md:w-[calc(50%-1rem)]' :
+                                         activePeers <= 4 ? 'w-[calc(50%-1rem)]' :
+                                         'w-[calc(50%-1rem)] md:w-[calc(33.33%-1rem)]';
 
-                return (
-                    <div className={cn(
-                        'grid gap-4 w-full h-full items-center justify-center p-4 mx-auto content-center',
-                        maxW, gridClass
-                    )}>
-                    {allStreams.map((p, idx) => {
-                        const isLastAndCentered = isCenteredLast && idx === allStreams.length - 1
                         return (
                             <div
                                 key={p.id}
                                 className={cn(
-                                    'relative w-full rounded-2xl overflow-hidden bg-[#121212] border border-white/5 shadow-2xl transition-all duration-500',
-                                    aspect,
-                                    isLastAndCentered && 'col-span-2 md:col-span-1 md:col-start-1 md:translate-x-1/2 lg:translate-x-0'
+                                    'relative rounded-2xl overflow-hidden bg-[#121212] border border-white/5 shadow-2xl transition-all duration-500 aspect-video group',
+                                    widthClass
                                 )}
                             >
                                 <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
@@ -245,8 +243,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                         )
                     })}
                 </div>
-                )
-            })()}
+            </div>
 
             {/* PIP / Corner Overlays for a "Premium" look if side panel is open */}
             {sidebarType && activePeers > 1 && (
