@@ -407,6 +407,7 @@ export function ChatArea({
           encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || "",
           iv: m.iv || m.Iv || m.IV,
           sig: m.sig || m.Signature || m.Sig || m.signature,
+          conversationId: m.conversationId || m.ConversationId || conversation?.id,
           createdAt: m.createdAt || m.CreatedAt || new Date().toISOString(),
           isPinned: m.isPinned || m.IsPinned, attachments: m.attachments || m.Attachments || []
         })).sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()))

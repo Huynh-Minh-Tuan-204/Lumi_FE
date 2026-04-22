@@ -392,8 +392,8 @@ export async function backupKeysToPin(pin: string): Promise<{
             const cursor = req.result;
             if (!cursor) { resolve(); return; }
             const alias = cursor.key as string;
-            // Chỉ backup SenderKeys của chính mình
-            if (alias.startsWith(MY_SENDER_KEY_ALIAS + ':')) {
+            // Backup TẤT CẢ các khóa (kể cả peer keys) để có thể đọc tin nhắn cũ ngay lập tức sau khi restore
+            if (alias !== IDENTITY_KEY_ALIAS && alias !== 'EphemeralRSAKey') {
                 keysToExport.push({ alias, key: cursor.value as CryptoKey });
             }
             cursor.continue();
@@ -514,13 +514,24 @@ export async function restoreKeysFromPin(
     const senderKeys: Record<string, any> = bundle.senderKeys || {};
     for (const [alias, keyData] of Object.entries(senderKeys)) {
         try {
-            const key = await window.crypto.subtle.importKey(
-                isV3 ? 'jwk' : 'raw',
-                isV3 ? keyData : base64ToBuffer(keyData as string),
-                { name: 'AES-GCM' },
-                true,
-                ['encrypt', 'decrypt']
-            );
+            let key: CryptoKey;
+            if (alias.startsWith(PEER_IDENTITY_KEY_ALIAS + ':')) {
+                key = await window.crypto.subtle.importKey(
+                    isV3 ? 'jwk' : 'raw',
+                    isV3 ? keyData : base64ToBuffer(keyData as string),
+                    { name: 'ECDSA', namedCurve: 'P-256' },
+                    true,
+                    ['verify']
+                );
+            } else {
+                key = await window.crypto.subtle.importKey(
+                    isV3 ? 'jwk' : 'raw',
+                    isV3 ? keyData : base64ToBuffer(keyData as string),
+                    { name: 'AES-GCM' },
+                    true,
+                    ['encrypt', 'decrypt']
+                );
+            }
             await saveKey(alias, key);
         } catch { /* skip corrupted keys */ }
     }
