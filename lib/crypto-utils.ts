@@ -245,18 +245,30 @@ export async function decryptMessagePro(
         const isValid = await verifySignature(contentBase64, sigBase64, senderIdentityPubKey);
         if (!isValid) return "🚨 [CẢNH BÁO: Tin nhắn bị giả mạo hoặc sai chữ ký!]";
 
+        const ciphertextBuffer = base64ToBuffer(contentBase64);
+        const ivBuffer = base64ToBuffer(ivBase64);
+        
+        console.log(`[Decrypt Debug] Ciphertext length: ${ciphertextBuffer.byteLength}, IV length: ${ivBuffer.byteLength}`);
+
+        if (ivBuffer.byteLength !== 12) {
+            throw new Error("Độ dài IV AES-GCM không hợp lệ");
+        }
+
         // 2. AES-GCM Authenticated Decryption
         // Web Crypto will automatically verify the tag. If bit-flipped, it throws an error.
         const decrypted = await window.crypto.subtle.decrypt(
-            { name: "AES-GCM", iv: base64ToBuffer(ivBase64) },
+            { name: "AES-GCM", iv: ivBuffer },
             senderKey,
-            base64ToBuffer(contentBase64)
+            ciphertextBuffer
         );
 
         return new TextDecoder().decode(decrypted);
-    } catch (e) {
+    } catch (e: any) {
         // GCM Error - likely auth tag mismatch (Integrity violation)
         console.error("AES-GCM Auth Tag validation failed!", e);
+        if (e.name === 'OperationError') {
+            return "🚨 [Lỗi: Sai khóa giải mã hoặc dữ liệu bị can thiệp]";
+        }
         return "🚨 [Tin nhắn bị giả mạo: Xác thực dữ liệu thất bại!]";
     }
 }
@@ -301,7 +313,8 @@ export function bufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
 export function base64ToBuffer(base64: string): ArrayBuffer {
     if (!base64 || typeof base64 !== 'string') return new ArrayBuffer(0);
     try {
-        const binary = atob(base64);
+        const cleanBase64 = base64.trim().replace(/\s/g, '');
+        const binary = atob(cleanBase64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         return bytes.buffer;

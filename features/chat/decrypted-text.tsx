@@ -82,6 +82,10 @@ export function DecryptedText({
                     if (stored) senderIdPubKey = stored;
                 }
 
+                if (!currentSenderKey || !senderIdPubKey) {
+                    console.error(`🔴 [E2EE Error] Missing keys for Decryption! MsgId=${message.id}, isOwn=${isMessageOwn}, hasSenderKey=${!!currentSenderKey}, hasPubKey=${!!senderIdPubKey}`);
+                }
+
                 if (iv && sig && currentSenderKey && senderIdPubKey) {
                     try {
                         const result = await decryptMessagePro(content, iv, sig, currentSenderKey, senderIdPubKey);
