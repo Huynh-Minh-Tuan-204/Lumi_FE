@@ -42,6 +42,8 @@ export interface MessageResponse {
     iv?: string
     signature?: string
   }>
+  metadata?: string
+  Metadata?: string
 }
 
 export const conversationsApi = {
@@ -50,6 +52,9 @@ export const conversationsApi = {
 
   getMessages: (token: string, conversationId: number) =>
     request<MessageResponse[]>(`/Conversations/${conversationId}/messages`, { token }),
+
+  getMembers: (token: string, id: number) =>
+    request<any[]>(`/Conversations/${id}/members`, { token }),
 
   markConversationRead: (token: string, conversationId: number) =>
     request<void>(`/Conversations/${conversationId}/read`, {

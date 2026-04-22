@@ -108,3 +108,12 @@ export const adminApi = {
     }),
 }
 
+
+export const usersApi = {
+  updatePublicKey: (token: string, data: { publicKey?: string, rsaPublicKey?: string }) =>
+    request<void>('/Users/me/public-key', {
+      method: 'PUT',
+      token,
+      body: JSON.stringify(data),
+    }),
+}

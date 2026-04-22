@@ -15,6 +15,7 @@ interface MessageItemProps {
   peerSenderKeys: Map<string, any>
   peerIdentityKeys: Map<number, any>
   identityKeys: any
+  myRSAKeys: any
   initiateHandshake: (cid: number) => Promise<void>
   onJoinMeeting: (meetingId: string) => void
   togglePinMessage: (messageId: number) => void
@@ -32,6 +33,7 @@ export function MessageItem({
   peerSenderKeys,
   peerIdentityKeys,
   identityKeys,
+  myRSAKeys,
   initiateHandshake,
   onJoinMeeting,
   togglePinMessage,
@@ -54,6 +56,7 @@ export function MessageItem({
               peerSenderKeys={peerSenderKeys} 
               peerIdentityKeys={peerIdentityKeys} 
               identityKeys={identityKeys} 
+              myRSAKeys={myRSAKeys}
               initiateHandshake={initiateHandshake} 
               onJoinMeeting={onJoinMeeting} 
               isOwn={isOwn} 

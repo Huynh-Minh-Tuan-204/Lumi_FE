@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useState, createContext, useContext } f
 import * as signalR from '@microsoft/signalr'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
-import { announcementsApi } from '@/lib/api'
+import { announcementsApi, usersApi, conversationsApi } from '@/lib/api'
 import { ChatMessage, SignalRHookReturn } from '@/types/chat.types'
 import { HUB_URL } from '@/constants/api.constants'
 import { 
@@ -116,6 +116,18 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
           setIsKeysLoaded(true);
           setKeyVersion(v => v + 1);
+
+          // 5. [PRE-KEY] Tự động đẩy Public Keys lên Server nếu chưa có
+          if (token && idKeys && rsaKeys) {
+            const idPubKeyB64 = await exportIdentityPublicKey(idKeys.publicKey);
+            const rsaPubKeyB64 = await exportPublicKey(rsaKeys.publicKey);
+            
+            // Chỉ đẩy lên nếu thực sự có thay đổi hoặc định kỳ (ở đây ta cứ đẩy 1 lần khi load app)
+            usersApi.updatePublicKey(token, { 
+                publicKey: idPubKeyB64, 
+                rsaPublicKey: rsaPubKeyB64 
+            }).catch(e => console.warn("[E2EE] Failed to update public keys on server:", e));
+          }
         } catch (e) {
           console.warn("[E2EE] Key preloading failed:", e);
           // Still set loaded to true to allow connection if some keys failed
@@ -286,7 +298,29 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       let displayContent = content; // Mặc định là content gốc
       
       // 2. Logic giải mã thông minh
-      if (messageType === 'PLAIN' || !messageType || messageType === 'Text') {
+      if (messageType === 'PLAIN' || !messageType || messageType === 'Text' || messageType === 'PLAIN_SECURE') {
+        
+        // [PRE-KEY] Kiểm tra xem trong metadata có chìa khóa cho mình không
+        if (data.metadata) {
+            try {
+                const meta = JSON.parse(data.metadata);
+                if (meta.keys && meta.keys[userRef.current?.id] && myRSAKeysRef.current) {
+                    const encryptedKeyForMe = meta.keys[userRef.current.id];
+                    const senderIdNum = Number(senderId);
+                    const conversationIdNum = Number(conversationId);
+                    
+                    // Nếu chưa có khóa của người này cho hội thoại này, hãy giải mã và lưu lại
+                    if (!peerSenderKeysRef.current.has(`${conversationIdNum}:${senderIdNum}`)) {
+                        const decryptedKey = await decryptSessionKey(encryptedKeyForMe, myRSAKeysRef.current.privateKey);
+                        peerSenderKeysRef.current.set(`${conversationIdNum}:${senderIdNum}`, decryptedKey);
+                        await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum, decryptedKey);
+                        setKeyVersion(v => v + 1);
+                        console.log(`[E2EE] Recovered SenderKey from metadata for MsgId=${id}`);
+                    }
+                }
+            } catch (e) { console.warn("[E2EE] Failed to parse metadata keys:", e); }
+        }
+
         // [FORCE E2EE] Tin nhắn văn bản từ user bắt buộc phải có IV/SIG.
         // Các tin nhắn không có metadata sẽ bị coi là bị hạ cấp (Downgrade Attack) hoặc không an toàn.
         if (!iv || !sig) {
@@ -621,26 +655,59 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
     try {
       let contentToSend = plaintext, ivToSend = '', sigToSend = '';
+      let metadataToSend: string | null = null;
 
       if (effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text' || effectiveMessageType === 'PLAIN_SECURE') {
         const encrypted = await encryptMessagePro(plaintext, currentKey!, identityKeysRef.current.privateKey);
         contentToSend = encrypted.content;
         ivToSend = encrypted.iv;
         sigToSend = encrypted.sig;
+
+        // [PRE-KEY] Offline Handshake: Bọc khóa phiên cho các thành viên chưa có bắt tay
+        try {
+            const members = await conversationsApi.getMembers(token!, conversationId);
+            const offlineKeys: Record<number, string> = {};
+            
+            for (const member of members) {
+                const mid = Number(member.UserId);
+                if (mid === userRef.current?.id) continue;
+                
+                // Nếu chưa có khóa bắt tay với người này trong hội thoại này
+                if (!peerSenderKeysRef.current.has(`${conversationId}:${mid}`)) {
+                    let rsaPubKeyB64 = "";
+                    
+                    if (member.PublicKey && member.PublicKey.startsWith('{')) {
+                        const json = JSON.parse(member.PublicKey);
+                        rsaPubKeyB64 = json.rsaPubKey;
+                    }
+
+                    if (rsaPubKeyB64) {
+                        const peerRSAPubKey = await importPublicKey(rsaPubKeyB64);
+                        const encryptedKey = await encryptSessionKeyForPeer(currentKey!, peerRSAPubKey);
+                        offlineKeys[mid] = encryptedKey;
+                    }
+                }
+            }
+
+            if (Object.keys(offlineKeys).length > 0) {
+                metadataToSend = JSON.stringify({ keys: offlineKeys });
+                console.log(`[E2EE] Included ${Object.keys(offlineKeys).length} offline keys in metadata.`);
+            }
+        } catch (e) { console.warn("[E2EE] Offline handshake failed:", e); }
       }
 
       const clientMessageId = crypto.randomUUID();
-      // ✅ SỬA — kiểm tra signature trong hub method. Nếu backend có tham số sig riêng:
-await connectionRef.current.invoke(
-    'SendMessageSecure',
-    conversationId,
-    contentToSend,
-    ivToSend,      // IV thuần
-    sigToSend,     // Signature riêng
-    effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text' ? 'PLAIN_SECURE' : effectiveMessageType,
-    parentMessageId || 0,
-    clientMessageId
-);
+      await connectionRef.current.invoke(
+          'SendMessageSecure',
+          conversationId,
+          contentToSend,
+          ivToSend,      
+          sigToSend,     
+          effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text' ? 'PLAIN_SECURE' : effectiveMessageType,
+          parentMessageId || 0,
+          clientMessageId,
+          metadataToSend
+      );
     } catch (err) {
       console.error('Failed to send encrypted message:', err);
       toast.error('Lỗi khi gửi tin nhắn. Vui lòng thử lại.');
@@ -738,6 +805,7 @@ await connectionRef.current.invoke(
         peerSenderKeys: peerSenderKeysRef.current,
         peerIdentityKeys: peerIdentityKeysRef.current,
         identityKeys: identityKeysRef.current,
+        myRSAKeys: myRSAKeysRef.current,
         keyVersion,
         lastLeftConversationId
       }}

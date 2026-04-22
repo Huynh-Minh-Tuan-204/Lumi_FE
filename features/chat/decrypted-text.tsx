@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey } from '@/lib/crypto-utils'
+import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, decryptSessionKey } from '@/lib/crypto-utils'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Video as VideoIcon } from 'lucide-react'
@@ -15,6 +15,7 @@ interface DecryptedTextProps {
   peerSenderKeys: Map<string, any>
   peerIdentityKeys: Map<number, any>
   identityKeys: any
+  myRSAKeys: any
   initiateHandshake: (cid: number) => Promise<void>
   onJoinMeeting?: (meetingId: string) => void
   isOwn?: boolean
@@ -29,6 +30,7 @@ export function DecryptedText({
     peerSenderKeys, 
     peerIdentityKeys, 
     identityKeys,
+    myRSAKeys,
     initiateHandshake,
     onJoinMeeting,
     isOwn,
@@ -97,6 +99,24 @@ export function DecryptedText({
                 if (!isMessageOwn && !senderIdPubKey) {
                     const stored = await saveOrLoadPeerIdentityKey(senderIdNum);
                     if (stored) senderIdPubKey = stored;
+                }
+
+                // [PRE-KEY] Try to recover session key from metadata if missing
+                const metadata = message.metadata || message.Metadata;
+                if (!currentSenderKey && metadata && myRSAKeys?.privateKey) {
+                    try {
+                        const meta = JSON.parse(metadata);
+                        if (meta.keys && meta.keys[user?.id]) {
+                            const encryptedKeyForMe = meta.keys[user.id];
+                            const decryptedKey = await decryptSessionKey(encryptedKeyForMe, myRSAKeys.privateKey);
+                            currentSenderKey = decryptedKey;
+                            
+                            // Persist for future use
+                            peerSenderKeys?.set(`${conversationIdNum}:${senderIdNum}`, decryptedKey);
+                            await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum, decryptedKey);
+                            console.log(`[E2EE] Recovered SenderKey from metadata in UI for MsgId=${message.id}`);
+                        }
+                    } catch (e) { console.warn("[E2EE] UI failed to recover key from metadata:", e); }
                 }
 
                 if (iv && sig && currentSenderKey && senderIdPubKey) {

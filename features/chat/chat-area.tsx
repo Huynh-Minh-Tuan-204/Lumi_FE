@@ -102,7 +102,8 @@ function DecryptedAttachment({
     identityKeys,
     senderId,
     keyVersion,
-    conversationId
+    conversationId,
+    myRSAKeys
 }: { 
     attachment: any, 
     token: string, 
@@ -112,6 +113,7 @@ function DecryptedAttachment({
     peerSenderKeys: Map<string, any>, 
     peerIdentityKeys: Map<number, any>,
     identityKeys: any,
+    myRSAKeys: any,
     senderId: number,
     conversationId?: number,
     keyVersion?: number
@@ -164,6 +166,22 @@ function DecryptedAttachment({
                     if (!isOwn && !senderIdPubKey) {
                         const stored = await saveOrLoadPeerIdentityKey(senderIdNum);
                         if (stored) senderIdPubKey = stored;
+                    }
+
+                    // [PRE-KEY] Try to recover key from metadata if missing (for files)
+                    const metadata = (attachment as any).metadata || (attachment as any).Metadata;
+                    if (!currentSenderKey && metadata && myRSAKeys?.privateKey) {
+                        try {
+                            const meta = JSON.parse(metadata);
+                            if (meta.keys && meta.keys[user?.id]) {
+                                const encryptedKeyForMe = meta.keys[user.id];
+                                const decryptedKey = await decryptSessionKey(encryptedKeyForMe, myRSAKeys.privateKey);
+                                currentSenderKey = decryptedKey;
+                                // Save for later
+                                peerSenderKeys.set(`${conversationIdNum}:${senderIdNum}`, decryptedKey);
+                                await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum, decryptedKey);
+                            }
+                        } catch (e) { }
                     }
 
                     if (currentSenderKey && senderIdPubKey) {
@@ -306,6 +324,7 @@ export function ChatArea({
     peerSenderKeys, 
     peerIdentityKeys, 
     identityKeys, 
+    myRSAKeys,
     keyVersion 
   } = signalRData
 
@@ -547,7 +566,7 @@ export function ChatArea({
                 <Pin className="h-3.5 w-3.5 text-primary fill-primary" />
                 <div className="flex-1 min-w-0">
                    <p className="text-[9px] font-black uppercase text-primary/60 mb-0.5 tracking-widest">TIN NHẮN GHIM</p>
-                   <div className="text-xs font-bold truncate opacity-90"><span className="text-primary">{latestPin.senderName}:</span> <DecryptedText message={latestPin} user={user} mySenderKey={mySenderKey} mySenderKeys={mySenderKeys} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} isOwn={latestPin.senderId === user?.id} keyVersion={keyVersion} /></div>
+                   <div className="text-xs font-bold truncate opacity-90"><span className="text-primary">{latestPin.senderName}:</span> <DecryptedText message={latestPin} user={user} mySenderKey={mySenderKey} mySenderKeys={mySenderKeys} peerSenderKeys={peerSenderKeys} peerIdentityKeys={peerIdentityKeys} identityKeys={identityKeys} myRSAKeys={myRSAKeys} initiateHandshake={initiateE2EEHandshake} onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })} isOwn={latestPin.senderId === user?.id} keyVersion={keyVersion} /></div>
                 </div>
              </div>
              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsPinnedListExpanded(!isPinnedListExpanded)}><ChevronDown className={cn("h-4 w-4 transition-transform", isPinnedListExpanded && "rotate-180")} /></Button>
@@ -592,6 +611,7 @@ export function ChatArea({
                 peerSenderKeys={peerSenderKeys}
                 peerIdentityKeys={peerIdentityKeys}
                 identityKeys={identityKeys}
+                myRSAKeys={myRSAKeys}
                 initiateHandshake={initiateE2EEHandshake}
                 onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
                 togglePinMessage={togglePinMessage}
@@ -607,11 +627,12 @@ export function ChatArea({
     attachment={a} 
     token={token!} 
     user={user}
-    mySenderKey={mySenderKeys?.get(conversation.id) ?? mySenderKey}  // ← FIX: dùng per-conv key
-    mySenderKeys={mySenderKeys}   // ← THÊM MỚI
+    mySenderKey={mySenderKeys?.get(conversation.id) ?? mySenderKey}  
+    mySenderKeys={mySenderKeys}   
     peerSenderKeys={peerSenderKeys} 
     peerIdentityKeys={peerIdentityKeys}
     identityKeys={identityKeys}
+    myRSAKeys={myRSAKeys}
     senderId={msg.senderId}
     conversationId={conversation.id}
     keyVersion={keyVersion}
