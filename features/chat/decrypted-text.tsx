@@ -125,11 +125,10 @@ export function DecryptedText({
                     }
                     setNeedsRestore(false);
                 } else {
-                    // Keys missing – trigger handshake and wait
+                    // Keys missing
                     console.warn(`[E2EE Info] Waiting for keys to decrypt MsgId=${message.id}. isOwn=${isMessageOwn}, hasSenderKey=${!!currentSenderKey}, hasPubKey=${!!senderIdPubKey}`);
                     setDecrypted('⏳ [Đang chờ khóa mã hóa...]');
                     setNeedsRestore(!isMessageOwn); // Only show restore prompt for peer messages
-                    if (message.conversationId) initiateHandshake(message.conversationId);
                 }
             } catch (e) { 
                 console.error("Critical decryption error:", e);
@@ -137,7 +136,7 @@ export function DecryptedText({
             }
         };
         decrypt();
-    }, [message.id, message.encryptedContent, message.message, mySenderKey, keyVersion]);
+    }, [message.id, message.encryptedContent, message.message, keyVersion]);
 
     // Show inline restore prompt when keys are missing
     if (needsRestore && !isOwn) {

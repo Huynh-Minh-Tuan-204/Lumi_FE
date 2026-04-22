@@ -84,17 +84,20 @@ function DecryptedAttachment({
     attachment, 
     token, 
     user,
-    mySenderKey, 
+    mySenderKey,
+    mySenderKeys,
     peerSenderKeys, 
     peerIdentityKeys, 
     identityKeys,
     senderId,
-    keyVersion
+    keyVersion,
+    conversationId
 }: { 
     attachment: any, 
     token: string, 
     user: any,
-    mySenderKey: any, 
+    mySenderKey: any,
+    mySenderKeys: Map<number, any>,
     peerSenderKeys: Map<number, any>, 
     peerIdentityKeys: Map<number, any>,
     identityKeys: any,
@@ -128,9 +131,9 @@ function DecryptedAttachment({
                 const isLegacy = !iv || iv === 'legacy-unencrypted';
 
                 if (!isLegacy && iv && sig) {
-                    const isOwn = user && senderId === user.id;
-                    let currentSenderKey = isOwn ? mySenderKey : peerSenderKeys.get(senderId);
-                    let senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderId);
+                    const isOwn = user && Number(senderId) === Number(user.id);
+                    let currentSenderKey = isOwn ? (mySenderKeys?.get(conversationId!) ?? mySenderKey) : peerSenderKeys.get(Number(senderId));
+                    let senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(Number(senderId));
 
                     if (conversationId) {
                         if (isOwn && !currentSenderKey) {
