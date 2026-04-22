@@ -411,6 +411,8 @@ export function ChatArea({
           isPinned: m.isPinned || m.IsPinned, attachments: m.attachments || m.Attachments || []
         })).sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()))
         markAsRead(conversation.id)
+        // Auto-trigger handshake to re-exchange peer sender keys after PIN restore
+        setTimeout(() => initiateE2EEHandshake(conversation.id), 1000)
       } catch {}
     }
     load(); setReplyingTo(null); setIsPinnedListExpanded(false);
@@ -476,8 +478,13 @@ export function ChatArea({
 
   return (
     <TooltipProvider>
-    <div className={cn("flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden", className)}>
-      <E2EEGatekeeper>
+    {/* Outer container fills its parent flex slot */}
+    <div className={cn("flex flex-col min-w-0 bg-background relative h-full", className)}>
+
+      {/* ── E2EE Security Overlay (absolute, never breaks layout) ── */}
+      <E2EEGatekeeper />
+
+      {/* ── Header ── */}
       <header className="flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-md z-30 border-b shrink-0">
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 border-2 border-primary/10">
@@ -507,6 +514,7 @@ export function ChatArea({
         </div>
       </header>
 
+      {/* ── Pinned message bar ── */}
       {latestPin && (
          <div className="z-20 bg-background/95 border-b flex items-center border-l-4 border-l-primary h-12 px-4 gap-3 shrink-0 group">
              <div className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer" onClick={() => scrollToMessage(latestPin.id)}>
@@ -520,98 +528,108 @@ export function ChatArea({
          </div>
       )}
 
+      {/* ── Active meeting banner (Teams-style) ── */}
       {activeMeeting && activeMeeting.conversationId === conversation.id && (
-        <div className="z-20 bg-primary/20 px-4 py-2 flex items-center justify-between border-b border-primary/20">
-           <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-lg bg-primary/30 flex items-center justify-center animate-pulse"><VideoIcon className="h-4 w-4 text-primary" /></div>
-              <div className="min-w-0">
-                 <p className="text-[9px] font-black uppercase tracking-widest text-primary/80 leading-none">Cuộc họp đang diễn ra</p>
-                 <p className="text-[10px] font-bold truncate opacity-90 mt-1">{activeMeeting.title}</p>
+        <div className="z-20 shrink-0 border-b border-primary/20 bg-gradient-to-r from-primary/10 to-blue-500/10">
+           <div className="px-4 py-2.5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                 <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30 shrink-0">
+                   <VideoIcon className="h-4 w-4 text-white" />
+                 </div>
+                 <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-primary leading-none">Cuộc họp đang diễn ra</p>
+                    <p className="text-xs font-bold truncate mt-0.5">{activeMeeting.title}</p>
+                    <p className="text-[9px] text-muted-foreground truncate">Do {activeMeeting.hostName} tổ chức</p>
+                 </div>
               </div>
+              <Button size="sm" className="rounded-xl h-8 px-4 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 shrink-0" onClick={() => setShowLobby({ meetingId: activeMeeting.meetingId, type: activeMeeting.callType as any, title: activeMeeting.title })}>
+                Tham gia
+              </Button>
            </div>
-           <Button size="sm" className="rounded-lg h-7 text-[9px] font-black uppercase" onClick={() => setShowLobby({ meetingId: activeMeeting.meetingId, type: activeMeeting.callType as any, title: activeMeeting.title })}>Tham gia</Button>
         </div>
       )}
 
-      <div className="flex-1 overflow-hidden relative bg-muted/5">
-        <ScrollArea className="h-full">
-           <div className="p-4 flex flex-col justify-end min-h-full space-y-4 pb-10">
-              {messageGroups.map((group, idx) => {
-                if (group.type === 'system-group') return <SystemMessageGroup key={`sys-${idx}`} messages={group.messages} onScrollTo={scrollToMessage} />;
-                const m = group.data; const isOwn = m.senderId === user?.id;
-                return (
-                  <MessageItem
-                    key={m.id}
-                    message={m}
-                    isOwn={isOwn}
-                    user={user}
-                    mySenderKey={mySenderKey}
-                    peerSenderKeys={peerSenderKeys}
-                    peerIdentityKeys={peerIdentityKeys}
-                    identityKeys={identityKeys}
-                    initiateHandshake={initiateE2EEHandshake}
-                    onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
-                    togglePinMessage={togglePinMessage}
-                    setReplyingTo={setReplyingTo}
-                    attachmentsRenderer={(msg) => (
-                      msg.attachments && msg.attachments.length > 0 && (
-                        <div className={cn("space-y-2 w-full flex flex-col", isOwn ? "items-end" : "items-start")}>
-                          {msg.attachments.map((a: any) => (
-                            <DecryptedAttachment 
-                                key={a.id} 
-                                attachment={a} 
-                                token={token!} 
-                                user={user}
-                                mySenderKey={mySenderKey} 
-                                peerSenderKeys={peerSenderKeys} 
-                                peerIdentityKeys={peerIdentityKeys} 
-                                identityKeys={identityKeys}
-                                senderId={msg.senderId}
-                                conversationId={conversation.id}
-                                keyVersion={keyVersion}
-                            />
-                          ))}
-                        </div>
-                      )
-                    )}
-                    keyVersion={keyVersion}
-                  />
-                )
-              })}
-              <div ref={messagesEndRef} />
-           </div>
-        </ScrollArea>
+      {/* ── Messages (scrollable, fills available space) ── */}
+      <div className="flex-1 overflow-y-auto min-h-0 relative bg-muted/5">
+        <div className="p-4 flex flex-col space-y-4 pb-4">
+          {messageGroups.map((group, idx) => {
+            if (group.type === 'system-group') return <SystemMessageGroup key={`sys-${idx}`} messages={group.messages} onScrollTo={scrollToMessage} />;
+            const m = group.data; const isOwn = m.senderId === user?.id;
+            return (
+              <MessageItem
+                key={m.id}
+                message={m}
+                isOwn={isOwn}
+                user={user}
+                mySenderKey={mySenderKey}
+                peerSenderKeys={peerSenderKeys}
+                peerIdentityKeys={peerIdentityKeys}
+                identityKeys={identityKeys}
+                initiateHandshake={initiateE2EEHandshake}
+                onJoinMeeting={(mid) => setShowLobby({ meetingId: mid, type: 'video', title: 'Tham gia cuộc họp' })}
+                togglePinMessage={togglePinMessage}
+                setReplyingTo={setReplyingTo}
+                attachmentsRenderer={(msg) => (
+                  msg.attachments && msg.attachments.length > 0 && (
+                    <div className={cn("space-y-2 w-full flex flex-col", isOwn ? "items-end" : "items-start")}>
+                      {msg.attachments.map((a: any) => (
+                        <DecryptedAttachment 
+                            key={a.id} 
+                            attachment={a} 
+                            token={token!} 
+                            user={user}
+                            mySenderKey={mySenderKey} 
+                            peerSenderKeys={peerSenderKeys} 
+                            peerIdentityKeys={peerIdentityKeys} 
+                            identityKeys={identityKeys}
+                            senderId={msg.senderId}
+                            conversationId={conversation.id}
+                            keyVersion={keyVersion}
+                        />
+                      ))}
+                    </div>
+                  )
+                )}
+                keyVersion={keyVersion}
+              />
+            )
+          })}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      <div className="bg-card border-t pt-2 pb-5 px-5 space-y-3 shrink-0 z-40 relative">
+      {/* ── Message Input (always pinned to bottom) ── */}
+      <div className="bg-card border-t pt-2 pb-4 px-4 space-y-2 shrink-0 z-40 relative">
         {replyingTo && (
-          <div className="absolute -top-[52px] left-0 right-0 bg-background/95 border-t border-primary/20 p-2 px-6 flex items-center justify-between shadow-2xl">
-             <div className="flex items-center gap-3 border-l-2 border-primary pl-3 min-w-0">
-                <Reply className="h-3 w-3 text-primary opacity-50" />
-                <div className="min-w-0"><p className="text-[9px] font-black uppercase text-primary">Đang trả lời {replyingTo.senderName}</p><p className="text-xs truncate opacity-70 italic">{replyingTo.encryptedContent}</p></div>
+          <div className="flex items-center justify-between bg-muted/40 rounded-xl p-2 px-3 border-l-2 border-primary">
+             <div className="flex items-center gap-3 min-w-0">
+                <Reply className="h-3 w-3 text-primary opacity-60 shrink-0" />
+                <div className="min-w-0"><p className="text-[9px] font-black uppercase text-primary">Đang trả lời {replyingTo.senderName}</p><p className="text-xs truncate opacity-60 italic">{replyingTo.encryptedContent}</p></div>
              </div>
-             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full" onClick={() => setReplyingTo(null)}><X className="h-3.5 w-3.5" /></Button>
+             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full shrink-0" onClick={() => setReplyingTo(null)}><X className="h-3.5 w-3.5" /></Button>
           </div>
         )}
         <div className="flex items-center gap-2 opacity-60">
-            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-5 w-5" /></Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl" onClick={() => fileInputRef.current?.click()}><Paperclip className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => fileInputRef.current?.click()}><Paperclip className="h-4 w-4" /></Button>
             <input type="file" ref={imageInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
             <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
         </div>
-        <div className="flex items-end gap-3 bg-muted/30 p-2 rounded-2xl border border-primary/5 focus-within:border-primary/20 transition-all">
+        <div className="flex items-end gap-2 bg-muted/30 p-2 rounded-2xl border border-primary/5 focus-within:border-primary/20 transition-all">
             <textarea
               value={newMessage}
               onChange={(e) => { setNewMessage(e.target.value); if(conversation) sendTyping(conversation.id); }}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
               placeholder="Nhập tin nhắn..."
-              className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2 px-3 resize-none max-h-40 min-h-[45px] outline-none font-medium leading-relaxed"
+              className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2 px-2 resize-none max-h-32 min-h-[40px] outline-none font-medium leading-relaxed"
               rows={1}
             />
-            <Button size="icon" className="h-10 w-10 bg-primary text-white rounded-xl shadow-lg" onClick={handleSendMessage}><Send className="h-5 w-5" /></Button>
+            <Button size="icon" className="h-9 w-9 bg-primary text-white rounded-xl shadow-lg shrink-0" onClick={handleSendMessage}><Send className="h-4 w-4" /></Button>
         </div>
       </div>
     </div>
+
+    {/* ── Call Lobby Modal ── */}
     {showLobby && (
       <CallLobby 
         meetingId={showLobby.meetingId} 
@@ -619,7 +637,6 @@ export function ChatArea({
         title={showLobby.title} 
         conversationId={conversation.id}
         onJoin={(mic, cam) => {
-           // Đã có biến router được định nghĩa ở đầu ChatArea
            setShowLobby(null);
            router.push(`/call/${showLobby.meetingId}?mic=${mic}&cam=${cam}`);
         }}
@@ -627,7 +644,7 @@ export function ChatArea({
       />
     )}
 
-    {/* Floating Call Overlay when Minimized */}
+    {/* ── Floating mini-call overlay (when minimized) ── */}
     {activeCallId && isMinimized && (
       <div className="fixed bottom-6 right-6 w-64 md:w-80 bg-[#1A1A1A] rounded-[2rem] overflow-hidden border border-primary/30 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[99999] animate-in slide-in-from-bottom-5">
          <div className="relative aspect-video bg-black flex items-center justify-center">
@@ -657,21 +674,6 @@ export function ChatArea({
             <Button onClick={() => endCall()} variant="destructive" size="sm" className="h-8 rounded-xl px-4 font-black uppercase text-[9px] tracking-widest">Kết thúc</Button>
          </div>
       </div>
-     )}
-      </E2EEGatekeeper>
-    </div>
-    {showLobby && (
-      <CallLobby 
-        meetingId={showLobby.meetingId} 
-        type={showLobby.type} 
-        title={showLobby.title} 
-        conversationId={conversation.id}
-        onJoin={(mic, cam) => {
-           setShowLobby(null);
-           router.push(`/call/${showLobby.meetingId}?mic=${mic}&cam=${cam}`);
-        }}
-        onCancel={() => setShowLobby(null)} 
-      />
     )}
     </TooltipProvider>
   )
