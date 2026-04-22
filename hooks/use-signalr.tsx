@@ -556,6 +556,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         conversationId,
         contentToSend,
         ivToSend && sigToSend ? `${ivToSend}|${sigToSend}` : ivToSend,
+        "", // Empty string to satisfy the 7-argument signature without losing data
         effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text' ? 'PLAIN_SECURE' : effectiveMessageType,
         parentMessageId || 0,
         clientMessageId
