@@ -109,7 +109,7 @@ function DecryptedAttachment({
     user: any,
     mySenderKey: any,
     mySenderKeys: Map<number, any>,
-    peerSenderKeys: Map<number, any>, 
+    peerSenderKeys: Map<string, any>, 
     peerIdentityKeys: Map<number, any>,
     identityKeys: any,
     senderId: number,
@@ -147,7 +147,7 @@ function DecryptedAttachment({
                     const isOwn = user && senderIdNum === Number(user.id);
                     
                     let currentSenderKey = isOwn 
-                        ? (mySenderKeys?.get(conversationIdNum) ?? mySenderKey) 
+                        ? mySenderKeys?.get(conversationIdNum) 
                         : peerSenderKeys.get(`${conversationIdNum}:${senderIdNum}`);
                     let senderIdPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys.get(senderIdNum);
 
