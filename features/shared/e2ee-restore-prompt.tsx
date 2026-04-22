@@ -75,7 +75,7 @@ function PinInput({
 
 type RestoreStep = 'prompt' | 'loading' | 'done' | 'wrong-pin' | 'no-backup'
 
-export function E2EERestorePrompt({ conversationId, onRestored, onDismiss, isMandatory }: E2EERestorePromptProps) {
+export function E2EERestorePrompt({ conversationId, onRestored, onDismiss, isMandatory = false }: E2EERestorePromptProps) {
     const { token } = useAuth()
     const [step, setStep] = useState<RestoreStep>('prompt')
     const [pin, setPin] = useState('')
@@ -141,7 +141,7 @@ export function E2EERestorePrompt({ conversationId, onRestored, onDismiss, isMan
                         Hãy đăng nhập trên thiết bị cũ và tạo backup trong Cài đặt → Bảo mật.
                     </p>
                 </div>
-                {onDismiss && (
+                {onDismiss && !isMandatory && (
                     <Button variant="outline" size="sm" onClick={onDismiss} className="rounded-xl font-black uppercase text-xs">
                         Bỏ qua
                     </Button>
