@@ -29,6 +29,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const { token, user, updateUser } = useAuth()
 
   const connectionRef = useRef<signalR.HubConnection | null>(null)
+  const isStartingRef = useRef(false);
   const notifiedMeetingsRef = useRef<Set<string>>(new Set());
 
   const [keyVersion, setKeyVersion] = useState(0)
@@ -166,6 +167,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             return;
         }
     }
+    
+    if (isStartingRef.current) return;
+    isStartingRef.current = true;
 
     const fetchHistory = async () => {
       try {
@@ -312,6 +316,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                } catch (e) { displayContent = "🚨 [Lỗi giải mã E2EE]"; }
             } else {
                displayContent = "⏳ [Đang đợi bắt tay hoặc khôi phục khóa...]";
+               // Tự động yêu cầu khóa nếu chưa có public key của người gửi
+               if (!senderIdKey && conversationId) {
+                  initiateE2EEHandshake(conversationId).catch(() => {});
+               }
             }
         }
       }
@@ -525,12 +533,22 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     })
 
     connection.start()
-      .then(() => setIsConnected(true))
+      .then(() => {
+          setIsConnected(true);
+          isStartingRef.current = false;
+      })
       .catch(err => {
         console.error("SignalR Start Error:", err)
+        isStartingRef.current = false;
         setTimeout(() => {
-          if (!isConnected) {
-            connection.start().then(() => setIsConnected(true)).catch(() => { })
+          if (!isConnected && !isStartingRef.current) {
+            isStartingRef.current = true;
+            connection.start()
+                .then(() => {
+                    setIsConnected(true);
+                    isStartingRef.current = false;
+                })
+                .catch(() => { isStartingRef.current = false; })
           }
         }, 5000)
       })

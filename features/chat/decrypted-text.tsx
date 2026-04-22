@@ -105,6 +105,7 @@ export function DecryptedText({
                         const result = await decryptMessagePro(content, iv, sig, currentSenderKey, senderIdPubKey);
                         setDecrypted(result);
                         setNeedsRestore(false);
+                    } catch (e) {
                         console.warn('Lỗi giải mã (thường do khóa cũ):', e);
                         const errorCode = (e as any)?.code || (e as any)?.name;
                         if (errorCode === 'SIG_INVALID') {
@@ -128,6 +129,11 @@ export function DecryptedText({
                     console.warn(`[E2EE Info] Waiting for keys to decrypt MsgId=${message.id}. isOwn=${isMessageOwn}, hasSenderKey=${!!currentSenderKey}, hasPubKey=${!!senderIdPubKey}`);
                     setDecrypted('⏳ [Đang chờ khóa mã hóa...]');
                     setNeedsRestore(!isMessageOwn); // Only show restore prompt for peer messages
+                    
+                    // [AUTO-HANDSHAKE] Tự động yêu cầu khóa nếu chưa có public key và không phải tin nhắn của mình
+                    if (!isMessageOwn && !senderIdPubKey && initiateHandshake && conversationId) {
+                        initiateHandshake(conversationId).catch(() => {});
+                    }
                 }
             } catch (e) { 
                 console.error("Critical decryption error:", e);
