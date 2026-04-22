@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, loadAllMySenderKeys } from '@/lib/crypto-utils'
+import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey } from '@/lib/crypto-utils'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Video as VideoIcon } from 'lucide-react'
@@ -63,43 +63,27 @@ export function DecryptedText({
                 const isMessageOwn = user && senderId === user.id;
                 let currentSenderKey = isMessageOwn ? mySenderKey : peerSenderKeys?.get(senderId);
                 let senderIdPubKey = isMessageOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderId);
-                
+
                 if (message.conversationId) {
-                    if (isMessageOwn) {
-                        // Try exact match first
+                    if (isMessageOwn && !currentSenderKey) {
+                        // Exact lookup by conversationId. Do NOT fall back to another conversation's key.
                         const stored = await saveOrLoadSenderKey(message.conversationId);
-                        if (stored) {
-                            currentSenderKey = stored;
-                        } else {
-                            // [FALLBACK] Key not found by conversationId.
-                            // Scan ALL MySenderKeys in DB — in single-device scenario there's only 1.
-                            const allKeys = await loadAllMySenderKeys();
-                            if (allKeys.size > 0) {
-                                // Try matching by conversationId first, then fall back to first found
-                                currentSenderKey = allKeys.get(Number(message.conversationId)) 
-                                    || allKeys.values().next().value;
-                                if (currentSenderKey) {
-                                    console.log(`[E2EE] Fallback key used for MsgId=${message.id} (convId=${message.conversationId}). Total keys: ${allKeys.size}`);
-                                }
-                            }
-                        }
-                    } else if (!currentSenderKey) {
+                        if (stored) currentSenderKey = stored;
+                    } else if (!isMessageOwn && !currentSenderKey) {
                         const stored = await saveOrLoadPeerSenderKey(message.conversationId, senderId);
                         if (stored) currentSenderKey = stored;
                     }
                 }
 
-                if (!isMessageOwn && !senderIdPubKey) {
-                    const stored = await saveOrLoadPeerIdentityKey(senderId);
-                    if (stored) senderIdPubKey = stored;
-                }
-
+                // For own messages: always use our own identity public key for signature verification
                 if (isMessageOwn && !senderIdPubKey && identityKeys?.publicKey) {
                     senderIdPubKey = identityKeys.publicKey;
                 }
 
-                if (!currentSenderKey || !senderIdPubKey) {
-                    console.warn(`[E2EE Info] Waiting for keys to decrypt MsgId=${message.id}. isOwn=${isMessageOwn}, hasSenderKey=${!!currentSenderKey}, hasPubKey=${!!senderIdPubKey}`);
+                // For peer messages: try loading identity key from IndexedDB
+                if (!isMessageOwn && !senderIdPubKey) {
+                    const stored = await saveOrLoadPeerIdentityKey(senderId);
+                    if (stored) senderIdPubKey = stored;
                 }
 
                 if (iv && sig && currentSenderKey && senderIdPubKey) {
@@ -108,21 +92,29 @@ export function DecryptedText({
                         setDecrypted(result);
                         setNeedsRestore(false);
                     } catch (e) {
-                        console.error("Decryption failed (likely wrong key):", e);
-                        setDecrypted("❌ [Lỗi giải mã - Có thể do sai mã PIN hoặc khóa cũ]");
+                        console.error('Decryption failed:', e);
+                        const errorCode = (e as any)?.code || (e as any)?.name;
+                        if (errorCode === 'SIG_INVALID') {
+                            setDecrypted('⚠️ [Không xác thực được chữ ký – Có thể sai khóa nhận dạng]');
+                        } else if (errorCode === 'OperationError') {
+                            setDecrypted('🔑 [Khóa giải mã không khớp – Tin nhắn từ phiên cũ]');
+                        } else {
+                            setDecrypted('❌ [Lỗi giải mã không xác định]');
+                        }
+                        setNeedsRestore(false);
                     }
                 } else if (!iv || !sig) {
-                    // Nếu thiếu metadata nhưng nội dung là Base64 dài (do lỗi cũ), báo lỗi rõ ràng.
                     if (content && content.length > 20 && !content.includes(' ')) {
-                        setDecrypted("⚠️ [Lỗi giải mã: Dữ liệu mã hóa bị hỏng hoặc mất chữ ký]");
+                        setDecrypted('⚠️ [Lỗi giải mã: Dữ liệu mã hóa bị hỏng hoặc mất chữ ký]');
                     } else {
                         setDecrypted(content);
                     }
                     setNeedsRestore(false);
                 } else {
-                    // Missing keys – show restore prompt
-                    setDecrypted("⏳ [Đang chờ khóa mã hóa...]");
-                    setNeedsRestore(true);
+                    // Keys missing – trigger handshake and wait
+                    console.warn(`[E2EE Info] Waiting for keys to decrypt MsgId=${message.id}. isOwn=${isMessageOwn}, hasSenderKey=${!!currentSenderKey}, hasPubKey=${!!senderIdPubKey}`);
+                    setDecrypted('⏳ [Đang chờ khóa mã hóa...]');
+                    setNeedsRestore(!isMessageOwn); // Only show restore prompt for peer messages
                     if (message.conversationId) initiateHandshake(message.conversationId);
                 }
             } catch (e) { 

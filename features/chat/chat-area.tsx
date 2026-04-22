@@ -340,20 +340,6 @@ export function ChatArea({
     if (conversation?.id) initiateE2EEHandshake(conversation.id).catch(() => {});
   }, [conversation?.id, initiateE2EEHandshake]);
 
-  // [KEY FIX] Bootstrap SenderKey for this conversation when it opens.
-  // Ensures key exists in IndexedDB so DecryptedText can load it after F5.
-  useEffect(() => {
-    if (!conversation?.id) return;
-    const conversationId = conversation.id;
-    saveOrLoadSenderKey(conversationId).then(async (existing) => {
-      if (!existing) {
-        const newKey = await generateSenderKey();
-        await saveOrLoadSenderKey(conversationId, newKey);
-        console.log(`[E2EE] Bootstrap: Created & saved SenderKey for conversation ${conversationId}`);
-      }
-    }).catch(() => {});
-  }, [conversation?.id]);
-
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token) return
     if (activeMeeting && activeMeeting.conversationId === conversation.id) {

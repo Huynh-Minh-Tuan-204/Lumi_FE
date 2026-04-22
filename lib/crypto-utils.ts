@@ -240,6 +240,69 @@ export async function loadAllPeerSenderKeysForConversation(conversationId: numbe
     return result;
 }
 
+/**
+ * Quét toàn bộ IndexedDB và trả về Map<userId, CryptoKey> cho tất cả PeerIdentityKey
+ */
+export async function loadAllPeerIdentityKeys(): Promise<Map<number, CryptoKey>> {
+    const result = new Map<number, CryptoKey>();
+    const prefix = PEER_IDENTITY_KEY_ALIAS + ':';
+    const db = await getDB();
+    await new Promise<void>((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).openCursor();
+        req.onsuccess = () => {
+            const cursor = req.result;
+            if (!cursor) { resolve(); return; }
+            const alias = cursor.key as string;
+            if (alias.startsWith(prefix)) {
+                const userIdStr = alias.substring(prefix.length);
+                const userId = parseInt(userIdStr, 10);
+                if (!isNaN(userId)) {
+                    result.set(userId, cursor.value as CryptoKey);
+                }
+            }
+            cursor.continue();
+        };
+        req.onerror = () => resolve();
+    });
+    return result;
+}
+
+/**
+ * Quét toàn bộ IndexedDB: trả về Map<senderId, Map<conversationId, CryptoKey>> cho tất cả PeerSenderKey
+ */
+export async function loadAllPeerSenderKeys(): Promise<Map<number, Map<number, CryptoKey>>> {
+    // result: senderId -> (conversationId -> key)
+    const result = new Map<number, Map<number, CryptoKey>>();
+    const prefix = PEER_SENDER_KEY_ALIAS + ':';
+    const db = await getDB();
+    await new Promise<void>((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).openCursor();
+        req.onsuccess = () => {
+            const cursor = req.result;
+            if (!cursor) { resolve(); return; }
+            const alias = cursor.key as string;
+            if (alias.startsWith(prefix)) {
+                // alias = PeerSenderKey:conversationId:userId
+                const rest = alias.substring(prefix.length);
+                const parts = rest.split(':');
+                if (parts.length === 2) {
+                    const convId = parseInt(parts[0], 10);
+                    const userId = parseInt(parts[1], 10);
+                    if (!isNaN(convId) && !isNaN(userId)) {
+                        if (!result.has(userId)) result.set(userId, new Map());
+                        result.get(userId)!.set(convId, cursor.value as CryptoKey);
+                    }
+                }
+            }
+            cursor.continue();
+        };
+        req.onerror = () => resolve();
+    });
+    return result;
+}
+
 export async function encryptSessionKeyForPeer(sessionKey: CryptoKey, peerPublicKey: CryptoKey): Promise<string> {
     const raw = await window.crypto.subtle.exportKey("raw", sessionKey);
     const encrypted = await window.crypto.subtle.encrypt({ name: "RSA-OAEP" }, peerPublicKey, raw);
@@ -296,37 +359,29 @@ export async function decryptMessagePro(
     senderKey: CryptoKey, 
     senderIdentityPubKey: CryptoKey
 ): Promise<string> {
-    try {
-        // 1. Verify ECDSA signature layer first
-        const isValid = await verifySignature(contentBase64, sigBase64, senderIdentityPubKey);
-        if (!isValid) return "🚨 [CẢNH BÁO: Tin nhắn bị giả mạo hoặc sai chữ ký!]";
-
-        const ciphertextBuffer = base64ToBuffer(contentBase64);
-        const ivBuffer = base64ToBuffer(ivBase64);
-        
-        console.log(`[Decrypt Debug] Ciphertext length: ${ciphertextBuffer.byteLength}, IV length: ${ivBuffer.byteLength}`);
-
-        if (ivBuffer.byteLength !== 12) {
-            throw new Error("Độ dài IV AES-GCM không hợp lệ");
-        }
-
-        // 2. AES-GCM Authenticated Decryption
-        // Web Crypto will automatically verify the tag. If bit-flipped, it throws an error.
-        const decrypted = await window.crypto.subtle.decrypt(
-            { name: "AES-GCM", iv: ivBuffer },
-            senderKey,
-            ciphertextBuffer
-        );
-
-        return new TextDecoder().decode(decrypted);
-    } catch (e: any) {
-        // GCM Error - likely auth tag mismatch (Integrity violation)
-        console.error("AES-GCM Auth Tag validation failed!", e);
-        if (e.name === 'OperationError') {
-            return "🚨 [Lỗi: Sai khóa giải mã hoặc dữ liệu bị can thiệp]";
-        }
-        return "🚨 [Tin nhắn bị giả mạo: Xác thực dữ liệu thất bại!]";
+    // 1. Verify ECDSA signature layer first (integrity + authenticity)
+    const isValid = await verifySignature(contentBase64, sigBase64, senderIdentityPubKey);
+    if (!isValid) {
+        // Signature failed — either wrong identity key or tampered message
+        // Throw so caller can distinguish this from AES key failure
+        throw Object.assign(new Error('SIG_INVALID'), { code: 'SIG_INVALID' });
     }
+
+    const ciphertextBuffer = base64ToBuffer(contentBase64);
+    const ivBuffer = base64ToBuffer(ivBase64);
+
+    if (ivBuffer.byteLength !== 12) {
+        throw new Error('IV_INVALID');
+    }
+
+    // 2. AES-GCM Authenticated Decryption — throws OperationError if key is wrong
+    const decrypted = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: ivBuffer },
+        senderKey,
+        ciphertextBuffer
+    );
+
+    return new TextDecoder().decode(decrypted);
 }
 
 export async function decryptFilePro(

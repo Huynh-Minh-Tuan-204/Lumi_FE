@@ -13,7 +13,8 @@ import {
   generateSenderKey, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey,
   encryptSessionKeyForPeer, decryptSessionKey,
   encryptMessagePro, decryptMessagePro, signData, verifySignature,
-  base64ToBuffer, bufferToBase64, loadAllMySenderKeys, loadAllPeerSenderKeysForConversation
+  base64ToBuffer, bufferToBase64,
+  loadAllMySenderKeys, loadAllPeerIdentityKeys, loadAllPeerSenderKeys
 } from '@/lib/crypto-utils'
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -65,6 +66,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Load own identity + RSA keys
       loadKey(IDENTITY_KEY_ALIAS).then(keys => {
         if (keys) {
           setIdentityKeys(keys);
@@ -79,22 +81,42 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             setKeyVersion(v => v + 1);
           }
       });
-      // [KEY FIX] Preload ALL MySenderKeys from IndexedDB into memory Map at startup.
-      // This eliminates the "hasSenderKey=false" error after F5 by eagerly populating RAM.
-      loadAllMySenderKeys().then(allKeys => {
-        if (allKeys.size > 0) {
-          allKeys.forEach((key, convId) => {
-            mySenderKeysRef.current.set(convId, key);
-          });
-          // Use the first found key as the 'active' mySenderKey for backward compat
-          const firstKey = allKeys.values().next().value;
-          if (firstKey) {
-            setMySenderKey(firstKey);
-          }
-          setKeyVersion(v => v + 1);
-          console.log(`[E2EE] Preloaded ${allKeys.size} SenderKey(s) from IndexedDB.`);
+
+      // [PRELOAD] Eagerly load all E2EE keys from IndexedDB into RAM maps.
+      // This ensures keys are available for decryption immediately after F5.
+      const preloadAllKeys = async () => {
+        // 1. Own sender keys (per-conversation)
+        const mySenderKeys = await loadAllMySenderKeys();
+        if (mySenderKeys.size > 0) {
+          mySenderKeys.forEach((key, convId) => mySenderKeysRef.current.set(convId, key));
+          const firstKey = mySenderKeys.values().next().value;
+          if (firstKey) setMySenderKey(firstKey);
+          console.log(`[E2EE] Preloaded ${mySenderKeys.size} SenderKey(s) from IndexedDB.`);
         }
-      });
+
+        // 2. Peer identity keys (public, for signature verification)
+        const peerIdKeys = await loadAllPeerIdentityKeys();
+        if (peerIdKeys.size > 0) {
+          peerIdKeys.forEach((key, userId) => peerIdentityKeysRef.current.set(userId, key));
+          console.log(`[E2EE] Preloaded ${peerIdKeys.size} PeerIdentityKey(s) from IndexedDB.`);
+        }
+
+        // 3. Peer sender keys (AES, for decrypting peer messages)
+        const peerSenderKeyMap = await loadAllPeerSenderKeys();
+        if (peerSenderKeyMap.size > 0) {
+          peerSenderKeyMap.forEach((convMap, userId) => {
+            // Use the most recent key for each user (last entry in map)
+            const lastKey = [...convMap.values()].pop();
+            if (lastKey) peerSenderKeysRef.current.set(userId, lastKey);
+          });
+          console.log(`[E2EE] Preloaded peer sender keys for ${peerSenderKeyMap.size} user(s) from IndexedDB.`);
+        }
+
+        if (mySenderKeys.size > 0 || peerIdKeys.size > 0 || peerSenderKeyMap.size > 0) {
+          setKeyVersion(v => v + 1);
+        }
+      };
+      preloadAllKeys().catch(console.warn);
     }
   }, []);
 
