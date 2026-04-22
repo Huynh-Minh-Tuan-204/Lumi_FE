@@ -73,7 +73,7 @@ export function E2EEGatekeeper({ children }: E2EEGatekeeperProps) {
 
                     <div className="bg-card rounded-3xl border shadow-xl overflow-hidden">
                         <E2EEBackupSetup 
-                            onClose={() => refresh()} 
+                            onClose={() => window.location.reload()} 
                             isMandatory={true}
                         />
                     </div>

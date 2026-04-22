@@ -79,22 +79,27 @@ export function DecryptedText({
                 }
 
                 if (iv && sig && currentSenderKey && senderIdPubKey) {
-                    const result = await decryptMessagePro(content, iv, sig, currentSenderKey, senderIdPubKey);
-                    setDecrypted(result);
-                    setNeedsRestore(false);
+                    try {
+                        const result = await decryptMessagePro(content, iv, sig, currentSenderKey, senderIdPubKey);
+                        setDecrypted(result);
+                        setNeedsRestore(false);
+                    } catch (e) {
+                        console.error("Decryption failed (likely wrong key):", e);
+                        setDecrypted("❌ [Lỗi giải mã - Có thể do sai mã PIN hoặc khóa cũ]");
+                    }
                 } else if (!iv || !sig) {
                     // If no crypto metadata, it's either legacy plain text or corrupted.
                     setDecrypted(content);
                     setNeedsRestore(false);
                 } else {
                     // Missing keys – show restore prompt
-                    setDecrypted("⏳ [Mã hóa đầu cuối]");
+                    setDecrypted("⏳ [Đang chờ khóa mã hóa...]");
                     setNeedsRestore(true);
                     if (message.conversationId) initiateHandshake(message.conversationId);
                 }
             } catch (e) { 
-                console.error("Decryption failed:", e);
-                setDecrypted(content || "[Lỗi giải mã]"); 
+                console.error("Critical decryption error:", e);
+                setDecrypted("[Lỗi hệ thống E2EE]"); 
             }
         };
         decrypt();

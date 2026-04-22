@@ -209,6 +209,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
     connection.on('ReceiveMessage', async (data: any) => {
       let { id, conversationId, senderId, senderName, content, iv, sig, messageType, stickerUrl, isPinned, createdAt, attachments, avatarPath, parentMessageId } = data;
+      
+      // Map PascalCase from backend if camelCase is missing
+      if (!iv) iv = data.Iv;
+      if (!sig) sig = data.sig || data.Signature || data.Sig;
 
       // 1. Xử lý tách chuỗi gộp (nếu IV chứa cả Sig từ DB)
       if (iv && typeof iv === 'string' && iv.includes('|') && !sig) {
