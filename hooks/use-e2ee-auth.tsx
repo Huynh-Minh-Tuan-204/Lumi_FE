@@ -43,8 +43,8 @@ export function useE2EEAuth() {
             } else {
                 // Đã có khóa local
                 if (!remoteBackup) {
-                    // Có khóa local nhưng chưa backup lên server -> Ép backup để an toàn
-                    setStatus('needs-setup')
+                    // Chỉ hiện banner nhắc nhở, không block hoàn toàn
+                    setStatus('ready')  // Vẫn cho vào app
                 } else {
                     // Mọi thứ đã sẵn sàng
                     setStatus('ready')

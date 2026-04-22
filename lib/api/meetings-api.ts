@@ -24,7 +24,8 @@ export const meetingsApi = {
       token,
     }),
 
-  joinMeeting: (token: string, id: number) =>
+  // ✅ SỬA — cho phép string | number
+joinMeeting: (token: string, id: string | number) =>
     request<any>(`/Meetings/${id}/join`, { method: 'POST', token }),
 
   leaveMeeting: (token: string, id: number) =>

@@ -155,6 +155,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
+    if (connectionRef.current?.state === signalR.HubConnectionState.Connected) return;
+
     const fetchHistory = async () => {
       try {
         const url = process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api';
@@ -587,16 +589,17 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }
 
       const clientMessageId = crypto.randomUUID();
-      await connectionRef.current.invoke(
-        'SendMessageSecure',
-        conversationId,
-        contentToSend,
-        ivToSend && sigToSend ? `${ivToSend}|${sigToSend}` : ivToSend,
-        "", // Empty string to satisfy the 7-argument signature without losing data
-        effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text' ? 'PLAIN_SECURE' : effectiveMessageType,
-        parentMessageId || 0,
-        clientMessageId
-      );
+      // ✅ SỬA — kiểm tra signature trong hub method. Nếu backend có tham số sig riêng:
+await connectionRef.current.invoke(
+    'SendMessageSecure',
+    conversationId,
+    contentToSend,
+    ivToSend,      // IV thuần
+    sigToSend,     // Signature riêng
+    effectiveMessageType === 'PLAIN' || effectiveMessageType === 'Text' ? 'PLAIN_SECURE' : effectiveMessageType,
+    parentMessageId || 0,
+    clientMessageId
+);
     } catch (err) {
       console.error('Failed to send encrypted message:', err);
       toast.error('Lỗi khi gửi tin nhắn. Vui lòng thử lại.');

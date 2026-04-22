@@ -253,6 +253,18 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                     {/* Optional: could show mini-vids here if preferred */}
                 </div>
             )}
+            
+            {/* Waiting for peers banner */}
+            {activePeers === 1 && (
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 flex items-center gap-3 animate-in fade-in slide-in-from-top-10 duration-500 z-10 shadow-xl">
+                    <div className="flex gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                    <span className="text-xs font-bold text-white/80 uppercase tracking-widest">Đang chờ người khác tham gia...</span>
+                </div>
+            )}
 
             {/* Floating Controls */}
             <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-[#1A1A1A]/95 backdrop-blur-3xl p-3 rounded-[3rem] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-40 scale-110 md:scale-100 origin-bottom">
@@ -370,7 +382,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                         </ScrollArea>
                         <div className="p-6 border-t border-white/5 bg-black/20">
                             <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-2xl px-4 py-2 focus-within:border-primary/50 transition-all">
-                                <input className="flex-1 bg-transparent py-2 text-xs outline-none font-bold placeholder:text-white/20 placeholder:font-medium" placeholder="Viết tin nhắn công khai..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && chatInput.trim() && convId && (sendMessage(convId, chatInput, 'PLAIN'), setChatInput(''))} />
+                                <input className="flex-1 bg-transparent py-2 text-xs outline-none font-bold placeholder:text-white/20 placeholder:font-medium" placeholder="Viết tin nhắn công khai..." value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && chatInput.trim() && convId && (sendMessage(convId, chatInput), setChatInput(''))} />
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10 rounded-full" onClick={() => { if(chatInput.trim() && convId) { sendMessage(convId, chatInput, 'PLAIN'); setChatInput(''); } }}>
                                     <Send className="h-4 w-4" />
                                 </Button>

@@ -41,6 +41,7 @@ export function ProjectNotes({ onClose }: ProjectNotesProps) {
 
   // Load notes from local storage or initialize
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const savedNotes = localStorage.getItem('lumi-project-notes')
     if (savedNotes) {
       setNotes(JSON.parse(savedNotes))

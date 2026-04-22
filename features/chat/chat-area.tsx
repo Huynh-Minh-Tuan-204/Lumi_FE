@@ -59,7 +59,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { CallLobby } from '@/features/chat/call-lobby'
 import { SystemMessageGroup } from '@/features/chat/system-message-group'
-import { decryptMessagePro, decryptFilePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, generateSenderKey } from '@/lib/crypto-utils'
+import { decryptMessagePro, decryptFilePro, encryptFilePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, generateSenderKey } from '@/lib/crypto-utils'
 import { DecryptedText } from '@/features/chat/decrypted-text'
 import { AttachmentImage } from '@/features/chat/attachment-image'
 import { MessageItem } from '@/features/chat/message-item'
@@ -78,6 +78,17 @@ interface Message {
   parentMessageId?: number
   iv?: string
   signature?: string
+}
+
+interface ChatAreaProps {
+  conversation: any;
+  onBack: () => void;
+  onShowMembers: () => void;
+  onToggleBoard: () => void;
+  onToggleSearch: () => void;
+  onRefreshConversations: () => void;
+  isMobile?: boolean;
+  className?: string;
 }
 
 function DecryptedAttachment({ 
@@ -305,6 +316,7 @@ export function ChatArea({
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [isPinnedListExpanded, setIsPinnedListExpanded] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [showLobby, setShowLobby] = useState<{ meetingId: any, type: 'voice' | 'video', title: string } | null>(null)
   
@@ -371,6 +383,7 @@ export function ChatArea({
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !conversation || !token) return
+    setIsUploading(true)
     try {
       if (!mySenderKey || !identityKeys) {
           toast.error("Vui lòng đợi thiết lập mã hóa...");
@@ -397,6 +410,9 @@ export function ChatArea({
     } catch (err) { 
       console.error(err);
       toast.error('Gửi tệp thất bại.') 
+    } finally {
+      setIsUploading(false)
+      event.target.value = ''
     }
   }
 
@@ -579,19 +595,22 @@ export function ChatArea({
                   msg.attachments && msg.attachments.length > 0 && (
                     <div className={cn("space-y-2 w-full flex flex-col", isOwn ? "items-end" : "items-start")}>
                       {msg.attachments.map((a: any) => (
-                        <DecryptedAttachment 
-                            key={a.id} 
-                            attachment={a} 
-                            token={token!} 
-                            user={user}
-                            mySenderKey={mySenderKey} 
-                            peerSenderKeys={peerSenderKeys} 
-                            peerIdentityKeys={peerIdentityKeys} 
-                            identityKeys={identityKeys}
-                            senderId={msg.senderId}
-                            conversationId={conversation.id}
-                            keyVersion={keyVersion}
-                        />
+                        // ✅ SỬA — thêm mySenderKeys vào DecryptedAttachment
+// Trong JSX gọi component:
+<DecryptedAttachment 
+    key={a.id} 
+    attachment={a} 
+    token={token!} 
+    user={user}
+    mySenderKey={mySenderKeys?.get(conversation.id) ?? mySenderKey}  // ← FIX: dùng per-conv key
+    mySenderKeys={mySenderKeys}   // ← THÊM MỚI
+    peerSenderKeys={peerSenderKeys} 
+    peerIdentityKeys={peerIdentityKeys}
+    identityKeys={identityKeys}
+    senderId={msg.senderId}
+    conversationId={conversation.id}
+    keyVersion={keyVersion}
+/>
                       ))}
                     </div>
                   )
@@ -616,8 +635,8 @@ export function ChatArea({
           </div>
         )}
         <div className="flex items-center gap-2 opacity-60">
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" onClick={() => fileInputRef.current?.click()}><Paperclip className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" disabled={isUploading} onClick={() => imageInputRef.current?.click()}><ImageIcon className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl" disabled={isUploading} onClick={() => fileInputRef.current?.click()}><Paperclip className="h-4 w-4" /></Button>
             <input type="file" ref={imageInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
             <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
         </div>

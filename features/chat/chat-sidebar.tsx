@@ -44,6 +44,7 @@ interface Conversation {
   avatarPath?: string
   lastMessage?: any
   unreadCount?: number
+  meetingGuid?: string
 }
 
 interface ChatSidebarProps {
@@ -185,37 +186,56 @@ export function ChatSidebar({
         </div>
 
         <div className="pt-1">
-            <div className="flex items-center gap-2 p-1.5 bg-primary/5 rounded-xl border border-primary/10">
-                <Hash className="h-4 w-4 text-primary opacity-40 ml-2" />
-                <input 
-                    placeholder="Mã phòng..." 
-                    className="flex-1 bg-transparent border-none outline-none text-[11px] font-bold placeholder:text-sidebar-foreground/30"
-                    onKeyDown={async (e) => {
-                        if (e.key === 'Enter') {
-                            const val = e.currentTarget.value.replace('#', '').trim();
-                            if (val) {
-                               try {
-                                 const m = await meetingsApi.getMeeting(token!, val);
-                                 window.location.href = `/call/${m.meetingGuid || m.id}?type=video`;
-                               } catch(e) { toast.error("Mã phòng không hợp lệ"); }
+            <div className="flex items-center gap-2">
+                <div className="flex flex-1 items-center gap-2 p-1.5 bg-primary/5 rounded-xl border border-primary/10">
+                    <Hash className="h-4 w-4 text-primary opacity-40 ml-2" />
+                    <input 
+                        placeholder="Mã phòng..." 
+                        className="flex-1 bg-transparent border-none outline-none text-[11px] font-bold placeholder:text-sidebar-foreground/30"
+                        onKeyDown={async (e) => {
+                            if (e.key === 'Enter') {
+                                const val = e.currentTarget.value.replace('#', '').trim();
+                                if (val) {
+                                   try {
+                                     const m = await meetingsApi.getMeeting(token!, val);
+                                     window.location.href = `/call/${m.meetingGuid || m.id}?type=video`;
+                                   } catch(e) { toast.error("Mã phòng không hợp lệ"); }
+                                }
                             }
+                        }}
+                    />
+                    <Button size="icon" className="h-7 w-7 rounded-lg group shrink-0" onClick={async (e) => {
+                        const input = e.currentTarget.parentElement?.querySelector('input');
+                        const val = input?.value.replace('#', '').trim();
+                        if (val) {
+                           try {
+                             const m = await meetingsApi.getMeeting(token!, val);
+                             window.location.href = `/call/${m.meetingGuid || m.id}?type=video`;
+                           } catch(e) { toast.error("Mã phòng không hợp lệ"); }
+                        }
+                    }}>
+                        <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                    </Button>
+                </div>
+                <Button 
+                    size="icon" 
+                    className="h-10 w-10 shrink-0 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                    onClick={async () => {
+                        try {
+                            const title = prompt("Nhập tên phòng họp (bỏ trống để tạo nhanh):");
+                            if (title !== null) {
+                                const meeting = await meetingsApi.startGlobalMeeting(token!, title || "Phòng họp nhanh", "video");
+                                window.location.href = `/call/${meeting.meetingGuid || meeting.id}?type=video`;
+                            }
+                        } catch (e) {
+                            toast.error("Không thể tạo phòng họp");
                         }
                     }}
-                />
-                <Button size="icon" className="h-7 w-7 rounded-lg group" onClick={async (e) => {
-                    const input = e.currentTarget.parentElement?.querySelector('input');
-                    const val = input?.value.replace('#', '').trim();
-                    if (val) {
-                       try {
-                         const m = await meetingsApi.getMeeting(token!, val);
-                         window.location.href = `/call/${m.meetingGuid || m.id}?type=video`;
-                       } catch(e) { toast.error("Mã phòng không hợp lệ"); }
-                    }
-                }}>
-                    <ChevronRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+                >
+                    <Plus className="h-5 w-5" />
                 </Button>
             </div>
-            <p className="text-[8px] font-black text-sidebar-foreground/20 uppercase tracking-[0.2em] mt-1 ml-2">Tham gia nhanh bằng mã phòng</p>
+            <p className="text-[8px] font-black text-sidebar-foreground/20 uppercase tracking-[0.2em] mt-1 ml-2">Tham gia bằng mã / Tạo phòng mới</p>
         </div>
       </div>
 
@@ -374,10 +394,13 @@ function ConversationItem({ conversation, isSelected, onSelect, unreadCount, isO
         </span>
       )}
       
-      {onDelete && isSelected && (
+      {onDelete && (
         <button 
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          className="absolute right-2 top-2 p-1 rounded-full bg-destructive/10 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+          className={cn(
+             "absolute right-2 top-2 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity",
+             isSelected ? "bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30" : "bg-destructive/10 text-destructive hover:bg-destructive/20"
+          )}
         >
           <X className="h-3 w-3" />
         </button>
