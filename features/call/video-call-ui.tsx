@@ -40,13 +40,12 @@ function formatDuration(seconds: number) {
 
 // [Fix 5] Adaptive grid config based on participant count
 function getGridConfig(count: number) {
-  if (count === 1) return { cols: 'grid-cols-1', maxW: 'max-w-3xl', aspect: 'aspect-video' }
-  if (count === 2) return { cols: 'grid-cols-2', maxW: 'max-w-4xl', aspect: 'aspect-video' }
-  if (count === 3) return { cols: 'grid-cols-2', maxW: 'max-w-5xl', aspect: 'aspect-[4/3]' }
-  if (count <= 4) return { cols: 'grid-cols-2', maxW: 'max-w-5xl', aspect: 'aspect-square' }
-  if (count <= 6) return { cols: 'grid-cols-3', maxW: 'max-w-6xl', aspect: 'aspect-[4/3]' }
-  if (count <= 9) return { cols: 'grid-cols-3', maxW: 'max-w-6xl', aspect: 'aspect-square' }
-  return { cols: 'grid-cols-4', maxW: 'max-w-7xl', aspect: 'aspect-square' }
+  if (count === 1) return { gridClass: 'grid-cols-1', maxW: 'max-w-5xl', aspect: 'aspect-video' }
+  if (count === 2) return { gridClass: 'grid-cols-1 md:grid-cols-2', maxW: 'max-w-7xl', aspect: 'aspect-video' }
+  if (count === 3) return { gridClass: 'grid-cols-2', maxW: 'max-w-7xl', aspect: 'aspect-video md:aspect-[16/10]' }
+  if (count === 4) return { gridClass: 'grid-cols-2', maxW: 'max-w-6xl', aspect: 'aspect-video' }
+  if (count <= 6) return { gridClass: 'grid-cols-2 md:grid-cols-3', maxW: 'max-w-7xl', aspect: 'aspect-video' }
+  return { gridClass: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4', maxW: 'max-w-full', aspect: 'aspect-video' }
 }
 
 // Fixed Attachment Renderer inside Call Chat
@@ -214,35 +213,37 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         <section className="flex-1 p-6 relative overflow-hidden flex flex-col items-center justify-center">
             {/* [Fix 5] Adaptive Video Grid */}
             {(() => {
-                const { cols, maxW, aspect } = getGridConfig(activePeers)
-                const hasOddLast = allStreams.length % 2 !== 0 && allStreams.length > 1 && cols === 'grid-cols-2'
+                const { gridClass, maxW, aspect } = getGridConfig(activePeers)
+                // Center the last item if we have 3 or odd members in a 2-col layout
+                const isCenteredLast = activePeers === 3 || (activePeers > 1 && activePeers % 2 !== 0 && gridClass.includes('grid-cols-2'))
 
                 return (
                     <div className={cn(
-                        'grid gap-3 w-full h-full items-center justify-items-center p-4 mx-auto',
-                        maxW, cols
+                        'grid gap-4 w-full h-full items-center justify-center p-4 mx-auto content-center',
+                        maxW, gridClass
                     )}>
-                    {allStreams.map((p, idx) => (
-                        <div
-                          key={p.id}
-                          className={cn(
-                            'relative w-full rounded-2xl overflow-hidden',
-                            aspect,
-                            // Center the last odd tile
-                            hasOddLast && idx === allStreams.length - 1 && 'col-span-2 max-w-[50%] justify-self-center'
-                          )}
-                        >
-                            <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
-                            {/* [Fix 5] Reconnecting overlay for remote peers without stream */}
-                            {!p.isLocal && !p.stream && (
-                                <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 animate-pulse">
-                                    <div className="h-10 w-10 rounded-full border-4 border-yellow-500 border-t-transparent animate-spin" />
-                                    <p className="text-xs font-bold text-yellow-400 uppercase tracking-widest">Đang kết nối lại...</p>
-                                    <p className="text-[10px] text-white/50">{p.name}</p>
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                    {allStreams.map((p, idx) => {
+                        const isLastAndCentered = isCenteredLast && idx === allStreams.length - 1
+                        return (
+                            <div
+                                key={p.id}
+                                className={cn(
+                                    'relative w-full rounded-2xl overflow-hidden bg-[#121212] border border-white/5 shadow-2xl transition-all duration-500',
+                                    aspect,
+                                    isLastAndCentered && 'col-span-2 md:col-span-1 md:col-start-1 md:translate-x-1/2 lg:translate-x-0'
+                                )}
+                            >
+                                <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
+                                
+                                {!p.isLocal && !p.stream && (
+                                    <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 animate-pulse">
+                                        <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                                        <p className="text-[10px] font-black text-primary uppercase tracking-widest">Đang kết nối...</p>
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    })}
                 </div>
                 )
             })()}
