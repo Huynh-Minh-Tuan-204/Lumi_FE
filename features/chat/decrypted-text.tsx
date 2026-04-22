@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey } from '@/lib/crypto-utils'
+import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, loadAllMySenderKeys } from '@/lib/crypto-utils'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Video as VideoIcon } from 'lucide-react'
@@ -64,26 +64,36 @@ export function DecryptedText({
                 let currentSenderKey = isMessageOwn ? mySenderKey : peerSenderKeys?.get(senderId);
                 let senderIdPubKey = isMessageOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderId);
                 
-                // [FIX 1] Always try to load the correct SenderKey for THIS conversation if it's our own message
-                // This handles the case where the global mySenderKey is for a different conversation or null after F5
                 if (message.conversationId) {
                     if (isMessageOwn) {
-                        // If we don't have it or it's potentially from another conversation, try loading from DB
+                        // Try exact match first
                         const stored = await saveOrLoadSenderKey(message.conversationId);
-                        if (stored) currentSenderKey = stored;
+                        if (stored) {
+                            currentSenderKey = stored;
+                        } else {
+                            // [FALLBACK] Key not found by conversationId.
+                            // Scan ALL MySenderKeys in DB — in single-device scenario there's only 1.
+                            const allKeys = await loadAllMySenderKeys();
+                            if (allKeys.size > 0) {
+                                // Try matching by conversationId first, then fall back to first found
+                                currentSenderKey = allKeys.get(Number(message.conversationId)) 
+                                    || allKeys.values().next().value;
+                                if (currentSenderKey) {
+                                    console.log(`[E2EE] Fallback key used for MsgId=${message.id} (convId=${message.conversationId}). Total keys: ${allKeys.size}`);
+                                }
+                            }
+                        }
                     } else if (!currentSenderKey) {
                         const stored = await saveOrLoadPeerSenderKey(message.conversationId, senderId);
                         if (stored) currentSenderKey = stored;
                     }
                 }
 
-                // [FIX 2] If identity public key is missing for peer, try loading from DB
                 if (!isMessageOwn && !senderIdPubKey) {
                     const stored = await saveOrLoadPeerIdentityKey(senderId);
                     if (stored) senderIdPubKey = stored;
                 }
 
-                // [FIX 3] If we still don't have keys, and we have identityKeys, we might need to load our own public key
                 if (isMessageOwn && !senderIdPubKey && identityKeys?.publicKey) {
                     senderIdPubKey = identityKeys.publicKey;
                 }

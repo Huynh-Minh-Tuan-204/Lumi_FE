@@ -59,7 +59,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { CallLobby } from '@/features/chat/call-lobby'
 import { SystemMessageGroup } from '@/features/chat/system-message-group'
-import { decryptMessagePro, decryptFilePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey } from '@/lib/crypto-utils'
+import { decryptMessagePro, decryptFilePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, generateSenderKey } from '@/lib/crypto-utils'
 import { DecryptedText } from '@/features/chat/decrypted-text'
 import { AttachmentImage } from '@/features/chat/attachment-image'
 import { MessageItem } from '@/features/chat/message-item'
@@ -339,6 +339,20 @@ export function ChatArea({
   useEffect(() => {
     if (conversation?.id) initiateE2EEHandshake(conversation.id).catch(() => {});
   }, [conversation?.id, initiateE2EEHandshake]);
+
+  // [KEY FIX] Bootstrap SenderKey for this conversation when it opens.
+  // Ensures key exists in IndexedDB so DecryptedText can load it after F5.
+  useEffect(() => {
+    if (!conversation?.id) return;
+    const conversationId = conversation.id;
+    saveOrLoadSenderKey(conversationId).then(async (existing) => {
+      if (!existing) {
+        const newKey = await generateSenderKey();
+        await saveOrLoadSenderKey(conversationId, newKey);
+        console.log(`[E2EE] Bootstrap: Created & saved SenderKey for conversation ${conversationId}`);
+      }
+    }).catch(() => {});
+  }, [conversation?.id]);
 
   const handleStartCall = async (type: 'voice' | 'video') => {
     if (!conversation || !token) return

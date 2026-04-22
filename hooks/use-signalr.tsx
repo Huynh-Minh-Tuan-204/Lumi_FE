@@ -13,7 +13,7 @@ import {
   generateSenderKey, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey,
   encryptSessionKeyForPeer, decryptSessionKey,
   encryptMessagePro, decryptMessagePro, signData, verifySignature,
-  base64ToBuffer, bufferToBase64
+  base64ToBuffer, bufferToBase64, loadAllMySenderKeys, loadAllPeerSenderKeysForConversation
 } from '@/lib/crypto-utils'
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -65,8 +65,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // [FIX] DO NOT use getOrCreate here, it will generate a new key on new devices 
-      // and bypass the Restore/PIN requirement.
       loadKey(IDENTITY_KEY_ALIAS).then(keys => {
         if (keys) {
           setIdentityKeys(keys);
@@ -74,13 +72,28 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           setKeyVersion(v => v + 1);
         }
       });
-      // Use the internal alias defined in crypto-utils (EphemeralRSAKey)
       loadKey('EphemeralRSAKey').then(keys => {
           if (keys) {
             setMyRSAKeys(keys);
             myRSAKeysRef.current = keys;
             setKeyVersion(v => v + 1);
           }
+      });
+      // [KEY FIX] Preload ALL MySenderKeys from IndexedDB into memory Map at startup.
+      // This eliminates the "hasSenderKey=false" error after F5 by eagerly populating RAM.
+      loadAllMySenderKeys().then(allKeys => {
+        if (allKeys.size > 0) {
+          allKeys.forEach((key, convId) => {
+            mySenderKeysRef.current.set(convId, key);
+          });
+          // Use the first found key as the 'active' mySenderKey for backward compat
+          const firstKey = allKeys.values().next().value;
+          if (firstKey) {
+            setMySenderKey(firstKey);
+          }
+          setKeyVersion(v => v + 1);
+          console.log(`[E2EE] Preloaded ${allKeys.size} SenderKey(s) from IndexedDB.`);
+        }
       });
     }
   }, []);

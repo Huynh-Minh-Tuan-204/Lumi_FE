@@ -184,6 +184,62 @@ export async function saveOrLoadPeerSenderKey(conversationId: number | string, u
     return await loadKey(alias);
 }
 
+/**
+ * Quét toàn bộ IndexedDB và trả về Map<conversationId, CryptoKey> cho tất cả MySenderKey
+ * Dùng khi khởi động để nạp lại tất cả key vào RAM mà không cần biết trước conversationId
+ */
+export async function loadAllMySenderKeys(): Promise<Map<number, CryptoKey>> {
+    const result = new Map<number, CryptoKey>();
+    const db = await getDB();
+    await new Promise<void>((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).openCursor();
+        req.onsuccess = () => {
+            const cursor = req.result;
+            if (!cursor) { resolve(); return; }
+            const alias = cursor.key as string;
+            if (alias.startsWith(MY_SENDER_KEY_ALIAS + ':')) {
+                const convIdStr = alias.substring((MY_SENDER_KEY_ALIAS + ':').length);
+                const convId = parseInt(convIdStr, 10);
+                if (!isNaN(convId)) {
+                    result.set(convId, cursor.value as CryptoKey);
+                }
+            }
+            cursor.continue();
+        };
+        req.onerror = () => resolve();
+    });
+    return result;
+}
+
+/**
+ * Quét toàn bộ IndexedDB và trả về Map<senderId, CryptoKey> cho tất cả PeerSenderKey trong một conversation
+ */
+export async function loadAllPeerSenderKeysForConversation(conversationId: number | string): Promise<Map<number, CryptoKey>> {
+    const result = new Map<number, CryptoKey>();
+    const prefix = `${PEER_SENDER_KEY_ALIAS}:${String(conversationId)}:`;
+    const db = await getDB();
+    await new Promise<void>((resolve) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const req = tx.objectStore(STORE_NAME).openCursor();
+        req.onsuccess = () => {
+            const cursor = req.result;
+            if (!cursor) { resolve(); return; }
+            const alias = cursor.key as string;
+            if (alias.startsWith(prefix)) {
+                const userIdStr = alias.substring(prefix.length);
+                const userId = parseInt(userIdStr, 10);
+                if (!isNaN(userId)) {
+                    result.set(userId, cursor.value as CryptoKey);
+                }
+            }
+            cursor.continue();
+        };
+        req.onerror = () => resolve();
+    });
+    return result;
+}
+
 export async function encryptSessionKeyForPeer(sessionKey: CryptoKey, peerPublicKey: CryptoKey): Promise<string> {
     const raw = await window.crypto.subtle.exportKey("raw", sessionKey);
     const encrypted = await window.crypto.subtle.encrypt({ name: "RSA-OAEP" }, peerPublicKey, raw);
