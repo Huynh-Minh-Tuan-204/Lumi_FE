@@ -618,6 +618,43 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
   }, [token, identityKeys, myRSAKeys, isKeysLoaded, initiateE2EEHandshake])
 
+  const refreshPeerKey = useCallback(async (senderId: number, conversationId: number) => {
+    if (!token || !conversationId) return;
+    
+    console.log(`[E2EE] Refreshing keys for Peer ${senderId} in Conv ${conversationId}...`);
+    try {
+        const members = await conversationsApi.getMembers(token, conversationId);
+        const member = members.find(m => Number(m.UserId || m.userId) === senderId);
+        
+        if (member && member.PublicKey) {
+            let idPubKeyB64 = "";
+            let rsaPubKeyB64 = "";
+            
+            if (member.PublicKey.startsWith('{')) {
+                const json = JSON.parse(member.PublicKey);
+                idPubKeyB64 = json.idPubKey;
+                rsaPubKeyB64 = json.rsaPubKey;
+            } else {
+                idPubKeyB64 = member.PublicKey;
+            }
+
+            if (idPubKeyB64) {
+                const peerIdPubKey = await importIdentityPublicKey(idPubKeyB64);
+                peerIdentityKeysRef.current.set(senderId, peerIdPubKey);
+                await saveOrLoadPeerIdentityKey(senderId, peerIdPubKey);
+                
+                // Clear sender key to force re-handshake or re-recovery
+                peerSenderKeysRef.current.delete(`${conversationId}:${senderId}`);
+                
+                setKeyVersion(v => v + 1);
+                console.log(`[E2EE] Successfully refreshed IdentityKey for Peer ${senderId}.`);
+            }
+        }
+    } catch (e) {
+        console.error(`[E2EE] Failed to refresh key for Peer ${senderId}:`, e);
+    }
+  }, [token]);
+
   const sendMessage = useCallback(async (conversationId: number, plaintext: string, messageType: string = 'PLAIN', parentMessageId?: number) => {
     if (connectionRef.current?.state !== signalR.HubConnectionState.Connected) {
       toast.error('Mất kết nối. Đang kết nối lại...')
@@ -646,7 +683,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     }
 
     // [Fix 2.2] Nếu chưa có peer key, trigger handshake BẤT ĐỒNG BỘ - KHÔNG block gửi tin
-    // Peer sẽ nhận được SenderKey sau khi handshake hoàn tất và có thể giải mã tin nhắn
     if (peerIdentityKeysRef.current.size === 0) {
       initiateE2EEHandshake(conversationId).catch(console.warn);
     }
@@ -669,7 +705,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             const offlineKeys: Record<number, string> = {};
             
             for (const member of members) {
-                const mid = Number(member.UserId);
+                const mid = Number(member.UserId || member.userId);
                 if (mid === userRef.current?.id) continue;
                 
                 // Nếu chưa có khóa bắt tay với người này trong hội thoại này
@@ -697,7 +733,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }
 
       const clientMessageId = crypto.randomUUID();
-      await connectionRef.current.invoke(
+      await connectionRef.current?.invoke(
           'SendMessageSecure',
           conversationId,
           contentToSend,
@@ -712,7 +748,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       console.error('Failed to send encrypted message:', err);
       toast.error('Lỗi khi gửi tin nhắn. Vui lòng thử lại.');
     }
-  }, [initiateE2EEHandshake])
+  }, [token, initiateE2EEHandshake])
 
 
   const markAsRead = useCallback(async (conversationId: number, messageId: number = 0) => {
@@ -807,7 +843,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         identityKeys: identityKeysRef.current,
         myRSAKeys: myRSAKeysRef.current,
         keyVersion,
-        lastLeftConversationId
+        lastLeftConversationId,
+        refreshPeerKey
       }}
     >
       {!mounted ? <div style={{ visibility: 'hidden' }}>{children}</div> : children}

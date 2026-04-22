@@ -1,41 +1,37 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, decryptSessionKey } from '@/lib/crypto-utils'
+import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, decryptSessionKey, importPublicKey, importIdentityPublicKey, encryptSessionKeyForPeer } from '@/lib/crypto-utils'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Video as VideoIcon } from 'lucide-react'
 import { E2EERestorePrompt } from '@/features/shared/e2ee-restore-prompt'
+import { useSignalR } from '@/hooks/use-signalr'
 
 interface DecryptedTextProps {
   message: any
-  user: any
-  mySenderKey: any
-  mySenderKeys: Map<number, any>
-  peerSenderKeys: Map<string, any>
-  peerIdentityKeys: Map<number, any>
-  identityKeys: any
-  myRSAKeys: any
-  initiateHandshake: (cid: number) => Promise<void>
   onJoinMeeting?: (meetingId: string) => void
   isOwn?: boolean
-  keyVersion?: number
 }
 
 export function DecryptedText({ 
     message, 
-    user, 
-    mySenderKey,
-    mySenderKeys,
-    peerSenderKeys, 
-    peerIdentityKeys, 
-    identityKeys,
-    myRSAKeys,
-    initiateHandshake,
     onJoinMeeting,
-    isOwn,
-    keyVersion
+    isOwn
 }: DecryptedTextProps) {
+    const { 
+        user, 
+        mySenderKey, 
+        mySenderKeys, 
+        peerSenderKeys, 
+        peerIdentityKeys, 
+        identityKeys, 
+        myRSAKeys, 
+        initiateE2EEHandshake: initiateHandshake, 
+        keyVersion,
+        refreshPeerKey
+    } = useSignalR();
+
     const [decrypted, setDecrypted] = useState<string>("⌛ [Đang giải mã...]");
     const [needsRestore, setNeedsRestore] = useState(false);
 
@@ -127,10 +123,18 @@ export function DecryptedText({
                     } catch (e) {
                         console.warn('Lỗi giải mã (thường do khóa cũ):', e);
                         const errorCode = (e as any)?.code || (e as any)?.name;
+                        
                         if (errorCode === 'SIG_INVALID') {
-                            setDecrypted('⚠️ [Không xác thực được chữ ký – Có thể sai khóa nhận dạng]');
+                            setDecrypted('⚠️ [Không xác thực được chữ ký – Đang tải lại khóa...]');
+                            // [AUTO-REFRESH] Nếu sai chữ ký, khả năng cao là họ đã đổi khóa. Hãy tải lại.
+                            if (refreshPeerKey) {
+                                refreshPeerKey(senderIdNum, conversationIdNum).catch(() => {});
+                            }
                         } else if (errorCode === 'OperationError') {
-                            setDecrypted('🔑 [Tin nhắn được bảo mật từ phiên làm việc trước]');
+                            setDecrypted('🔑 [Đang khôi phục khóa bảo mật...]');
+                            if (refreshPeerKey) {
+                                refreshPeerKey(senderIdNum, conversationIdNum).catch(() => {});
+                            }
                         } else {
                             setDecrypted('❌ [Lỗi giải mã không xác định]');
                         }

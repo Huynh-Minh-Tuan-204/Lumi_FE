@@ -53,6 +53,7 @@ export interface SignalRHookReturn {
   identityKeys: CryptoKeyPair | null
   keyVersion: number
   lastLeftConversationId: number | null
+  refreshPeerKey: (senderId: number, conversationId: number) => Promise<void>
 }
 
 export interface Conversation {

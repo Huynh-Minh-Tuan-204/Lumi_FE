@@ -50,17 +50,8 @@ export function MessageItem({
           <div className={cn("px-4 py-2.5 rounded-2xl shadow-sm text-sm break-words border relative group/msg transition-all duration-300", isOwn ? "bg-primary text-primary-foreground border-transparent" : "bg-card")}>
             <DecryptedText 
               message={message} 
-              user={user} 
-              mySenderKey={mySenderKey}
-              mySenderKeys={mySenderKeys}
-              peerSenderKeys={peerSenderKeys} 
-              peerIdentityKeys={peerIdentityKeys} 
-              identityKeys={identityKeys} 
-              myRSAKeys={myRSAKeys}
-              initiateHandshake={initiateHandshake} 
               onJoinMeeting={onJoinMeeting} 
               isOwn={isOwn} 
-              keyVersion={keyVersion}
             />
             <div className={cn("absolute bottom-0 opacity-0 group-hover/msg:opacity-100 flex items-center gap-1 transition-opacity", isOwn ? "-left-20" : "-right-20")}>
               <button 
