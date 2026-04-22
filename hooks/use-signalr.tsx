@@ -90,7 +90,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         if (mySenderKeys.size > 0) {
           mySenderKeys.forEach((key, convId) => mySenderKeysRef.current.set(convId, key));
           const firstKey = mySenderKeys.values().next().value;
-          if (firstKey) setMySenderKey(firstKey);
+          if (firstKey) {
+            mySenderKeysRef.current.set(0, firstKey); // Also set as default
+            setMySenderKey(firstKey);
+          }
           console.log(`[E2EE] Preloaded ${mySenderKeys.size} SenderKey(s) from IndexedDB.`);
         }
 
@@ -292,7 +295,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                 const stored = await saveOrLoadSenderKey(conversationId);
                 if (stored) {
                     mySenderKeysRef.current.set(conversationId, stored);
+                    mySenderKeysRef.current.set(0, stored); // Also update default key
                     setMySenderKey(stored);
+                    setKeyVersion(v => v + 1);
                     senderSessionKey = stored;
                 }
             }
@@ -548,7 +553,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       connection.stop()
     }
 
-  }, [token, identityKeys, myRSAKeys])
+  }, [token, identityKeys, myRSAKeys, initiateE2EEHandshake])
 
   const sendMessage = useCallback(async (conversationId: number, plaintext: string, messageType: string = 'PLAIN', parentMessageId?: number) => {
     if (connectionRef.current?.state !== signalR.HubConnectionState.Connected) {
