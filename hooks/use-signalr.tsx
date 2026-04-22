@@ -8,8 +8,8 @@ import { announcementsApi } from '@/lib/api'
 import { ChatMessage, SignalRHookReturn } from '@/types/chat.types'
 import { HUB_URL } from '@/constants/api.constants'
 import { 
-  getOrCreateIdentityKey, exportIdentityPublicKey, importIdentityPublicKey,
-  getOrCreateRSAKeyPair, exportPublicKey, importPublicKey,
+  loadKey, IDENTITY_KEY_ALIAS, exportIdentityPublicKey, importIdentityPublicKey,
+  exportPublicKey, importPublicKey,
   generateSenderKey, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey,
   encryptSessionKeyForPeer, decryptSessionKey,
   encryptMessagePro, decryptMessagePro, signData, verifySignature,
@@ -65,15 +65,22 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      getOrCreateIdentityKey().then(keys => {
-        setIdentityKeys(keys);
-        identityKeysRef.current = keys;
-        setKeyVersion(v => v + 1);
-      });
-      getOrCreateRSAKeyPair().then(keys => {
-          setMyRSAKeys(keys);
-          myRSAKeysRef.current = keys;
+      // [FIX] DO NOT use getOrCreate here, it will generate a new key on new devices 
+      // and bypass the Restore/PIN requirement.
+      loadKey(IDENTITY_KEY_ALIAS).then(keys => {
+        if (keys) {
+          setIdentityKeys(keys);
+          identityKeysRef.current = keys;
           setKeyVersion(v => v + 1);
+        }
+      });
+      // Use the internal alias defined in crypto-utils (EphemeralRSAKey)
+      loadKey('EphemeralRSAKey').then(keys => {
+          if (keys) {
+            setMyRSAKeys(keys);
+            myRSAKeysRef.current = keys;
+            setKeyVersion(v => v + 1);
+          }
       });
     }
   }, []);

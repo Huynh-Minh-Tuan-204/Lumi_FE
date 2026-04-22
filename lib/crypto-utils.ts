@@ -358,20 +358,16 @@ export async function backupKeysToPin(pin: string): Promise<{
     iv: string;
 }> {
     // 1. Export IdentityKey (ECDSA key pair)
-    const identityKeys = await loadKey(IDENTITY_KEY_ALIAS) as CryptoKeyPair | null;
-    if (!identityKeys) throw new Error('Không tìm thấy Identity Key. Hãy gửi ít nhất 1 tin nhắn trước.');
+    const identityKeys = await getOrCreateIdentityKey();
 
     const identityPrivRaw = await window.crypto.subtle.exportKey('pkcs8', identityKeys.privateKey);
     const identityPubRaw = await window.crypto.subtle.exportKey('raw', identityKeys.publicKey);
 
     // 2. Export RSA Key Pair (Ephemeral RSA for sender key exchange)
-    const rsaKeys = await loadKey(RSA_KEY_ALIAS) as CryptoKeyPair | null;
-    let rsaPrivRaw: ArrayBuffer | null = null;
-    let rsaPubRaw: ArrayBuffer | null = null;
-    if (rsaKeys) {
-        rsaPrivRaw = await window.crypto.subtle.exportKey('pkcs8', rsaKeys.privateKey);
-        rsaPubRaw = await window.crypto.subtle.exportKey('spki', rsaKeys.publicKey);
-    }
+    const rsaKeys = await getOrCreateRSAKeyPair();
+    
+    const rsaPrivRaw = await window.crypto.subtle.exportKey('pkcs8', rsaKeys.privateKey);
+    const rsaPubRaw = await window.crypto.subtle.exportKey('spki', rsaKeys.publicKey);
 
     // 3. Đọc tất cả SenderKeys từ IndexedDB
     const db = await getDB();
