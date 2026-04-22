@@ -360,45 +360,49 @@ export async function backupKeysToPin(pin: string): Promise<{
     // 1. Export IdentityKey (ECDSA key pair)
     const identityKeys = await getOrCreateIdentityKey();
 
-    const identityPrivRaw = await window.crypto.subtle.exportKey('pkcs8', identityKeys.privateKey);
-    const identityPubRaw = await window.crypto.subtle.exportKey('raw', identityKeys.publicKey);
+    const identityPrivJwk = await window.crypto.subtle.exportKey('jwk', identityKeys.privateKey);
+    const identityPubJwk = await window.crypto.subtle.exportKey('jwk', identityKeys.publicKey);
 
     // 2. Export RSA Key Pair (Ephemeral RSA for sender key exchange)
     const rsaKeys = await getOrCreateRSAKeyPair();
     
-    const rsaPrivRaw = await window.crypto.subtle.exportKey('pkcs8', rsaKeys.privateKey);
-    const rsaPubRaw = await window.crypto.subtle.exportKey('spki', rsaKeys.publicKey);
+    const rsaPrivJwk = await window.crypto.subtle.exportKey('jwk', rsaKeys.privateKey);
+    const rsaPubJwk = await window.crypto.subtle.exportKey('jwk', rsaKeys.publicKey);
 
     // 3. Đọc tất cả SenderKeys từ IndexedDB
     const db = await getDB();
-    const allKeys: Record<string, string> = {};
+    const keysToExport: { alias: string, key: CryptoKey }[] = [];
     await new Promise<void>((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readonly');
         const req = tx.objectStore(STORE_NAME).openCursor();
-        req.onsuccess = async () => {
+        req.onsuccess = () => {
             const cursor = req.result;
             if (!cursor) { resolve(); return; }
             const alias = cursor.key as string;
-            // Chỉ backup SenderKeys của chính mình (không backup peer keys – sẽ re-exchange)
+            // Chỉ backup SenderKeys của chính mình
             if (alias.startsWith(MY_SENDER_KEY_ALIAS + ':')) {
-                try {
-                    const key = cursor.value as CryptoKey;
-                    const raw = await window.crypto.subtle.exportKey('raw', key);
-                    allKeys[alias] = bufferToBase64(raw);
-                } catch { /* skip non-exportable */ }
+                keysToExport.push({ alias, key: cursor.value as CryptoKey });
             }
             cursor.continue();
         };
         req.onerror = () => reject(req.error);
     });
 
-    // 4. Tạo JSON bundle
+    const allKeys: Record<string, any> = {};
+    for (const { alias, key } of keysToExport) {
+        try {
+            const jwk = await window.crypto.subtle.exportKey('jwk', key);
+            allKeys[alias] = jwk;
+        } catch { /* skip non-exportable */ }
+    }
+
+    // 4. Tạo JSON bundle bằng JWK objects
     const bundle = JSON.stringify({
-        version: 2,
-        identityPriv: bufferToBase64(identityPrivRaw),
-        identityPub: bufferToBase64(identityPubRaw),
-        rsaPriv: rsaPrivRaw ? bufferToBase64(rsaPrivRaw) : null,
-        rsaPub: rsaPubRaw ? bufferToBase64(rsaPubRaw) : null,
+        version: 3, // Bump version to 3 for JWK format
+        identityPriv: identityPrivJwk,
+        identityPub: identityPubJwk,
+        rsaPriv: rsaPrivJwk,
+        rsaPub: rsaPubJwk,
         senderKeys: allKeys,
         exportedAt: Date.now(),
     });
@@ -455,18 +459,19 @@ export async function restoreKeysFromPin(
 
     // 3. Parse bundle JSON
     const bundle = JSON.parse(plaintext);
+    const isV3 = bundle.version === 3;
 
     // 4. Import lại IdentityKey (ECDSA)
     const identityPrivKey = await window.crypto.subtle.importKey(
-        'pkcs8',
-        base64ToBuffer(bundle.identityPriv),
+        isV3 ? 'jwk' : 'pkcs8',
+        isV3 ? bundle.identityPriv : base64ToBuffer(bundle.identityPriv),
         { name: 'ECDSA', namedCurve: 'P-256' },
         true,
         ['sign']
     );
     const identityPubKey = await window.crypto.subtle.importKey(
-        'raw',
-        base64ToBuffer(bundle.identityPub),
+        isV3 ? 'jwk' : 'raw',
+        isV3 ? bundle.identityPub : base64ToBuffer(bundle.identityPub),
         { name: 'ECDSA', namedCurve: 'P-256' },
         true,
         ['verify']
@@ -476,15 +481,15 @@ export async function restoreKeysFromPin(
     // 5. Import lại RSA Key Pair (nếu có)
     if (bundle.rsaPriv && bundle.rsaPub) {
         const rsaPrivKey = await window.crypto.subtle.importKey(
-            'pkcs8',
-            base64ToBuffer(bundle.rsaPriv),
+            isV3 ? 'jwk' : 'pkcs8',
+            isV3 ? bundle.rsaPriv : base64ToBuffer(bundle.rsaPriv),
             { name: 'RSA-OAEP', hash: 'SHA-256' },
             true,
             ['decrypt']
         );
         const rsaPubKey = await window.crypto.subtle.importKey(
-            'spki',
-            base64ToBuffer(bundle.rsaPub),
+            isV3 ? 'jwk' : 'spki',
+            isV3 ? bundle.rsaPub : base64ToBuffer(bundle.rsaPub),
             { name: 'RSA-OAEP', hash: 'SHA-256' },
             true,
             ['encrypt']
@@ -493,16 +498,18 @@ export async function restoreKeysFromPin(
     }
 
     // 6. Import lại tất cả SenderKeys
-    const senderKeys: Record<string, string> = bundle.senderKeys || {};
-    for (const [alias, rawBase64] of Object.entries(senderKeys)) {
-        const key = await window.crypto.subtle.importKey(
-            'raw',
-            base64ToBuffer(rawBase64 as string),
-            { name: 'AES-GCM' },
-            true,
-            ['encrypt', 'decrypt']
-        );
-        await saveKey(alias, key);
+    const senderKeys: Record<string, any> = bundle.senderKeys || {};
+    for (const [alias, keyData] of Object.entries(senderKeys)) {
+        try {
+            const key = await window.crypto.subtle.importKey(
+                isV3 ? 'jwk' : 'raw',
+                isV3 ? keyData : base64ToBuffer(keyData as string),
+                { name: 'AES-GCM' },
+                true,
+                ['encrypt', 'decrypt']
+            );
+            await saveKey(alias, key);
+        } catch { /* skip corrupted keys */ }
     }
 
     return true;

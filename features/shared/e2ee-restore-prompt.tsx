@@ -96,10 +96,9 @@ export function E2EERestorePrompt({ conversationId, onRestored, onDismiss, isMan
             setStep('done')
             toast.success('🔓 Khôi phục khóa E2EE thành công!')
 
-            // 3. Reload sau 1.5s để React re-init keys từ IndexedDB
+            // 3. Reload sau 1.5s để React re-init keys từ IndexedDB và xóa RAM
             setTimeout(() => {
-                if (onRestored) onRestored()
-                else window.location.reload()
+                window.location.reload()
             }, 1500)
         } catch (err: any) {
             const isNoBackup = err?.message?.includes('404') || err?.status === 404

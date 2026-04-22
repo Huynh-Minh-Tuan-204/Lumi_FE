@@ -92,8 +92,12 @@ export function DecryptedText({
                         setDecrypted("❌ [Lỗi giải mã - Có thể do sai mã PIN hoặc khóa cũ]");
                     }
                 } else if (!iv || !sig) {
-                    // If no crypto metadata, it's either legacy plain text or corrupted.
-                    setDecrypted(content);
+                    // Nếu thiếu metadata nhưng nội dung là Base64 dài (do lỗi cũ), báo lỗi rõ ràng.
+                    if (content && content.length > 20 && !content.includes(' ')) {
+                        setDecrypted("⚠️ [Lỗi giải mã: Dữ liệu mã hóa bị hỏng hoặc mất chữ ký]");
+                    } else {
+                        setDecrypted(content);
+                    }
                     setNeedsRestore(false);
                 } else {
                     // Missing keys – show restore prompt
