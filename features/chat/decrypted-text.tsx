@@ -5,7 +5,7 @@ import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, save
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Video as VideoIcon } from 'lucide-react'
-import { E2EERestorePrompt } from '@/features/shared/e2ee-restore-prompt'
+
 import { useSignalR } from '@/hooks/use-signalr'
 
 interface DecryptedTextProps {
@@ -149,12 +149,18 @@ export function DecryptedText({
                     setNeedsRestore(false);
                 } else {
                     // Keys missing
-                    console.warn(`[E2EE Info] Waiting for keys to decrypt MsgId=${message.id}. isOwn=${isMessageOwn}, hasSenderKey=${!!currentSenderKey}, hasPubKey=${!!senderIdPubKey}`);
+                    const isMsgOwn = isOwn ?? (user && Number(message.senderId) === Number(user.id));
+                    const reason = !currentSenderKey ? "Missing Sender Key" : "Missing Peer Public Key";
+                    
+                    if (!isMsgOwn) {
+                        console.info(`[E2EE Info] MsgId=${message.id} is waiting for keys: ${reason}. hasSenderKey=${!!currentSenderKey}, hasPubKey=${!!senderIdPubKey}`);
+                    }
+                    
                     setDecrypted('⏳ [Đang chờ khóa mã hóa...]');
-                    setNeedsRestore(!isMessageOwn); // Only show restore prompt for peer messages
+                    setNeedsRestore(false); // Disable inline restore, handled by global Gatekeeper
                     
                     // [AUTO-HANDSHAKE] Tự động yêu cầu khóa nếu chưa có public key và không phải tin nhắn của mình
-                    if (!isMessageOwn && !senderIdPubKey && initiateHandshake && conversationIdNum) {
+                    if (!isMsgOwn && !senderIdPubKey && initiateHandshake && conversationIdNum) {
                         initiateHandshake(conversationIdNum).catch(() => {});
                     }
                 }
@@ -166,15 +172,8 @@ export function DecryptedText({
         decrypt();
     }, [message.id, message.encryptedContent, message.message, keyVersion, mySenderKey, mySenderKeys, peerSenderKeys]);
 
-    // Show inline restore prompt when keys are missing
-    if (needsRestore && !isOwn) {
-        return (
-            <E2EERestorePrompt
-                conversationId={message.conversationId}
-                onDismiss={() => setNeedsRestore(false)}
-            />
-        );
-    }
+    // Removed inline restore prompt to avoid duplication with E2EEGatekeeper
+    // and to fulfill user request of entering PIN only once.
 
     if (decrypted.includes('[MEETING_GUID:')) {
         return (

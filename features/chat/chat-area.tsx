@@ -63,7 +63,7 @@ import { decryptMessagePro, decryptFilePro, encryptFilePro, saveOrLoadSenderKey,
 import { DecryptedText } from '@/features/chat/decrypted-text'
 import { AttachmentImage } from '@/features/chat/attachment-image'
 import { MessageItem } from '@/features/chat/message-item'
-import { E2EEGatekeeper } from '@/features/shared/e2ee-gatekeeper'
+
 
 interface Message {
   id: number
@@ -526,8 +526,6 @@ export function ChatArea({
     {/* Outer container fills its parent flex slot */}
     <div className={cn("flex flex-col min-w-0 bg-background relative h-full", className)}>
 
-      {/* ── E2EE Security Overlay (absolute, never breaks layout) ── */}
-      <E2EEGatekeeper />
 
       {/* ── Header ── */}
       <header className="flex items-center justify-between px-4 py-3 bg-background/80 backdrop-blur-md z-30 border-b shrink-0">

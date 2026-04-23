@@ -7,6 +7,7 @@ import { MembersSidebar } from '@/features/chat/members-sidebar'
 import { GroupBoard } from '@/features/chat/group-board'
 import { MessageSearchSidebar } from '@/features/chat/message-search-sidebar'
 import { ProjectNotes } from '@/features/chat/project-notes'
+import { E2EEGatekeeper } from '@/features/shared/e2ee-gatekeeper'
 import { CreateEventModal } from '@/features/schedule/create-event-modal'
 import { PersonalCalendar } from '@/features/schedule/personal-calendar'
 import { useAuth } from '@/lib/auth-context'
@@ -318,6 +319,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden relative">
+      <E2EEGatekeeper />
       {/* 1. Left Navigation Tabbar */}
       <LeftTabbar 
         user={user} 
