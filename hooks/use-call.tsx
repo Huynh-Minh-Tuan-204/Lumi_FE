@@ -21,6 +21,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
   const [isCameraOn, setIsCameraOn] = useState(true)
   const [isMinimized, setIsMinimized] = useState(false)
   const [isScreenSharing, setIsScreenSharing] = useState(false)
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [recordings, setRecordings] = useState<any[]>([])
 
@@ -313,6 +314,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     setActiveCallId(null)
     setConversationId(null)
     setLocalStream(null)
+    setScreenStream(null)
     setRemotePeers([])
     setIsMinimized(false)
     setIsScreenSharing(false)
@@ -323,6 +325,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         try {
             const stream = await navigator.mediaDevices.getDisplayMedia({ video: true })
             screenStreamRef.current = stream
+            setScreenStream(stream)
             const track = stream.getVideoTracks()[0]
             
             peersRef.current.forEach(peer => {
@@ -335,6 +338,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
                 console.log('[Call] Screen share stopped via browser');
                 setIsScreenSharing(false);
                 screenStreamRef.current = null;
+                setScreenStream(null);
                 
                 // Khôi phục lại camera track cho toàn bộ peers
                 if (localStreamRef.current) {
@@ -353,6 +357,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
     } else {
         screenStreamRef.current?.getTracks().forEach(t => t.stop())
         setIsScreenSharing(false)
+        setScreenStream(null)
         if (localStreamRef.current) {
             const localTrack = localStreamRef.current.getVideoTracks()[0]
             peersRef.current.forEach(peer => {
@@ -522,7 +527,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <CallContext.Provider value={{
-      activeCallId, conversationId, setConversationId, localStream, remotePeers,
+      activeCallId, conversationId, setConversationId, localStream, remotePeers, screenStream,
       isMuted, setIsMuted, isCameraOn, setIsCameraOn,
       isMinimized, setIsMinimized, isScreenSharing,
       isRecording, startRecording, stopRecording,

@@ -88,13 +88,15 @@ function CallChatDecryptedText(props: any) {
   )
 }
 
+import { useIsMobile } from '@/hooks/use-mobile'
+
 export function VideoCallUI({ callId, callType, participantName, onEndCall, initialMic = true, initialCam = true }: VideoCallUIProps) {
   const { user, token } = useAuth()
   const signalRData = useSignalR()
   const { sendMessage, lastMessage, mySenderKey, peerSenderKeys, peerIdentityKeys, identityKeys, initiateE2EEHandshake, keyVersion } = signalRData
   
   const { 
-    joinCall, endCall, activeCallId, localStream, remotePeers,
+    joinCall, endCall, activeCallId, localStream, remotePeers, screenStream,
     isMuted, setIsMuted, isCameraOn, setIsCameraOn,
     isMinimized, setIsMinimized, isScreenSharing, toggleScreenShare,
     isRecording, startRecording, stopRecording,
@@ -102,6 +104,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   } = useCall()
   
   const router = useRouter()
+  const isMobile = useIsMobile()
   const [callDuration, setCallDuration] = useState(0)
   const [sidebarType, setSidebarType] = useState<'chat' | 'people' | null>(null)
   const [convId, setConvId] = useState<number | null>(null)
@@ -109,6 +112,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   const [chatInput, setChatInput] = useState('')
   const [isEnding, setIsEnding] = useState(false)
   const [callMessages, setCallMessages] = useState<ChatMessage[]>([])
+  const [pinnedUserId, setPinnedUserId] = useState<number | null>(null)
+  const [activeSpeakerId, setActiveSpeakerId] = useState<number | null>(null)
+  
   const chatEndRef = useRef<HTMLDivElement>(null)
   const joinedRef = useRef<string | null>(null)
 
@@ -116,6 +122,55 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     const timer = setInterval(() => setCallDuration(v => v + 1), 1000)
     return () => clearInterval(timer)
   }, [])
+
+  const allStreams = useMemo(() => [
+    { id: user?.id || 0, name: user?.fullName || "Bạn", stream: localStream, isLocal: true, avatar: getAvatarUrl(user?.id), cameraOn: isCameraOn, muted: isMuted, isHost: (user?.id === hostId) },
+    ...remotePeers.map(p => ({ id: p.userId, name: p.userName, stream: p.stream, isLocal: false, avatar: getAvatarUrl(p.userId), cameraOn: true, muted: false, isHost: (p.userId === hostId) }))
+  ], [user, remotePeers, localStream, isCameraOn, isMuted, hostId]);
+
+  const activePeers = allStreams.length;
+  const isSharing = isScreenSharing || !!screenStream;
+
+  // Active Speaker Detection logic
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const analysers: { id: number, analyser: AnalyserNode }[] = [];
+
+    allStreams.forEach(p => {
+      if (p.stream && p.stream.getAudioTracks().length > 0 && !p.muted) {
+        try {
+          const source = audioContext.createMediaStreamSource(p.stream);
+          const analyser = audioContext.createAnalyser();
+          analyser.fftSize = 32;
+          source.connect(analyser);
+          analysers.push({ id: p.id, analyser });
+        } catch (e) { /* Ignore cross-origin audio issues */ }
+      }
+    });
+
+    const checkAudio = setInterval(() => {
+      let maxLevel = 0;
+      let speakerId: number | null = null;
+
+      analysers.forEach(({ id, analyser }) => {
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(dataArray);
+        const volume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        if (volume > 15 && volume > maxLevel) { // Threshold for "speaking"
+          maxLevel = volume;
+          speakerId = id;
+        }
+      });
+
+      setActiveSpeakerId(speakerId);
+    }, 400);
+
+    return () => {
+      clearInterval(checkAudio);
+      audioContext.close();
+    };
+  }, [allStreams]);
 
   useEffect(() => {
     const fetch = async () => {
@@ -161,15 +216,15 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
     }
   }, [lastMessage, convId]);
 
-  const allStreams = useMemo(() => [
-    { id: user?.id || 0, name: user?.fullName || "Bạn", stream: localStream, isLocal: true, avatar: getAvatarUrl(user?.id), cameraOn: isCameraOn, muted: isMuted, isHost: (user?.id === hostId) },
-    ...remotePeers.map(p => ({ id: p.userId, name: p.userName, stream: p.stream, isLocal: false, avatar: getAvatarUrl(p.userId), cameraOn: true, muted: false, isHost: (p.userId === hostId) }))
-  ], [user, remotePeers, localStream, isCameraOn, isMuted, hostId]);
-
-  const activePeers = allStreams.length;
-  // Separate local and remote for PIP logic
-  const localPeer = allStreams[0];
-  const remotePeersList = allStreams.slice(1);
+  // Determine grid columns based on rules
+  const getGridCols = () => {
+    if (pinnedUserId) return 'grid-cols-1 md:grid-cols-4'; // Pinned mode: main + sidebar
+    if (activePeers === 1) return 'grid-cols-1';
+    if (activePeers === 2) return 'grid-cols-1 md:grid-cols-2';
+    if (activePeers <= 4) return 'grid-cols-2';
+    if (activePeers <= 9) return 'grid-cols-2 md:grid-cols-3';
+    return 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+  };
 
   return (
     <div className="flex h-screen flex-col bg-[#0a0a0a] text-white overflow-hidden font-sans relative">
@@ -182,7 +237,6 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
               </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* [Fix 7] Copy Link button */}
             <Button
               variant="ghost"
               size="sm"
@@ -211,42 +265,111 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
 
       <main className="flex-1 flex min-h-0 relative">
         <section className="flex-1 p-6 relative overflow-hidden flex flex-col items-center justify-center">
-            {/* [Fix 5] Robust CSS Grid Tiling System */}
-            <div className="flex-1 w-full h-full p-4 flex items-center justify-center overflow-hidden">
-                <div 
-                    className="grid gap-4 w-full h-full max-w-7xl mx-auto items-center justify-center content-center overflow-y-auto scrollbar-hide py-4"
-                    style={{
-                        gridTemplateColumns: `repeat(${
-                            activePeers === 1 ? 1 : 
-                            activePeers === 2 ? (isMobile ? 1 : 2) : 
-                            activePeers <= 4 ? 2 : 
-                            activePeers <= 6 ? 3 : 4
-                        }, minmax(0, 1fr))`,
-                        gridAutoRows: 'min-content'
-                    }}
-                >
-                    {allStreams.map((p) => (
-                        <div
-                            key={p.id}
-                            className={cn(
-                                'relative rounded-2xl overflow-hidden bg-[#121212] border border-white/5 shadow-2xl transition-all duration-500 aspect-video group w-full',
-                                activePeers === 1 && "max-w-5xl mx-auto"
-                            )}
-                        >
-                            <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
-                            
-                            {!p.isLocal && !p.stream && (
-                                <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 animate-pulse">
-                                    <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
-                                    <p className="text-[10px] font-black text-primary uppercase tracking-widest">Đang kết nối...</p>
-                                </div>
-                            )}
+            <div className="flex-1 w-full h-full p-2 flex items-center justify-center overflow-hidden">
+                {isSharing ? (
+                    /* Screen Sharing Layout: 80% screen, 20% sidebar */
+                    <div className="flex flex-col md:flex-row w-full h-full gap-4">
+                        <div className="flex-[4] relative rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl">
+                           <VideoPlayer 
+                              stream={screenStream || localStream} 
+                              isLocal={true} 
+                              isCameraOn={true} 
+                              userName="Đang chia sẻ màn hình" 
+                           />
+                           <div className="absolute top-4 left-4 bg-primary/90 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+                               <Monitor className="h-3 w-3" /> Đang trình chiếu
+                           </div>
                         </div>
-                    ))}
-                </div>
+                        <div className="flex-1 flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto scrollbar-hide p-1">
+                            {allStreams.map(p => (
+                                <div key={p.id} className="relative aspect-video w-48 md:w-full flex-shrink-0 rounded-xl overflow-hidden border border-white/5 bg-[#121212] group">
+                                    <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full bg-white/10 hover:bg-primary" onClick={() => setPinnedUserId(p.id)}>
+                                            <Maximize2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : pinnedUserId ? (
+                    /* Pinned User Layout */
+                    <div className="flex flex-col md:flex-row w-full h-full gap-4">
+                        <div className="flex-[4] relative rounded-2xl overflow-hidden bg-[#121212] border border-primary/20 shadow-2xl">
+                           {allStreams.find(p => p.id === pinnedUserId) && (
+                               <>
+                                    <VideoPlayer 
+                                        stream={allStreams.find(p => p.id === pinnedUserId)!.stream} 
+                                        isLocal={allStreams.find(p => p.id === pinnedUserId)!.isLocal} 
+                                        isCameraOn={allStreams.find(p => p.id === pinnedUserId)!.cameraOn} 
+                                        userAvatar={allStreams.find(p => p.id === pinnedUserId)!.avatar} 
+                                        userName={allStreams.find(p => p.id === pinnedUserId)!.name} 
+                                        isMuted={allStreams.find(p => p.id === pinnedUserId)!.muted} 
+                                    />
+                                    <Button 
+                                        size="sm" 
+                                        variant="secondary" 
+                                        className="absolute top-4 right-4 bg-black/60 hover:bg-black/80 text-[10px] font-black uppercase tracking-widest rounded-full"
+                                        onClick={() => setPinnedUserId(null)}
+                                    >
+                                        Bỏ ghim
+                                    </Button>
+                               </>
+                           )}
+                        </div>
+                        <div className="flex-1 flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto scrollbar-hide p-1">
+                            {allStreams.filter(p => p.id !== pinnedUserId).map(p => (
+                                <div key={p.id} className="relative aspect-video w-40 md:w-full flex-shrink-0 rounded-xl overflow-hidden border border-white/5 bg-[#121212] group">
+                                    <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full bg-white/10 hover:bg-primary" onClick={() => setPinnedUserId(p.id)}>
+                                            <Maximize2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    /* Standard Dynamic Grid Layout */
+                    <div 
+                        className={cn(
+                            "grid gap-4 w-full h-full max-w-7xl mx-auto items-center justify-center content-center overflow-y-auto scrollbar-hide py-4",
+                            getGridCols()
+                        )}
+                    >
+                        {allStreams.map((p) => (
+                            <div
+                                key={p.id}
+                                className={cn(
+                                    'relative rounded-2xl overflow-hidden bg-[#121212] border border-white/5 shadow-2xl transition-all duration-500 aspect-video group w-full',
+                                    activePeers === 1 && "max-w-5xl mx-auto scale-105",
+                                    activePeers === 2 && "max-w-full",
+                                    p.id === activeSpeakerId && "ring-2 ring-primary border-primary/50"
+                                )}
+                            >
+                                <VideoPlayer stream={p.stream} isLocal={p.isLocal} isCameraOn={p.cameraOn} userAvatar={p.avatar} userName={p.name} isMuted={p.muted} />
+                                
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full bg-white/10 hover:bg-primary" onClick={() => setPinnedUserId(p.id)} title="Ghim video">
+                                        <Maximize2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+
+                                {!p.isLocal && !p.stream && (
+                                    <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-3 animate-pulse">
+                                        <div className="h-10 w-10 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+                                        <p className="text-[10px] font-black text-primary uppercase tracking-widest">Đang kết nối...</p>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
-            {/* PIP / Corner Overlays for a "Premium" look if side panel is open */}
+            {/* Waiting for peers banner */}
             {sidebarType && activePeers > 1 && (
                 <div className="absolute top-6 right-6 flex flex-col gap-3 z-10 pointer-events-none">
                     {/* Optional: could show mini-vids here if preferred */}
