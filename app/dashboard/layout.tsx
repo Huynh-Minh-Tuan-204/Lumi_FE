@@ -1,11 +1,13 @@
 'use client'
 
-import { useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { DashboardSidebar } from '@/features/admin/dashboard-sidebar'
-import { DashboardHeader } from '@/features/admin/dashboard-header'
 import { SearchProvider } from '@/features/admin/search-context'
+
+// Dynamic imports with SSR disabled to optimize initial load waterfall
+const DashboardSidebar = dynamic(() => import('@/features/admin/dashboard-sidebar').then(mod => mod.DashboardSidebar), { ssr: false })
+const DashboardHeader = dynamic(() => import('@/features/admin/dashboard-header').then(mod => mod.DashboardHeader), { ssr: false })
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -24,10 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }

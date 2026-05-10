@@ -34,7 +34,9 @@ export async function saveKey(alias: string, key: any) {
     const db = await getDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
     tx.objectStore(STORE_NAME).put(key, alias);
-    return new Promise((resolve) => (tx.oncomplete = resolve));
+    return new Promise<void>((resolve) => {
+        tx.oncomplete = () => resolve();
+    });
 }
 
 export async function loadKey(alias: string): Promise<any> {
@@ -70,15 +72,13 @@ export async function exportIdentityPublicKey(key: CryptoKey): Promise<string> {
 export async function importIdentityPublicKey(base64: string): Promise<CryptoKey> {
     return await window.crypto.subtle.importKey(
         "raw",
-        base64ToBuffer(base64),
+        base64ToBuffer(base64) as ArrayBuffer,
         { name: "ECDSA", namedCurve: "P-256" },
         true,
         ["verify"]
     );
 }
 
-// Sinh và lưu cặp khóa RSA (dùng để trao đổi Session Key)
-// Fix lỗi F5 mất key: Dùng getOrCreate để load từ IndexedDB nếu đã tồn tại
 export async function getOrCreateRSAKeyPair(): Promise<CryptoKeyPair> {
     const existing = await loadKey(RSA_KEY_ALIAS);
     if (existing) return existing;
@@ -101,7 +101,9 @@ export async function clearRSAKeyPair(): Promise<void> {
     const db = await getDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
     tx.objectStore(STORE_NAME).delete(RSA_KEY_ALIAS);
-    return new Promise((resolve) => (tx.oncomplete = resolve));
+    return new Promise<void>((resolve) => {
+        tx.oncomplete = () => resolve();
+    });
 }
 
 export async function exportPublicKey(key: CryptoKey): Promise<string> {
@@ -112,7 +114,7 @@ export async function exportPublicKey(key: CryptoKey): Promise<string> {
 export async function importPublicKey(base64Key: string): Promise<CryptoKey> {
     return await window.crypto.subtle.importKey(
         "spki",
-        base64ToBuffer(base64Key),
+        base64ToBuffer(base64Key) as ArrayBuffer,
         { name: "RSA-OAEP", hash: "SHA-256" },
         true,
         ["encrypt"]
@@ -137,8 +139,8 @@ export async function verifySignature(data: string, signatureBase64: string, pub
         return await window.crypto.subtle.verify(
             { name: "ECDSA", hash: { name: "SHA-256" } },
             publicKey,
-            base64ToBuffer(signatureBase64),
-            new TextEncoder().encode(data)
+            base64ToBuffer(signatureBase64) as ArrayBuffer,
+            new TextEncoder().encode(data).buffer as ArrayBuffer
         );
     } catch {
         return false;
@@ -188,8 +190,8 @@ export async function saveOrLoadPeerSenderKey(conversationId: number | string, u
  * Quét toàn bộ IndexedDB và trả về Map<conversationId, CryptoKey> cho tất cả MySenderKey
  * Dùng khi khởi động để nạp lại tất cả key vào RAM mà không cần biết trước conversationId
  */
-export async function loadAllMySenderKeys(): Promise<Map<number, CryptoKey>> {
-    const result = new Map<number, CryptoKey>();
+export async function loadAllMySenderKeys(): Promise<Map<string, CryptoKey>> {
+    const result = new Map<string, CryptoKey>();
     const db = await getDB();
     await new Promise<void>((resolve) => {
         const tx = db.transaction(STORE_NAME, 'readonly');
@@ -200,9 +202,8 @@ export async function loadAllMySenderKeys(): Promise<Map<number, CryptoKey>> {
             const alias = cursor.key as string;
             if (alias.startsWith(MY_SENDER_KEY_ALIAS + ':')) {
                 const convIdStr = alias.substring((MY_SENDER_KEY_ALIAS + ':').length);
-                const convId = parseInt(convIdStr, 10);
-                if (!isNaN(convId)) {
-                    result.set(convId, cursor.value as CryptoKey);
+                if (convIdStr) {
+                    result.set(convIdStr, cursor.value as CryptoKey);
                 }
             }
             cursor.continue();
@@ -215,8 +216,8 @@ export async function loadAllMySenderKeys(): Promise<Map<number, CryptoKey>> {
 /**
  * Quét toàn bộ IndexedDB và trả về Map<senderId, CryptoKey> cho tất cả PeerSenderKey trong một conversation
  */
-export async function loadAllPeerSenderKeysForConversation(conversationId: number | string): Promise<Map<number, CryptoKey>> {
-    const result = new Map<number, CryptoKey>();
+export async function loadAllPeerSenderKeysForConversation(conversationId: number | string): Promise<Map<string, CryptoKey>> {
+    const result = new Map<string, CryptoKey>();
     const prefix = `${PEER_SENDER_KEY_ALIAS}:${String(conversationId)}:`;
     const db = await getDB();
     await new Promise<void>((resolve) => {
@@ -228,9 +229,8 @@ export async function loadAllPeerSenderKeysForConversation(conversationId: numbe
             const alias = cursor.key as string;
             if (alias.startsWith(prefix)) {
                 const userIdStr = alias.substring(prefix.length);
-                const userId = parseInt(userIdStr, 10);
-                if (!isNaN(userId)) {
-                    result.set(userId, cursor.value as CryptoKey);
+                if (userIdStr) {
+                    result.set(userIdStr, cursor.value as CryptoKey);
                 }
             }
             cursor.continue();
@@ -243,8 +243,8 @@ export async function loadAllPeerSenderKeysForConversation(conversationId: numbe
 /**
  * Quét toàn bộ IndexedDB và trả về Map<userId, CryptoKey> cho tất cả PeerIdentityKey
  */
-export async function loadAllPeerIdentityKeys(): Promise<Map<number, CryptoKey>> {
-    const result = new Map<number, CryptoKey>();
+export async function loadAllPeerIdentityKeys(): Promise<Map<string, CryptoKey>> {
+    const result = new Map<string, CryptoKey>();
     const prefix = PEER_IDENTITY_KEY_ALIAS + ':';
     const db = await getDB();
     await new Promise<void>((resolve) => {
@@ -256,9 +256,8 @@ export async function loadAllPeerIdentityKeys(): Promise<Map<number, CryptoKey>>
             const alias = cursor.key as string;
             if (alias.startsWith(prefix)) {
                 const userIdStr = alias.substring(prefix.length);
-                const userId = parseInt(userIdStr, 10);
-                if (!isNaN(userId)) {
-                    result.set(userId, cursor.value as CryptoKey);
+                if (userIdStr) {
+                    result.set(userIdStr, cursor.value as CryptoKey);
                 }
             }
             cursor.continue();
@@ -271,9 +270,8 @@ export async function loadAllPeerIdentityKeys(): Promise<Map<number, CryptoKey>>
 /**
  * Quét toàn bộ IndexedDB: trả về Map<senderId, Map<conversationId, CryptoKey>> cho tất cả PeerSenderKey
  */
-export async function loadAllPeerSenderKeys(): Promise<Map<number, Map<number, CryptoKey>>> {
-    // result: senderId -> (conversationId -> key)
-    const result = new Map<number, Map<number, CryptoKey>>();
+export async function loadAllPeerSenderKeys(): Promise<Map<string, Map<string, CryptoKey>>> {
+    const result = new Map<string, Map<string, CryptoKey>>();
     const prefix = PEER_SENDER_KEY_ALIAS + ':';
     const db = await getDB();
     await new Promise<void>((resolve) => {
@@ -284,15 +282,14 @@ export async function loadAllPeerSenderKeys(): Promise<Map<number, Map<number, C
             if (!cursor) { resolve(); return; }
             const alias = cursor.key as string;
             if (alias.startsWith(prefix)) {
-                // alias = PeerSenderKey:conversationId:userId
                 const rest = alias.substring(prefix.length);
                 const parts = rest.split(':');
                 if (parts.length === 2) {
-                    const convId = parseInt(parts[0], 10);
-                    const userId = parseInt(parts[1], 10);
-                    if (!isNaN(convId) && !isNaN(userId)) {
-                        if (!result.has(userId)) result.set(userId, new Map());
-                        result.get(userId)!.set(convId, cursor.value as CryptoKey);
+                    const convIdStr = parts[0];
+                    const userIdStr = parts[1];
+                    if (convIdStr && userIdStr) {
+                        if (!result.has(userIdStr)) result.set(userIdStr, new Map());
+                        result.get(userIdStr)!.set(convIdStr, cursor.value as CryptoKey);
                     }
                 }
             }
@@ -313,9 +310,9 @@ export async function decryptSessionKey(encryptedBase64: string, myPrivateKey: C
     const decrypted = await window.crypto.subtle.decrypt(
         { name: "RSA-OAEP" },
         myPrivateKey,
-        base64ToBuffer(encryptedBase64)
+        base64ToBuffer(encryptedBase64) as ArrayBuffer
     );
-    return await window.crypto.subtle.importKey("raw", decrypted, { name: "AES-GCM" }, true, ["encrypt", "decrypt"]);
+    return await window.crypto.subtle.importKey("raw", decrypted as ArrayBuffer, { name: "AES-GCM" }, true, ["encrypt", "decrypt"]);
 }
 
 export async function encryptMessagePro(plaintext: string, senderKey: CryptoKey, identityPrivateKey: CryptoKey) {
@@ -376,9 +373,9 @@ export async function decryptMessagePro(
 
     // 2. AES-GCM Authenticated Decryption — throws OperationError if key is wrong
     const decrypted = await window.crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: ivBuffer },
+        { name: 'AES-GCM', iv: ivBuffer as ArrayBuffer },
         senderKey,
-        ciphertextBuffer
+        ciphertextBuffer as ArrayBuffer
     );
 
     return new TextDecoder().decode(decrypted);
@@ -400,9 +397,9 @@ export async function decryptFilePro(
 
     // Decrypt
     const decrypted = await window.crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: base64ToBuffer(ivBase64) },
+        { name: "AES-GCM", iv: base64ToBuffer(ivBase64) as ArrayBuffer },
         senderKey,
-        arrayBuffer
+        arrayBuffer as ArrayBuffer
     );
 
     return new Blob([decrypted]);
@@ -425,7 +422,13 @@ export function base64ToBuffer(base64: string): ArrayBuffer {
     if (!base64 || typeof base64 !== 'string') return new ArrayBuffer(0);
     try {
         const cleanBase64 = base64.trim().replace(/\s/g, '');
-        const binary = atob(cleanBase64);
+        // Fix: Ensure padding is handled correctly if needed, though atob usually handles it.
+        // For robustness, we can add padding if missing:
+        let paddedBase64 = cleanBase64;
+        while (paddedBase64.length % 4 !== 0) {
+            paddedBase64 += '=';
+        }
+        const binary = atob(paddedBase64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
         return bytes.buffer;
@@ -449,17 +452,15 @@ export async function deriveKeyFromPin(pin: string, salt: Uint8Array): Promise<C
     // Import PIN thô thành base key material
     const baseKey = await window.crypto.subtle.importKey(
         'raw',
-        pinBuffer,
+        pinBuffer.buffer as ArrayBuffer,
         { name: 'PBKDF2' },
         false,
         ['deriveKey']
     );
-
-    // Derive AES-GCM-256 từ PIN + salt
     return window.crypto.subtle.deriveKey(
         {
             name: 'PBKDF2',
-            salt,
+            salt: salt.buffer as ArrayBuffer,
             iterations: 100_000,
             hash: 'SHA-256',
         },
@@ -572,9 +573,9 @@ export async function restoreKeysFromPin(
     let plaintext: string;
     try {
         const decrypted = await window.crypto.subtle.decrypt(
-            { name: 'AES-GCM', iv },
+            { name: 'AES-GCM', iv: iv.buffer as ArrayBuffer },
             aesKey,
-            base64ToBuffer(payloadBase64)
+            base64ToBuffer(payloadBase64) as ArrayBuffer
         );
         plaintext = new TextDecoder().decode(decrypted);
     } catch {
@@ -586,38 +587,76 @@ export async function restoreKeysFromPin(
     const isV3 = bundle.version === 3;
 
     // 4. Import lại IdentityKey (ECDSA)
-    const identityPrivKey = await window.crypto.subtle.importKey(
-        isV3 ? 'jwk' : 'pkcs8',
-        isV3 ? bundle.identityPriv : base64ToBuffer(bundle.identityPriv),
-        { name: 'ECDSA', namedCurve: 'P-256' },
-        true,
-        ['sign']
-    );
-    const identityPubKey = await window.crypto.subtle.importKey(
-        isV3 ? 'jwk' : 'raw',
-        isV3 ? bundle.identityPub : base64ToBuffer(bundle.identityPub),
-        { name: 'ECDSA', namedCurve: 'P-256' },
-        true,
-        ['verify']
-    );
+    let identityPrivKey: CryptoKey;
+    let identityPubKey: CryptoKey;
+    if (isV3) {
+        identityPrivKey = await window.crypto.subtle.importKey(
+            'jwk',
+            bundle.identityPriv as JsonWebKey,
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            ['sign']
+        );
+        identityPubKey = await window.crypto.subtle.importKey(
+            'jwk',
+            bundle.identityPub as JsonWebKey,
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            ['verify']
+        );
+    } else {
+        identityPrivKey = await window.crypto.subtle.importKey(
+            'pkcs8',
+            base64ToBuffer(bundle.identityPriv) as ArrayBuffer,
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            ['sign']
+        );
+        identityPubKey = await window.crypto.subtle.importKey(
+            'raw',
+            base64ToBuffer(bundle.identityPub) as ArrayBuffer,
+            { name: 'ECDSA', namedCurve: 'P-256' },
+            true,
+            ['verify']
+        );
+    }
     await saveKey(IDENTITY_KEY_ALIAS, { privateKey: identityPrivKey, publicKey: identityPubKey });
 
     // 5. Import lại RSA Key Pair (nếu có)
     if (bundle.rsaPriv && bundle.rsaPub) {
-        const rsaPrivKey = await window.crypto.subtle.importKey(
-            isV3 ? 'jwk' : 'pkcs8',
-            isV3 ? bundle.rsaPriv : base64ToBuffer(bundle.rsaPriv),
-            { name: 'RSA-OAEP', hash: 'SHA-256' },
-            true,
-            ['decrypt']
-        );
-        const rsaPubKey = await window.crypto.subtle.importKey(
-            isV3 ? 'jwk' : 'spki',
-            isV3 ? bundle.rsaPub : base64ToBuffer(bundle.rsaPub),
-            { name: 'RSA-OAEP', hash: 'SHA-256' },
-            true,
-            ['encrypt']
-        );
+        let rsaPrivKey: CryptoKey;
+        let rsaPubKey: CryptoKey;
+        if (isV3) {
+            rsaPrivKey = await window.crypto.subtle.importKey(
+                'jwk',
+                bundle.rsaPriv as JsonWebKey,
+                { name: 'RSA-OAEP', hash: 'SHA-256' },
+                true,
+                ['decrypt']
+            );
+            rsaPubKey = await window.crypto.subtle.importKey(
+                'jwk',
+                bundle.rsaPub as JsonWebKey,
+                { name: 'RSA-OAEP', hash: 'SHA-256' },
+                true,
+                ['encrypt']
+            );
+        } else {
+            rsaPrivKey = await window.crypto.subtle.importKey(
+                'pkcs8',
+                base64ToBuffer(bundle.rsaPriv) as ArrayBuffer,
+                { name: 'RSA-OAEP', hash: 'SHA-256' },
+                true,
+                ['decrypt']
+            );
+            rsaPubKey = await window.crypto.subtle.importKey(
+                'spki',
+                base64ToBuffer(bundle.rsaPub) as ArrayBuffer,
+                { name: 'RSA-OAEP', hash: 'SHA-256' },
+                true,
+                ['encrypt']
+            );
+        }
         await saveKey(RSA_KEY_ALIAS, { privateKey: rsaPrivKey, publicKey: rsaPubKey });
     }
 
@@ -627,21 +666,41 @@ export async function restoreKeysFromPin(
         try {
             let key: CryptoKey;
             if (alias.startsWith(PEER_IDENTITY_KEY_ALIAS + ':')) {
-                key = await window.crypto.subtle.importKey(
-                    isV3 ? 'jwk' : 'raw',
-                    isV3 ? keyData : base64ToBuffer(keyData as string),
-                    { name: 'ECDSA', namedCurve: 'P-256' },
-                    true,
-                    ['verify']
-                );
+                if (isV3) {
+                    key = await window.crypto.subtle.importKey(
+                        'jwk',
+                        keyData as JsonWebKey,
+                        { name: 'ECDSA', namedCurve: 'P-256' },
+                        true,
+                        ['verify']
+                    );
+                } else {
+                    key = await window.crypto.subtle.importKey(
+                        'raw',
+                        base64ToBuffer(keyData as string) as ArrayBuffer,
+                        { name: 'ECDSA', namedCurve: 'P-256' },
+                        true,
+                        ['verify']
+                    );
+                }
             } else {
-                key = await window.crypto.subtle.importKey(
-                    isV3 ? 'jwk' : 'raw',
-                    isV3 ? keyData : base64ToBuffer(keyData as string),
-                    { name: 'AES-GCM' },
-                    true,
-                    ['encrypt', 'decrypt']
-                );
+                if (isV3) {
+                    key = await window.crypto.subtle.importKey(
+                        'jwk',
+                        keyData as JsonWebKey,
+                        { name: 'AES-GCM' },
+                        true,
+                        ['encrypt', 'decrypt']
+                    );
+                } else {
+                    key = await window.crypto.subtle.importKey(
+                        'raw',
+                        base64ToBuffer(keyData as string) as ArrayBuffer,
+                        { name: 'AES-GCM' },
+                        true,
+                        ['encrypt', 'decrypt']
+                    );
+                }
             }
             await saveKey(alias, key);
         } catch { /* skip corrupted keys */ }

@@ -87,12 +87,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           // 2. Preload Sender Keys
           const mySenderKeys = await loadAllMySenderKeys();
           if (mySenderKeys.size > 0) {
-            mySenderKeys.forEach((key, convId) => mySenderKeysRef.current.set(convId, key));
-            const firstKey = mySenderKeys.values().next().value;
-            if (firstKey) {
-              mySenderKeysRef.current.set(0, firstKey);
-              setMySenderKey(firstKey);
-            }
+            mySenderKeys.forEach((key, convId) => mySenderKeysRef.current.set(Number(convId), key));
             console.log(`[E2EE] Preloaded ${mySenderKeys.size} SenderKey(s).`);
           }
 
@@ -108,14 +103,17 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           if (peerSenderKeyMap.size > 0) {
             peerSenderKeyMap.forEach((convMap, userId) => {
               convMap.forEach((key, convId) => {
-                 peerSenderKeysRef.current.set(`${convId}:${userId}`, key);
+                 peerSenderKeysRef.current.set(`${Number(convId)}:${Number(userId)}`, key);
               });
             });
             console.log(`[E2EE] Preloaded ${peerSenderKeyMap.size} users' peer sender keys.`);
           }
 
           setIsKeysLoaded(true);
-          setKeyVersion(v => v + 1);
+          setKeyVersion(v => v + 1); // First update
+          requestAnimationFrame(() => {
+              setKeyVersion(v => v + 1); // Force second update to flush React state
+          });
 
           // 5. [PRE-KEY] Tự động đẩy Public Keys lên Server nếu chưa có
           if (token && idKeys && rsaKeys) {
@@ -223,29 +221,32 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       .configureLogging(signalR.LogLevel.None)
       .build()
 
-    connection.on("ReceiveSecureIdentity", async (senderId: number, idPubKeyBase64: string, rsaPubKeyBase64: string, signature: string, conversationId: number, isDirectReply: boolean = false) => {
-      if (userRef.current && senderId === userRef.current.id) return;
+    connection.on("ReceiveSecureIdentity", async (senderId: any, idPubKeyBase64: string, rsaPubKeyBase64: string, signature: string, conversationId: any, isDirectReply: boolean = false) => {
+      const senderIdNum = Number(senderId);
+      const conversationIdNum = Number(conversationId);
+      
+      if (userRef.current && senderIdNum === userRef.current?.id) return;
       try {
         const peerIdPubKey = await importIdentityPublicKey(idPubKeyBase64);
         const isVerified = await verifySignature(rsaPubKeyBase64, signature, peerIdPubKey);
         if (!isVerified) return;
 
         // 1. Lưu lại Public Key của người vừa chào sân (A)
-        peerIdentityKeysRef.current.set(senderId, peerIdPubKey);
-        await saveOrLoadPeerIdentityKey(senderId, peerIdPubKey);
+        peerIdentityKeysRef.current.set(senderIdNum, peerIdPubKey);
+        await saveOrLoadPeerIdentityKey(senderIdNum, peerIdPubKey);
         setKeyVersion(v => v + 1);
 
         // Đảm bảo mình đã có SenderKey của mình cho conversation này
-        let myKey = mySenderKeysRef.current.get(conversationId);
+        let myKey = mySenderKeysRef.current.get(conversationIdNum);
         if (!myKey) {
-          const stored = await saveOrLoadSenderKey(conversationId);
+          const stored = await saveOrLoadSenderKey(conversationIdNum);
           if (stored) {
             myKey = stored;
           } else {
             myKey = await generateSenderKey();
-            await saveOrLoadSenderKey(conversationId, myKey);
+            await saveOrLoadSenderKey(conversationIdNum, myKey);
           }
-          mySenderKeysRef.current.set(conversationId, myKey);
+          mySenderKeysRef.current.set(conversationIdNum, myKey);
           setMySenderKey(myKey);
           setKeyVersion(v => v + 1);
         }
@@ -254,7 +255,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         const peerRSAPubKey = await importPublicKey(rsaPubKeyBase64);
         const encryptedKey = await encryptSessionKeyForPeer(myKey, peerRSAPubKey);
         
-        await connection.invoke("SendSecureSenderKey", conversationId, senderId, encryptedKey);
+        await connection.invoke("SendSecureSenderKey", conversationIdNum, senderIdNum, encryptedKey);
 
         // 3. ĐÁP LỄ: Nếu A chào sân chung, mình gửi ngược Public Key RSA của mình ĐÍCH DANH cho A
         if (!isDirectReply && identityKeysRef.current && myRSAKeysRef.current) {
@@ -262,19 +263,22 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             const myRsaPubKeyB64 = await exportPublicKey(myRSAKeysRef.current.publicKey);
             const mySignature = await signData(myRsaPubKeyB64, identityKeysRef.current.privateKey);
             
-            await connection.invoke("SendSecureIdentityToUser", conversationId, senderId, myIdPubKeyB64, myRsaPubKeyB64, mySignature);
+            await connection.invoke("SendSecureIdentityToUser", conversationIdNum, senderIdNum, myIdPubKeyB64, myRsaPubKeyB64, mySignature);
         }
       } catch (e) {
         console.error("Multi-threaded key distribution error", e);
       }
     });
 
-    connection.on("ReceiveSecureSenderKey", async (senderId: number, encryptedKeyBase64: string, conversationId: number) => {
+    connection.on("ReceiveSecureSenderKey", async (senderId: any, encryptedKeyBase64: string, conversationId: any) => {
+       const senderIdNum = Number(senderId);
+       const conversationIdNum = Number(conversationId);
+       
        if (!myRSAKeysRef.current) return;
        try {
            const senderKey = await decryptSessionKey(encryptedKeyBase64, myRSAKeysRef.current.privateKey);
-           peerSenderKeysRef.current.set(`${conversationId}:${senderId}`, senderKey);
-           await saveOrLoadPeerSenderKey(conversationId, senderId, senderKey);
+           peerSenderKeysRef.current.set(`${conversationIdNum}:${senderIdNum}`, senderKey);
+           await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum, senderKey);
            setKeyVersion(v => v + 1);
        } catch (e) {
           console.error("Handshake Decrypt Key error", e);
@@ -304,8 +308,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         if (data.metadata) {
             try {
                 const meta = JSON.parse(data.metadata);
-                if (meta.keys && meta.keys[userRef.current?.id] && myRSAKeysRef.current) {
-                    const encryptedKeyForMe = meta.keys[userRef.current.id];
+                const myId = userRef.current?.id;
+                if (myId && meta.keys && meta.keys[myId] && myRSAKeysRef.current) {
+                    const encryptedKeyForMe = meta.keys[myId];
                     const senderIdNum = Number(senderId);
                     const conversationIdNum = Number(conversationId);
                     
@@ -330,23 +335,22 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             const senderIdNum = Number(senderId);
             const conversationIdNum = Number(conversationId);
             
-            let senderSessionKey = (userRef.current && senderIdNum === userRef.current.id) 
+            let senderSessionKey = (userRef.current && senderIdNum === userRef.current?.id) 
                 ? mySenderKeysRef.current.get(conversationIdNum) 
                 : peerSenderKeysRef.current.get(`${conversationIdNum}:${senderIdNum}`);
             
             // [FIX Task 1] Nếu là tin nhắn của mình gửi từ máy khác/phiên khác nhưng mình đã có key trong IndexedDB
-            if (!senderSessionKey && userRef.current && senderIdNum === userRef.current.id && conversationIdNum) {
+            if (!senderSessionKey && userRef.current && senderIdNum === userRef.current?.id && conversationIdNum) {
                 const stored = await saveOrLoadSenderKey(conversationIdNum);
                 if (stored) {
                     mySenderKeysRef.current.set(conversationIdNum, stored);
-                    mySenderKeysRef.current.set(0, stored); // Also update default key
                     setMySenderKey(stored);
                     setKeyVersion(v => v + 1);
                     senderSessionKey = stored;
                 }
             }
 
-            const senderIdKey = (userRef.current && senderIdNum === userRef.current.id) 
+            const senderIdKey = (userRef.current && senderIdNum === userRef.current?.id) 
                 ? identityKeysRef.current?.publicKey 
                 : peerIdentityKeysRef.current.get(senderIdNum);
 
@@ -365,8 +369,8 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }
 
       setLastMessage({
-        id, conversationId, senderId, sender: senderName, message: displayContent, content: content,
-        iv, sig, messageType, stickerUrl, isPinned, time: new Date(createdAt),
+        id, conversationId, senderId, sender: senderName, message: displayContent,
+        iv, messageType, stickerUrl, isPinned, time: new Date(createdAt),
         attachments: attachments || [], isSystem: false, avatarPath, parentMessageId
       });
     });
@@ -601,19 +605,21 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connectionRef.current = connection
 
     return () => {
-      // [Fix 4.2] Explicitly remove all handlers to prevent duplicates on remount
+      // [Full Cleanup] Explicitly remove all handlers to prevent duplicates on remount
       const handlers = [
         'ReceiveSecureIdentity', 'ReceiveSecureSenderKey', 'ReceiveMessage',
         'UserLeftConversation', 'InitialOnlineUsers', 'ReceiveNotification',
         'receiveSecurityAlert', 'receiveGeneralAnnouncement', 'UserStatusChanged',
         'IncomingCall', 'CallDeclined', 'MeetingStarted', 'GlobalMeetingStarted',
-        'MeetingEnded', 'ReceiveGroupUpdate', 'UserUpdated', 'UserTyping',
+        'MeetingEnded', 'ReceiveGroupUpdate', 'AddedToConversation', 'UserUpdated', 'UserTyping',
         'MessagePinned', 'MessageDeleted', 'UserReadConversation',
         'ReminderTriggered', 'ScheduleCreated', 'ScheduleStatusUpdated',
         'ScheduleDeleted', 'UserLeft'
       ]
-      handlers.forEach(h => connection.off(h))
-      connection.stop()
+      if (connection) {
+          handlers.forEach(h => connection.off(h));
+          connection.stop();
+      }
     }
 
   }, [token, identityKeys, myRSAKeys, isKeysLoaded, initiateE2EEHandshake])

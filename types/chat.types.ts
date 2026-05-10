@@ -48,11 +48,13 @@ export interface SignalRHookReturn {
   hideMessageForMe: (messageId: number) => Promise<void>
   mySenderKey: CryptoKey | null
   mySenderKeys: Map<number, CryptoKey>
-  peerSenderKeys: Map<number, CryptoKey>
+  peerSenderKeys: Map<string, CryptoKey>
   peerIdentityKeys: Map<number, CryptoKey>
   identityKeys: CryptoKeyPair | null
+  myRSAKeys: CryptoKeyPair | null
   keyVersion: number
   lastLeftConversationId: number | null
+  lastAddedConversationId: number | null
   refreshPeerKey: (senderId: number, conversationId: number) => Promise<void>
 }
 

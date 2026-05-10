@@ -65,6 +65,7 @@ export function DashboardSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors',
                   isActive
@@ -86,6 +87,7 @@ export function DashboardSidebar() {
         <nav className="space-y-1">
           <Link
             href="/chat"
+            prefetch={false}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-colors"
           >
             <ChevronLeft className="h-5 w-5" />
