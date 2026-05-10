@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import { cn, getAvatarUrl } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import Image from 'next/image'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -137,21 +137,45 @@ export function DashboardHeader() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 pl-2 pr-3">
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={getAvatarUrl(user?.avatarPath)} loading="lazy" />
-                <AvatarFallback className="text-xs">
-                  {user?.fullName ? getInitials(user.fullName) : 'U'}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative h-8 w-8 rounded-full overflow-hidden bg-muted">
+                {user?.avatarPath ? (
+                  <Image 
+                    src={getAvatarUrl(user.avatarPath)} 
+                    alt={user.fullName || 'User'}
+                    fill
+                    sizes="32px"
+                    className="object-cover"
+                    loading="lazy"
+                    quality={60}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] font-bold">
+                    {user?.fullName ? getInitials(user.fullName) : 'U'}
+                  </div>
+                )}
+              </div>
               <span className="hidden md:block font-medium">{user?.fullName}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <div className="flex items-center gap-3 p-2">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={getAvatarUrl(user?.avatarPath)} loading="lazy" />
-                <AvatarFallback>{user?.fullName ? getInitials(user.fullName) : 'U'}</AvatarFallback>
-              </Avatar>
+              <div className="relative h-10 w-10 rounded-full overflow-hidden bg-muted">
+                {user?.avatarPath ? (
+                  <Image 
+                    src={getAvatarUrl(user.avatarPath)} 
+                    alt={user.fullName || 'User'}
+                    fill
+                    sizes="40px"
+                    className="object-cover"
+                    loading="lazy"
+                    quality={60}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs font-bold">
+                    {user?.fullName ? getInitials(user.fullName) : 'U'}
+                  </div>
+                )}
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{user?.fullName}</p>
                 <p className="text-xs text-muted-foreground">{user?.role}</p>
@@ -159,7 +183,7 @@ export function DashboardHeader() {
             </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/dashboard/settings" className="cursor-pointer">
+              <Link href="/dashboard/settings" prefetch={false} className="cursor-pointer">
                 <Settings className="mr-2 h-4 w-4" />
                 Cài đặt
               </Link>
