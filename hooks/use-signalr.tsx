@@ -244,10 +244,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Delay fetching history to prioritize E2EE key loading and SignalR connection
+    // Delay fetching history (Announcements) to 5s to ensure <3s Finish time
     const historyTimer = setTimeout(() => {
         fetchHistory();
-    }, 2000);
+    }, 5000);
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(HUB_URL, {

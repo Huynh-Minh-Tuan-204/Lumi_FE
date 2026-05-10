@@ -138,7 +138,7 @@ export function DashboardHeader() {
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="gap-2 pl-2 pr-3">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={getAvatarUrl(user?.avatarPath)} />
+                <AvatarImage src={getAvatarUrl(user?.avatarPath)} loading="lazy" />
                 <AvatarFallback className="text-xs">
                   {user?.fullName ? getInitials(user.fullName) : 'U'}
                 </AvatarFallback>
@@ -149,7 +149,7 @@ export function DashboardHeader() {
           <DropdownMenuContent align="end" className="w-56">
             <div className="flex items-center gap-3 p-2">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={getAvatarUrl(user?.avatarPath)} />
+                <AvatarImage src={getAvatarUrl(user?.avatarPath)} loading="lazy" />
                 <AvatarFallback>{user?.fullName ? getInitials(user.fullName) : 'U'}</AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
