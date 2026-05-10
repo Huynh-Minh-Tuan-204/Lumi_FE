@@ -210,7 +210,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    fetchHistory();
+    // Delay fetching history to prioritize E2EE key loading and SignalR connection
+    const historyTimer = setTimeout(() => {
+        fetchHistory();
+    }, 2000);
 
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(HUB_URL, {
@@ -605,6 +608,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     connectionRef.current = connection
 
     return () => {
+      clearTimeout(historyTimer);
       // [Full Cleanup] Explicitly remove all handlers to prevent duplicates on remount
       const handlers = [
         'ReceiveSecureIdentity', 'ReceiveSecureSenderKey', 'ReceiveMessage',
