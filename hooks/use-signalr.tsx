@@ -137,22 +137,27 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const initiateE2EEHandshake = useCallback(async (conversationId: number) => {
-    if (isConnected && identityKeysRef.current && myRSAKeysRef.current && connectionRef.current) {
-      const idPubKeyB64 = await exportIdentityPublicKey(identityKeysRef.current.publicKey);
-      const rsaPubKeyB64 = await exportPublicKey(myRSAKeysRef.current.publicKey);
-      
-      const signature = await signData(rsaPubKeyB64, identityKeysRef.current.privateKey);
-      
-      await connectionRef.current.invoke("SendSecureIdentity", conversationId, idPubKeyB64, rsaPubKeyB64, signature);
-    }
-  }, [isConnected]);
-
-
+  // [LOGOUT CLEANUP] Force SignalR to stop immediately when token is cleared
   useEffect(() => {
-    // Wait for everything to be ready before connecting
-    if (!token || !identityKeys || !myRSAKeys || !isKeysLoaded) {
-      if (!token) {
+    if (!token && connectionRef.current) {
+        console.log("[SignalR] Logout detected, killing connection...");
+        const conn = connectionRef.current;
+        const handlers = [
+            'ReceiveSecureIdentity', 'ReceiveSecureSenderKey', 'ReceiveMessage',
+            'UserLeftConversation', 'InitialOnlineUsers', 'ReceiveNotification',
+            'receiveSecurityAlert', 'receiveGeneralAnnouncement', 'UserStatusChanged',
+            'IncomingCall', 'CallDeclined', 'MeetingStarted', 'GlobalMeetingStarted',
+            'MeetingEnded', 'ReceiveGroupUpdate', 'AddedToConversation', 'UserUpdated', 'UserTyping',
+            'MessagePinned', 'MessageDeleted', 'UserReadConversation',
+            'ReminderTriggered', 'ScheduleCreated', 'ScheduleStatusUpdated',
+            'ScheduleDeleted', 'UserLeft'
+        ];
+        handlers.forEach(h => conn.off(h));
+        conn.stop().catch(() => {});
+        connectionRef.current = null;
+        isStartingRef.current = false;
+        
+        // Reset ALL global states
         setNotifications([]);
         setOnlineUsers(new Set());
         setLastMessage(null);
@@ -168,7 +173,36 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         setActiveMeeting(null);
         setIsConnected(false);
         setIsReconnecting(false);
-      }
+        setIdentityKeys(null);
+        setMyRSAKeys(null);
+        setIsKeysLoaded(false);
+        setMySenderKey(null);
+
+        // Reset ALL refs
+        identityKeysRef.current = null;
+        myRSAKeysRef.current = null;
+        peerIdentityKeysRef.current.clear();
+        peerSenderKeysRef.current.clear();
+        mySenderKeysRef.current.clear();
+        notifiedMeetingsRef.current.clear();
+    }
+  }, [token]);
+
+  const initiateE2EEHandshake = useCallback(async (conversationId: number) => {
+    if (isConnected && identityKeysRef.current && myRSAKeysRef.current && connectionRef.current) {
+      const idPubKeyB64 = await exportIdentityPublicKey(identityKeysRef.current.publicKey);
+      const rsaPubKeyB64 = await exportPublicKey(myRSAKeysRef.current.publicKey);
+      
+      const signature = await signData(rsaPubKeyB64, identityKeysRef.current.privateKey);
+      
+      await connectionRef.current.invoke("SendSecureIdentity", conversationId, idPubKeyB64, rsaPubKeyB64, signature);
+    }
+  }, [isConnected]);
+
+
+  useEffect(() => {
+    // Wait for everything to be ready before connecting
+    if (!token || !identityKeys || !myRSAKeys || !isKeysLoaded) {
       return
     }
 
