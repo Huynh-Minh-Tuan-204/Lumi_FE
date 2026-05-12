@@ -56,6 +56,7 @@ export interface SignalRHookReturn {
   lastLeftConversationId: number | null
   lastAddedConversationId: number | null
   refreshPeerKey: (senderId: number, conversationId: number) => Promise<void>
+  syncKeys: () => Promise<void>
 }
 
 export interface Conversation {

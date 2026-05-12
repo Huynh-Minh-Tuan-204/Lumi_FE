@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { restoreKeysFromPin } from '@/lib/crypto-utils'
 import { e2eeApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
+import { useSignalR } from '@/hooks/use-signalr'
 
 interface E2EERestorePromptProps {
     /** conversationId để sau khi restore có thể reload đúng conversation */
@@ -77,6 +78,7 @@ type RestoreStep = 'prompt' | 'loading' | 'done' | 'wrong-pin' | 'no-backup'
 
 export function E2EERestorePrompt({ conversationId, onRestored, onDismiss, isMandatory = false }: E2EERestorePromptProps) {
     const { token } = useAuth()
+    const { syncKeys } = useSignalR()
     const [step, setStep] = useState<RestoreStep>('prompt')
     const [pin, setPin] = useState('')
     const [attempts, setAttempts] = useState(0)
@@ -96,10 +98,12 @@ export function E2EERestorePrompt({ conversationId, onRestored, onDismiss, isMan
             setStep('done')
             toast.success('🔓 Khôi phục khóa E2EE thành công!')
 
-            // 3. Reload sau 1.5s để React re-init keys từ IndexedDB và xóa RAM
+            // 3. Manual sync instead of full reload for premium UX
+            await syncKeys();
+            if (onRestored) onRestored();
             setTimeout(() => {
-                window.location.reload()
-            }, 1500)
+                if (onDismiss) onDismiss();
+            }, 1000);
         } catch (err: any) {
             const isNoBackup = err?.message?.includes('404') || err?.status === 404
             if (isNoBackup) {
