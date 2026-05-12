@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useState, createContext, useContext } f
 import * as signalR from '@microsoft/signalr'
 import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
-import { announcementsApi, usersApi, conversationsApi } from '@/lib/api'
+import { announcementsApi, usersApi, conversationsApi, e2eeApi } from '@/lib/api'
 import { ChatMessage, SignalRHookReturn } from '@/types/chat.types'
 import { HUB_URL } from '@/constants/api.constants'
 import { 
@@ -230,6 +230,39 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             for (const conv of convs) {
                 initiateE2EEHandshake(conv.id).catch(() => {});
             }
+
+            // ZKB RECEIVER-SIDE: Fetch and decrypt any key backup blobs from offline senders
+            if (myRSAKeysRef.current?.privateKey) {
+                let zkbRecovered = 0;
+                for (const conv of convs) {
+                    try {
+                        const backups = await e2eeApi.getKeyBackups(token, conv.id);
+                        if (!Array.isArray(backups)) continue;
+                        for (const entry of backups) {
+                            const senderIdNum = Number(entry.senderId);
+                            const mapKey = `${conv.id}:${senderIdNum}`;
+                            // Only decrypt if we don't already have this peer's key
+                            if (!peerSenderKeysRef.current.has(mapKey)) {
+                                try {
+                                    const recovered = await decryptSessionKey(
+                                        entry.encryptedSenderKey,
+                                        myRSAKeysRef.current.privateKey
+                                    );
+                                    peerSenderKeysRef.current.set(mapKey, recovered);
+                                    await saveOrLoadPeerSenderKey(conv.id, senderIdNum, recovered);
+                                    zkbRecovered++;
+                                    console.log(`[ZKB] Recovered SenderKey for conv ${conv.id} from sender ${senderIdNum}`);
+                                } catch { /* Wrong key or corrupted blob — skip */ }
+                            }
+                        }
+                    } catch { /* Conversation not in backup table — skip silently */ }
+                }
+                if (zkbRecovered > 0) {
+                    console.log(`[ZKB] Total recovered: ${zkbRecovered} keys. Flushing UI...`);
+                    setKeyVersion(v => v + 1);
+                    requestAnimationFrame(() => setKeyVersion(v => v + 1));
+                }
+            }
         } catch (e) {
             console.warn("[E2EE] Active handshake loop failed:", e);
         }
@@ -330,6 +363,13 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         const encryptedKey = await encryptSessionKeyForPeer(myKey, peerRSAPubKey);
         
         await connection.invoke("SendSecureSenderKey", conversationIdNum, senderIdNum, encryptedKey);
+
+        // ZKB SENDER-SIDE: Store encrypted blob on server so offline peers can recover it later
+        // This is fire-and-forget — don't block the handshake
+        if (token) {
+          e2eeApi.storeKeyBackup(token, conversationIdNum, senderIdNum, encryptedKey)
+            .catch(() => {}); // Silent: server unavailable should not break the chat
+        }
 
         // 3. ĐÁP LỄ: Nếu A chào sân chung, mình gửi ngược Public Key RSA của mình ĐÍCH DANH cho A
         if (!isDirectReply && identityKeysRef.current && myRSAKeysRef.current) {
