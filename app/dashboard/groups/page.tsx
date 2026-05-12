@@ -350,13 +350,15 @@ export default function GroupsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {group.lastMessage ? (
-                  <p className="text-sm text-muted-foreground truncate italic">
-                    {typeof group.lastMessage === 'object' && (group.lastMessage as any).encryptedContent 
-                      ? "🔒 Tin nhắn đã được mã hóa" 
-                      : (group.lastMessage as any).encryptedContent || (group.lastMessage as any)}
-                  </p>
-                ) : (
+                {group.lastMessage ? (() => {
+                  const lastMsg = group.lastMessage as any;
+                  const hasContent = lastMsg?.encryptedContent || lastMsg?.EncryptedContent || lastMsg?.content;
+                  return (
+                    <p className="text-sm text-muted-foreground truncate italic">
+                      {hasContent ? "🔒 Tin nhắn đã được mã hóa" : "Chưa có tin nhắn nào"}
+                    </p>
+                  );
+                })() : (
                   <p className="text-sm text-muted-foreground italic">
                     Chưa có tin nhắn nào
                   </p>

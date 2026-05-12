@@ -218,7 +218,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     // 4. Force handshakes for active conversations to pull missing session keys
     if (token) {
         try {
-            const response: any = await conversationsApi.getAll(token);
+            const response: any = await conversationsApi.getMyConversations(token);
             // Defensive check to prevent crash if backend returns unexpected format
             const convs = Array.isArray(response) ? response : (response?.data || []);
             
@@ -247,9 +247,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             return;
         }
     }
-    
-    if (isStartingRef.current) return;
-    isStartingRef.current = true;
 
     const fetchHistory = async () => {
       try {
@@ -651,23 +648,31 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       setIsReconnecting(false)
     })
 
-    // Persistent Connection: Initialize immediately upon login
-    if (!isStartingRef.current && connection.state === signalR.HubConnectionState.Disconnected) {
-        isStartingRef.current = true
-        console.log("[SignalR] Starting persistent connection...");
-        connection.start()
-            .then(() => {
-                setIsConnected(true);
-                setIsReconnecting(false);
-                isStartingRef.current = false;
-            })
-            .catch((err) => {
-                console.error("SignalR start failed:", err);
-                isStartingRef.current = false;
-            });
-    }
+    // Fix 2: TriggerHandshakeWith - backend triggers handshake when a peer comes online
+    connection.on("TriggerHandshakeWith", (peerId: any, convId: any) => {
+        console.log(`[E2EE] Remote trigger handshake for conv ${convId} with peer ${peerId}`);
+        initiateE2EEHandshake(Number(convId)).catch(() => {});
+    });
 
-    connectionRef.current = connection
+    // Fix 1: Rewritten start logic using async function to prevent isStartingRef from getting stuck
+    const startConnection = async () => {
+        if (connectionRef.current?.state !== signalR.HubConnectionState.Disconnected) return;
+        if (isStartingRef.current) return;
+        isStartingRef.current = true;
+        try {
+            await connectionRef.current!.start();
+            console.log("[SignalR] Connected successfully");
+            setIsConnected(true);
+            setIsReconnecting(false);
+        } catch (err) {
+            console.error("[SignalR] Connection failed:", err);
+        } finally {
+            isStartingRef.current = false;
+        }
+    };
+
+    connectionRef.current = connection;
+    startConnection();
 
     return () => {
       clearTimeout(historyTimer);
@@ -680,7 +685,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         'MeetingEnded', 'ReceiveGroupUpdate', 'AddedToConversation', 'UserUpdated', 'UserTyping',
         'MessagePinned', 'MessageDeleted', 'UserReadConversation',
         'ReminderTriggered', 'ScheduleCreated', 'ScheduleStatusUpdated',
-        'ScheduleDeleted', 'UserLeft'
+        'ScheduleDeleted', 'UserLeft', 'TriggerHandshakeWith'
       ]
       if (connection) {
           handlers.forEach(h => connection.off(h));

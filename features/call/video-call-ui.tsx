@@ -114,6 +114,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   const [callMessages, setCallMessages] = useState<ChatMessage[]>([])
   const [pinnedUserId, setPinnedUserId] = useState<number | null>(null)
   const [activeSpeakerId, setActiveSpeakerId] = useState<number | null>(null)
+  // Fix 6: Store the secure GUID for display, not the raw DB integer
+  const [displayId, setDisplayId] = useState<string>(callId)
   
   const chatEndRef = useRef<HTMLDivElement>(null)
   const joinedRef = useRef<string | null>(null)
@@ -182,6 +184,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
                    meeting.createdBy || meeting.CreatedBy ||
                    meeting.creator?.id || meeting.Creator?.Id || meeting.host?.id || meeting.Host?.Id
         const finalHostId = hId ? Number(hId) : null;
+        // Fix 6: Resolve the secure GUID for display
+        const secureId = meeting.meetingGuid || meeting.MeetingGuid || callId;
+        setDisplayId(secureId);
         setConvId(cid); setConversationId(cid); setHostId(finalHostId);
         const history = await conversationsApi.getMessages(token, cid)
         setCallMessages(history.map((d: any) => ({
@@ -233,8 +238,8 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
               <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center font-black shadow-lg shadow-primary/20">L</div>
               <div className="flex flex-col -space-y-0.5">
                 <span className="text-xs font-black uppercase tracking-widest">{participantName} Meeting</span>
-                <span className="text-[10px] text-primary font-black uppercase tracking-[0.1em] flex items-center gap-2">
-                   <ShieldCheck className="h-2.5 w-2.5" /> MÃ PHÒNG: {callId} | {formatDuration(callDuration)}
+                 <span className="text-[10px] text-primary font-black uppercase tracking-[0.1em] flex items-center gap-2">
+                   <ShieldCheck className="h-2.5 w-2.5" /> MÃ PHÒNG: {displayId} | {formatDuration(callDuration)}
                 </span>
               </div>
           </div>
