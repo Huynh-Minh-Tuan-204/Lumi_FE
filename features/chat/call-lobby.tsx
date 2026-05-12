@@ -285,9 +285,9 @@ export function CallLobby({ meetingId, type, title, conversationId, onJoin, onCa
 
               <div>
                  <h2 className="text-xl font-black uppercase tracking-tight leading-tight">{title}</h2>
-                 <p className="text-xs font-bold text-muted-foreground mt-2 flex items-center gap-2">
-                    <Users className="h-3 w-3" /> Lumi Meeting | Bảo mật
-                 </p>
+                  <p className="text-xs font-bold text-muted-foreground mt-2 flex items-center gap-2">
+                    <ShieldCheck className="h-3 w-3 text-primary" /> PHÒNG: {realMeetingGuid || meetingId} | BẢO MẬT E2EE
+                  </p>
               </div>
 
               {isWaiting ? (

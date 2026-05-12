@@ -651,28 +651,26 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       setIsReconnecting(false)
     })
 
-    // Priority Loading: Delay the heavy SignalR handshake until the UI is stable
-    const startTimer = setTimeout(() => {
-        if (!isStartingRef.current && connection.state === signalR.HubConnectionState.Disconnected) {
-            isStartingRef.current = true
-            connection.start()
-                .then(() => {
-                    setIsConnected(true);
-                    setIsReconnecting(false);
-                    isStartingRef.current = false;
-                })
-                .catch((err) => {
-                    console.error("SignalR start failed:", err);
-                    isStartingRef.current = false;
-                });
-        }
-    }, 1000); // 1s delay to let UI and CSS finish loading
+    // Persistent Connection: Initialize immediately upon login
+    if (!isStartingRef.current && connection.state === signalR.HubConnectionState.Disconnected) {
+        isStartingRef.current = true
+        console.log("[SignalR] Starting persistent connection...");
+        connection.start()
+            .then(() => {
+                setIsConnected(true);
+                setIsReconnecting(false);
+                isStartingRef.current = false;
+            })
+            .catch((err) => {
+                console.error("SignalR start failed:", err);
+                isStartingRef.current = false;
+            });
+    }
 
     connectionRef.current = connection
 
     return () => {
       clearTimeout(historyTimer);
-      clearTimeout(startTimer);
       // [Full Cleanup] Explicitly remove all handlers to prevent duplicates on remount
       const handlers = [
         'ReceiveSecureIdentity', 'ReceiveSecureSenderKey', 'ReceiveMessage',

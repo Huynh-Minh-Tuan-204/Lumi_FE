@@ -129,3 +129,12 @@ export function formatZaloRelativeTime(dateInput: string | Date | null) {
   return `${dd}/${mm}`;
 }
 
+/**
+ * Tạo mã phòng ngẫu nhiên (dạng ABC-DEF-GHI)
+ */
+export function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Tránh các ký tự dễ nhầm lẫn
+  const part = () => Array.from({ length: 3 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  return `${part()}-${part()}-${part()}`;
+}
+

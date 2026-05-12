@@ -233,7 +233,9 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
               <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center font-black shadow-lg shadow-primary/20">L</div>
               <div className="flex flex-col -space-y-0.5">
                 <span className="text-xs font-black uppercase tracking-widest">{participantName} Meeting</span>
-                <span className="text-[10px] text-gray-400 font-bold">{formatDuration(callDuration)} | ID: {callId}</span>
+                <span className="text-[10px] text-primary font-black uppercase tracking-[0.1em] flex items-center gap-2">
+                   <ShieldCheck className="h-2.5 w-2.5" /> MÃ PHÒNG: {callId} | {formatDuration(callDuration)}
+                </span>
               </div>
           </div>
           <div className="flex items-center gap-2">

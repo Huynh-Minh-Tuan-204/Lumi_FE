@@ -127,12 +127,16 @@ export function ChatSidebar({
   }, [uniqueConversations]);
 
   const meetingRooms = useMemo(() => 
-    sortedConversations.filter(c => c.type === 'GlobalMeeting' || c.name.toLowerCase().includes('cuộc họp nhanh')), 
+    [], // ISOLATED: No meeting rooms in sidebar
     [sortedConversations]
   );
   
   const directChats = useMemo(() => 
-    sortedConversations.filter(c => c.type !== 'GlobalMeeting' && !c.name.toLowerCase().includes('cuộc họp nhanh')), 
+    sortedConversations.filter(c => 
+      c.type !== 'GlobalMeeting' && 
+      !c.name.toLowerCase().includes('cuộc họp nhanh') &&
+      !c.name.toLowerCase().includes('meeting')
+    ), 
     [sortedConversations]
   );
 
