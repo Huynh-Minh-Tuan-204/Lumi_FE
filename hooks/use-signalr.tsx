@@ -63,6 +63,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const mySenderKeysRef = useRef<Map<number, CryptoKey>>(new Map());
   const [mySenderKey, setMySenderKey] = useState<CryptoKey | null>(null); 
   const [isKeysLoaded, setIsKeysLoaded] = useState(false);
+
+  // Performance Guards: Throttling frequent handshakes and refreshes to prevent infinite loops
+  const lastHandshakeTimesRef = useRef<Map<number, number>>(new Map());
+  const lastRefreshTimesRef = useRef<Map<string, number>>(new Map());
   
   // Sync user object into a ref to avoid stale closures in SignalR listeners 
   // without re-creating the entire connection every time user profile updates.
@@ -185,6 +189,12 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   }, [token]);
 
   const initiateE2EEHandshake = useCallback(async (conversationId: number) => {
+    // CPU Protection: Throttle handshakes to once every 10 seconds per conversation
+    const now = Date.now();
+    const lastTime = lastHandshakeTimesRef.current.get(conversationId) || 0;
+    if (now - lastTime < 10000) return; 
+    lastHandshakeTimesRef.current.set(conversationId, now);
+
     if (connectionRef.current?.state === signalR.HubConnectionState.Connected && identityKeysRef.current && myRSAKeysRef.current) {
       const idPubKeyB64 = await exportIdentityPublicKey(identityKeysRef.current.publicKey);
       const rsaPubKeyB64 = await exportPublicKey(myRSAKeysRef.current.publicKey);
@@ -233,32 +243,40 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
             // ZKB RECEIVER-SIDE: Fetch and decrypt any key backup blobs from offline senders
             if (myRSAKeysRef.current?.privateKey) {
-                let zkbRecovered = 0;
+                let totalZkbRecovered = 0;
                 for (const conv of convs) {
                     try {
                         const backups = await e2eeApi.getKeyBackups(token, conv.id);
                         if (!Array.isArray(backups)) continue;
+                        
+                        let convZkbRecovered = 0;
                         for (const entry of backups) {
                             const senderIdNum = Number(entry.senderId);
                             const mapKey = `${conv.id}:${senderIdNum}`;
-                            // Only decrypt if we don't already have this peer's key
-                            if (!peerSenderKeysRef.current.has(mapKey)) {
-                                try {
-                                    const recovered = await decryptSessionKey(
-                                        entry.encryptedSenderKey,
-                                        myRSAKeysRef.current.privateKey
-                                    );
-                                    peerSenderKeysRef.current.set(mapKey, recovered);
-                                    await saveOrLoadPeerSenderKey(conv.id, senderIdNum, recovered);
-                                    zkbRecovered++;
-                                    console.log(`[ZKB] Recovered SenderKey for conv ${conv.id} from sender ${senderIdNum}`);
-                                } catch { /* Wrong key or corrupted blob — skip */ }
-                            }
+                            
+                            // ZKB RECOVERY GUARD: Skip if we already have a valid key in memory
+                            if (peerSenderKeysRef.current.has(mapKey)) continue;
+
+                            try {
+                                const recovered = await decryptSessionKey(
+                                    entry.encryptedSenderKey,
+                                    myRSAKeysRef.current.privateKey
+                                );
+                                // State Update Optimization: Only store if we successfully decrypted
+                                peerSenderKeysRef.current.set(mapKey, recovered);
+                                await saveOrLoadPeerSenderKey(conv.id, senderIdNum, recovered);
+                                totalZkbRecovered++;
+                                convZkbRecovered++;
+                            } catch { /* Corrupted backup or wrong key — skip */ }
                         }
-                    } catch { /* Conversation not in backup table — skip silently */ }
+                        if (convZkbRecovered > 0) {
+                            console.log(`[ZKB] Recovered ${convZkbRecovered} keys for conv ${conv.id}`);
+                        }
+                    } catch { /* Silent: conversation might not have backups */ }
                 }
-                if (zkbRecovered > 0) {
-                    console.log(`[ZKB] Total recovered: ${zkbRecovered} keys. Flushing UI...`);
+                
+                if (totalZkbRecovered > 0) {
+                    console.log(`[ZKB] Sync complete. Recovered ${totalZkbRecovered} keys. Flushing UI...`);
                     setKeyVersion(v => v + 1);
                     requestAnimationFrame(() => setKeyVersion(v => v + 1));
                 }
@@ -795,6 +813,13 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
   const refreshPeerKey = useCallback(async (senderId: number, conversationId: number) => {
     if (!token || !conversationId) return;
+
+    // CPU Protection: Throttle key refreshes to prevent feedback loops in DecryptedText
+    const now = Date.now();
+    const mapKey = `${conversationId}:${senderId}`;
+    const lastTime = lastRefreshTimesRef.current.get(mapKey) || 0;
+    if (now - lastTime < 30000) return; // Allow refresh only once every 30s per peer/conv
+    lastRefreshTimesRef.current.set(mapKey, now);
     
     console.log(`[E2EE] Refreshing keys for Peer ${senderId} in Conv ${conversationId}...`);
     try {
@@ -822,6 +847,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                 peerSenderKeysRef.current.delete(`${conversationId}:${senderId}`);
                 
                 setKeyVersion(v => v + 1);
+                requestAnimationFrame(() => setKeyVersion(v => v + 1));
                 console.log(`[E2EE] Successfully refreshed IdentityKey for Peer ${senderId}.`);
             }
         }

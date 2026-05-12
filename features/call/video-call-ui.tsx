@@ -197,6 +197,11 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         })))
         // Auto-handshake for E2EE messages
         if (initiateE2EEHandshake) initiateE2EEHandshake(cid);
+        
+        // Đảm bảo join vào SignalR group của phòng chat này
+        if (signalRData.connection) {
+           signalRData.connection.invoke('JoinGroup', cid).catch(console.error);
+        }
       } catch (e) { console.error(e) }
     }
     fetch()
