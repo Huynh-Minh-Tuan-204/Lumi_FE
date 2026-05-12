@@ -30,6 +30,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
   const connectionRef = useRef<signalR.HubConnection | null>(null)
   const isStartingRef = useRef(false);
+  const isCancelledRef = useRef(false); // Abort-controller pattern for cleanup race
   const notifiedMeetingsRef = useRef<Set<string>>(new Set());
 
   const [keyVersion, setKeyVersion] = useState(0)
@@ -654,28 +655,57 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         initiateE2EEHandshake(Number(convId)).catch(() => {});
     });
 
-    // Fix 1: Rewritten start logic using async function to prevent isStartingRef from getting stuck
+    // ─── NEGOTIATION-SAFE startConnection ───────────────────────────────────
+    // Key insight: set connectionRef BEFORE calling startConnection so that
+    // the ref check inside startConnection sees the new object immediately.
+    connectionRef.current = connection;
+    isCancelledRef.current = false;
+
     const startConnection = async () => {
-        if (connectionRef.current?.state !== signalR.HubConnectionState.Disconnected) return;
-        if (isStartingRef.current) return;
+        // Guard 1: State check — must be fully Disconnected
+        if (connectionRef.current?.state !== signalR.HubConnectionState.Disconnected) {
+            console.log("[SignalR] Skipping start — not Disconnected");
+            return;
+        }
+        // Guard 2: Mutual exclusion — only one negotiation at a time
+        if (isStartingRef.current) {
+            console.log("[SignalR] Skipping start — negotiation already in progress");
+            return;
+        }
         isStartingRef.current = true;
         try {
             await connectionRef.current!.start();
+            // Guard 3: Abort-controller check — was cleanup called while we were negotiating?
+            if (isCancelledRef.current) {
+                console.log("[SignalR] Cleanup fired during negotiation — stopping orphaned connection");
+                connectionRef.current?.stop().catch(() => {});
+                return;
+            }
             console.log("[SignalR] Connected successfully");
             setIsConnected(true);
             setIsReconnecting(false);
-        } catch (err) {
-            console.error("[SignalR] Connection failed:", err);
+        } catch (err: any) {
+            // Suppress the expected error when cleanup intentionally stops a negotiating connection
+            if (!isCancelledRef.current) {
+                console.error("[SignalR] Connection failed:", err);
+            }
         } finally {
             isStartingRef.current = false;
         }
     };
 
-    connectionRef.current = connection;
-    startConnection();
+    // Debounce: collapse rapid key-load state changes into a single start attempt
+    const startTimer = setTimeout(() => {
+        startConnection();
+    }, 250);
 
     return () => {
+      // Mark this effect instance as cancelled FIRST (abort-controller flag)
+      isCancelledRef.current = true;
+      isStartingRef.current = false;
       clearTimeout(historyTimer);
+      clearTimeout(startTimer);
+
       // [Full Cleanup] Explicitly remove all handlers to prevent duplicates on remount
       const handlers = [
         'ReceiveSecureIdentity', 'ReceiveSecureSenderKey', 'ReceiveMessage',
@@ -689,7 +719,17 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       ]
       if (connection) {
           handlers.forEach(h => connection.off(h));
-          connection.stop();
+          // Cleanup guard: if still Connecting, the stop() will be handled by 
+          // the isCancelledRef check inside startConnection's finally block.
+          // Only call stop() directly if already Connected or Reconnecting.
+          const state = connection.state;
+          if (state === signalR.HubConnectionState.Connected ||
+              state === signalR.HubConnectionState.Reconnecting) {
+              connection.stop().catch(() => {});
+          } else if (state === signalR.HubConnectionState.Disconnected) {
+              // Already stopped — nothing to do
+          }
+          // If Connecting: startConnection's finally block will handle cleanup
       }
     }
 
