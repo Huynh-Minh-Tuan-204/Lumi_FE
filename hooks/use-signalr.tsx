@@ -31,6 +31,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const connectionRef = useRef<signalR.HubConnection | null>(null)
   const isStartingRef = useRef(false);
   const isCancelledRef = useRef(false); // Abort-controller pattern for cleanup race
+  const startConnectionRef = useRef<(() => Promise<void>) | null>(null); // Stable ref to start fn
   const notifiedMeetingsRef = useRef<Set<string>>(new Set());
 
   const [keyVersion, setKeyVersion] = useState(0)
@@ -205,15 +206,17 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         console.log("[E2EE] Second flush complete.");
     });
 
-    // 3. Ensure SignalR is running (Manual Start on Restore Success)
+    // 3. Ensure SignalR is running — use stable startConnectionRef if keys are now ready
     if (connectionRef.current && connectionRef.current.state === signalR.HubConnectionState.Disconnected) {
-        console.log("[SignalR] Manual start triggered during sync...");
-        await connectionRef.current.start()
-            .then(() => {
-                setIsConnected(true);
-                setIsReconnecting(false);
-            })
-            .catch(console.error);
+        console.log("[SignalR] Manual reconnect triggered during syncKeys...");
+        if (startConnectionRef.current) {
+            await startConnectionRef.current();
+        } else {
+            // Fallback: direct start (should rarely be needed)
+            await connectionRef.current.start()
+                .then(() => { setIsConnected(true); setIsReconnecting(false); })
+                .catch(console.error);
+        }
     }
 
     // 4. Force handshakes for active conversations to pull missing session keys
@@ -235,11 +238,14 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
-    // Wait for everything to be ready before connecting
-    if (!token || !identityKeys || !myRSAKeys || !isKeysLoaded) {
-      return
-    }
+    // ─── STABLE CONNECTION: only re-run when the auth token changes ──────────
+    // Keys (identityKeys, myRSAKeys, isKeysLoaded) are intentionally EXCLUDED
+    // from this dependency array. Their readiness is checked via REFS inside
+    // startConnection(), not via React state — this prevents the race condition
+    // where key-load state changes tear down an in-progress negotiation.
+    if (!token) return;
 
+    // If a connection already exists and is alive, keep it
     if (connectionRef.current) {
         const state = connectionRef.current.state;
         if (state === signalR.HubConnectionState.Connected || 
@@ -672,10 +678,17 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             console.log("[SignalR] Skipping start — negotiation already in progress");
             return;
         }
+        // Guard 3: Key readiness — checked via REFS not state to avoid stale closures
+        if (!identityKeysRef.current || !myRSAKeysRef.current) {
+            console.log("[SignalR] Keys not yet loaded — deferring connection start");
+            // Schedule a retry after key-loading is expected to complete
+            setTimeout(() => startConnectionRef.current?.(), 1500);
+            return;
+        }
         isStartingRef.current = true;
         try {
             await connectionRef.current!.start();
-            // Guard 3: Abort-controller check — was cleanup called while we were negotiating?
+            // Guard 4: Abort-controller check — was cleanup called while we were negotiating?
             if (isCancelledRef.current) {
                 console.log("[SignalR] Cleanup fired during negotiation — stopping orphaned connection");
                 connectionRef.current?.stop().catch(() => {});
@@ -694,7 +707,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    // Debounce: collapse rapid key-load state changes into a single start attempt
+    // Expose startConnection via a stable ref so syncKeys can call it directly
+    startConnectionRef.current = startConnection;
+
+    // Debounce: collapse rapid token/auth changes into a single start attempt
     const startTimer = setTimeout(() => {
         startConnection();
     }, 250);
@@ -733,7 +749,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-  }, [token, identityKeys, myRSAKeys, isKeysLoaded, initiateE2EEHandshake])
+  }, [token])
+  // ↑ ONLY [token] in deps — key state (identityKeys/myRSAKeys/isKeysLoaded) intentionally
+  // excluded. Key readiness is checked inside startConnection() via stable refs.
 
   const refreshPeerKey = useCallback(async (senderId: number, conversationId: number) => {
     if (!token || !conversationId) return;
