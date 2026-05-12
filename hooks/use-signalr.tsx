@@ -218,7 +218,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     // 4. Force handshakes for active conversations to pull missing session keys
     if (token) {
         try {
-            const convs = await conversationsApi.getAll(token);
+            const response: any = await conversationsApi.getAll(token);
+            // Defensive check to prevent crash if backend returns unexpected format
+            const convs = Array.isArray(response) ? response : (response?.data || []);
+            
+            console.log(`[E2EE] Syncing ${convs.length} conversations...`);
             for (const conv of convs) {
                 initiateE2EEHandshake(conv.id).catch(() => {});
             }

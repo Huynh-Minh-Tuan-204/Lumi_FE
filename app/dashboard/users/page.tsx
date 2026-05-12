@@ -261,7 +261,7 @@ export default function UsersPage() {
               Thêm người dùng
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Tạo người dùng mới</DialogTitle>
               <DialogDescription>

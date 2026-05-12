@@ -225,7 +225,7 @@ export default function GroupsPage() {
                 Tạo nhóm
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Tạo nhóm mới</DialogTitle>
                 <DialogDescription>
@@ -369,7 +369,7 @@ export default function GroupsPage() {
 
       {/* Add member dialog */}
       <Dialog open={isAddMemberDialogOpen} onOpenChange={setIsAddMemberDialogOpen}>
-        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Thêm thành viên</DialogTitle>
             <DialogDescription>
@@ -428,7 +428,7 @@ export default function GroupsPage() {
 
       {/* Rename dialog */}
       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
-        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Đổi tên nhóm</DialogTitle>
             <DialogDescription>
@@ -463,7 +463,7 @@ export default function GroupsPage() {
 
       {/* View Members dialog */}
       <Dialog open={isViewMembersDialogOpen} onOpenChange={setIsViewMembersDialogOpen}>
-        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Thành viên nhóm</DialogTitle>
             <DialogDescription>

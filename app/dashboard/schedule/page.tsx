@@ -368,7 +368,7 @@ export default function SchedulePage() {
                   Sự kiện mới
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[550px] rounded-3xl p-0 overflow-hidden max-h-[95vh] flex flex-col" aria-describedby={undefined}>
+              <DialogContent className="sm:max-w-[550px] rounded-3xl p-0 overflow-hidden max-h-[95vh] flex flex-col">
                 <DialogDescription className="sr-only">
                     Tạo một lịch hẹn hoặc sự kiện mới và mời các thành viên tham gia thảo luận.
                 </DialogDescription>
