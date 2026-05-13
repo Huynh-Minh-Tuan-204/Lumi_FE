@@ -458,13 +458,25 @@ export function ChatArea({
       let activeSenderKey = mySenderKeys?.get(conversation.id);
       if (!activeSenderKey) {
           console.log(`[ChatArea] MySenderKey missing for conv ${conversation.id}, checking DB...`);
-          activeSenderKey = await saveOrLoadSenderKey(conversation.id) || undefined;
+          const stored = await saveOrLoadSenderKey(conversation.id);
+          if (stored) {
+              activeSenderKey = stored;
+          } else {
+              console.log(`[ChatArea] Generating new MySenderKey for conv ${conversation.id}`);
+              activeSenderKey = await generateSenderKey();
+              await saveOrLoadSenderKey(conversation.id, activeSenderKey);
+          }
       }
 
       if (!activeSenderKey || !identityKeys) {
           console.error("[ChatArea] Security keys missing for upload", { hasKey: !!activeSenderKey, hasIdentity: !!identityKeys });
-          toast.error("Vui lòng đợi thiết lập mã hóa (Thiếu Identity hoặc Sender Key)...");
+          toast.error("Hệ thống mã hóa chưa sẵn sàng. Vui lòng thử lại.");
           return;
+      }
+
+      // Trigger handshake if we just created a new key and don't know the peers yet
+      if (peerIdentityKeys?.size === 0) {
+          initiateE2EEHandshake(conversation.id).catch(console.warn);
       }
 
       toast.info('Đang mã hóa và tải lên...')
