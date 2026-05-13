@@ -876,8 +876,12 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       if (stored) {
         currentKey = stored;
       } else {
-        currentKey = await generateSenderKey();
-        await saveOrLoadSenderKey(conversationId, currentKey);
+        // [CRITICAL] Do NOT generate a new key if we are still syncing. 
+        // Only generate for brand NEW conversations (size 0 and no history).
+        // For safety in this bug fix, let's just warn and block.
+        console.warn(`[E2EE] MySenderKey missing for conv ${conversationId}. Blocking auto-generation to prevent overwrite.`);
+        toast.error("Vui lòng đợi giây lát để hệ thống đồng bộ khóa bảo mật.");
+        return;
       }
       mySenderKeysRef.current.set(conversationId, currentKey);
       setMySenderKey(currentKey);
@@ -1042,6 +1046,15 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         lastUserLeft,
         activeMeeting,
         initiateE2EEHandshake,
+        repairE2EE: async () => {
+          console.log("[E2EE] Repairing encryption state...");
+          mySenderKeysRef.current.clear();
+          peerSenderKeysRef.current.clear();
+          peerIdentityKeysRef.current.clear();
+          await loadAllKeysSequentially();
+          setKeyVersion(v => v + 1);
+          toast.success("Hệ thống mã hóa đã được làm mới.");
+        },
         onTriggeredReminder: (cb: any) => { },
         mySenderKey,
         mySenderKeys: mySenderKeysRef.current,

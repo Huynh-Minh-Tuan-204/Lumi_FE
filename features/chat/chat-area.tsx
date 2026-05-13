@@ -36,7 +36,8 @@ import {
   MessageSquare,
   Video as VideoIcon,
   Activity as ActivityIcon,
-  X
+  X,
+  ShieldAlert
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -451,9 +452,11 @@ export function ChatArea({
           if (stored) {
               activeSenderKey = stored;
           } else {
-              // Generate new one if missing
-              activeSenderKey = await generateSenderKey();
-              await saveOrLoadSenderKey(conversation.id, activeSenderKey);
+              // [CRITICAL] Do NOT generate a new key if we are still syncing or if history exists
+              console.warn(`[E2EE] SenderKey missing for upload in conv ${conversation.id}.`);
+              toast.error("Đang đồng bộ khóa bảo mật. Vui lòng thử lại sau giây lát.");
+              setIsUploading(false);
+              return;
           }
       }
 
@@ -595,6 +598,7 @@ export function ChatArea({
               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-9 w-9"><MoreVertical className="h-5 w-5" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56 p-1 rounded-xl">
                  <DropdownMenuItem onClick={onToggleBoard} className="p-2 gap-3 text-xs font-black uppercase"><ActivityIcon className="h-4 w-4" /> Bảng tin nhóm</DropdownMenuItem>
+                 <DropdownMenuItem onClick={signalRData.repairE2EE} className="p-2 gap-3 text-xs font-black uppercase text-amber-500"><ShieldAlert className="h-4 w-4" /> Sửa lỗi mã hóa (Repair)</DropdownMenuItem>
                  <DropdownMenuSeparator />
                  <DropdownMenuItem className="text-destructive p-2 gap-3 text-xs font-black uppercase cursor-pointer" onClick={async () => {
                       if (!confirm(`Rời khỏi "${conversation.name}"?`)) return
