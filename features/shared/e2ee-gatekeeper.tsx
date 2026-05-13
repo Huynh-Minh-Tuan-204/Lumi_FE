@@ -11,7 +11,7 @@ interface E2EEGatekeeperProps {
 }
 
 export function E2EEGatekeeper({ children }: E2EEGatekeeperProps) {
-    const { status, backupData, refresh } = useE2EEAuth()
+    const { status, backupData, refresh, error } = useE2EEAuth()
 
     // Only render overlay states – children renders independently underneath
     if (status === 'loading') {

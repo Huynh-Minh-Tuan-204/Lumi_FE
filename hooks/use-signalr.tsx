@@ -32,6 +32,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const connectionRef = useRef<signalR.HubConnection | null>(null)
   const isStartingRef = useRef(false);
   const isCancelledRef = useRef(false); // Abort-controller pattern for cleanup race
+  const isRetryingRef = useRef(false); // Debounce for scheduled retries
   const startConnectionRef = useRef<(() => Promise<void>) | null>(null); // Stable ref to start fn
   const notifiedMeetingsRef = useRef<Set<string>>(new Set());
 
@@ -757,11 +758,17 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         }
         // Guard 3: Key readiness — checked via REFS not state to avoid stale closures
         if (!identityKeysRef.current || !myRSAKeysRef.current) {
-            if (Math.random() < 0.1) { // Log only 10% of the time to avoid spam
+            if (isRetryingRef.current) return;
+            isRetryingRef.current = true;
+
+            if (Math.random() < 0.1) { 
                 console.log("[SignalR] Keys not yet loaded — deferring connection start");
             }
-            // Schedule a retry after key-loading is expected to complete
-            setTimeout(() => startConnectionRef.current?.(), 3000);
+            
+            setTimeout(() => {
+                isRetryingRef.current = false;
+                startConnectionRef.current?.();
+            }, 3000);
             return;
         }
         isStartingRef.current = true;
