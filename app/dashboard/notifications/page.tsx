@@ -51,7 +51,7 @@ function DecryptedAnnouncement({ announcement, mySenderKey, peerSenderKeys, peer
 
   useEffect(() => {
     const decrypt = async () => {
-      const { message, iv, signature, senderId, id } = announcement;
+      const { message, iv, signature, senderId } = announcement;
       
       // Legacy or System messages (not encrypted)
       if (!iv || !signature) {
@@ -60,24 +60,36 @@ function DecryptedAnnouncement({ announcement, mySenderKey, peerSenderKeys, peer
       }
 
       try {
-        // Fix 4: Use user.id for ownership check — not a null/undefined check
         const currentUserId = user?.id;
         const senderIdNum = Number(senderId || 0);
         const isOwn = senderIdNum > 0 && senderIdNum === currentUserId;
 
-        const senderKey = isOwn ? mySenderKey : peerSenderKeys?.get(`${id}:${senderIdNum}`);
+        // Cơ chế tìm khóa linh hoạt: Quét toàn bộ peerSenderKeys để tìm khóa của Admin (senderId)
+        let senderKey: CryptoKey | undefined;
+        if (isOwn) {
+            senderKey = mySenderKey;
+        } else if (peerSenderKeys) {
+            // Tìm khóa bất kỳ kết thúc bằng :senderId
+            for (const [key, val] of Array.from(peerSenderKeys.entries())) {
+                if (key.endsWith(`:${senderIdNum}`)) {
+                    senderKey = val;
+                    break;
+                }
+            }
+        }
+
         const senderPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderIdNum);
 
         if (iv && signature && senderKey && senderPubKey) {
            const result = await decryptMessagePro(message, iv, signature, senderKey, senderPubKey);
            setDecrypted(result);
         } else {
-           setDecrypted("⏳ [Mã hóa đầu cuối]");
+           setDecrypted("⏳ [Đợi bắt tay bảo mật...]");
         }
       } catch (e) { setDecrypted(message || "[Lỗi giải mã]"); }
     };
     decrypt();
-  }, [announcement.id, announcement.message, mySenderKey, user?.id]);
+  }, [announcement.id, announcement.message, mySenderKey, peerSenderKeys, user?.id]);
 
   return <p className="text-sm text-foreground/80 font-medium leading-relaxed">{decrypted}</p>;
 }
