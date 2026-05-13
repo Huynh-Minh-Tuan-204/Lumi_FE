@@ -238,15 +238,18 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             
             console.log(`[E2EE] Syncing ${convs.length} conversations...`);
             for (const conv of convs) {
-                initiateE2EEHandshake(conv.id).catch(() => {});
+                const convId = conv.id || conv.Id;
+                if (convId) initiateE2EEHandshake(convId).catch(() => {});
             }
 
             // ZKB RECEIVER-SIDE: Fetch and decrypt any key backup blobs from offline senders
             if (myRSAKeysRef.current?.privateKey) {
                 let totalZkbRecovered = 0;
                 for (const conv of convs) {
+                    const convId = conv.id || conv.Id;
+                    if (!convId) continue;
                     try {
-                        const backups = await e2eeApi.getKeyBackups(token, conv.id);
+                        const backups = await e2eeApi.getKeyBackups(token, convId);
                         if (!Array.isArray(backups)) continue;
                         
                         let convZkbRecovered = 0;
