@@ -368,9 +368,7 @@ export function ChatArea({
     peerIdentityKeys, 
     identityKeys, 
     myRSAKeys,
-    keyVersion,
-    showRestorePrompt,
-    setShowRestorePrompt 
+    keyVersion
   } = signalRData
 
   const {
@@ -454,20 +452,10 @@ export function ChatArea({
     if (!file || !conversation || !token) return
     setIsUploading(true)
     try {
-      // [FIX] Get key for this specific conversation instead of relying on global mySenderKey state
+      // [ROLLBACK] Direct key fetching without PIN backup triggers
       let activeSenderKey = mySenderKeys?.get(conversation.id);
       if (!activeSenderKey) {
-          // Try loading from IndexedDB
-          const stored = await saveOrLoadSenderKey(conversation.id);
-          if (stored) {
-              activeSenderKey = stored;
-          } else {
-              // [CRITICAL] MySenderKey missing — trigger PIN restore instead of just error
-              console.warn(`[E2EE] MySenderKey missing for upload in conv ${conversation.id}. Triggering Restore Prompt.`);
-              setShowRestorePrompt(true);
-              setIsUploading(false);
-              return;
-          }
+          activeSenderKey = await saveOrLoadSenderKey(conversation.id) || undefined;
       }
 
       if (!activeSenderKey || !identityKeys) {
@@ -788,18 +776,6 @@ export function ChatArea({
       </div>
     )}
 
-    {/* ── Restore Prompt Modal ── */}
-    {showRestorePrompt && (
-      <Dialog open={showRestorePrompt} onOpenChange={setShowRestorePrompt}>
-        <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-sm">
-          <DialogTitle className="sr-only">Khôi phục khóa mã hóa</DialogTitle>
-          <E2EERestorePrompt 
-            onRestored={() => setShowRestorePrompt(false)} 
-            onDismiss={() => setShowRestorePrompt(false)}
-          />
-        </DialogContent>
-      </Dialog>
-    )}
     </TooltipProvider>
   )
 }

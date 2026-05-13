@@ -65,7 +65,6 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const mySenderKeysRef = useRef<Map<number, CryptoKey>>(new Map());
   const [mySenderKey, setMySenderKey] = useState<CryptoKey | null>(null); 
   const [isKeysLoaded, setIsKeysLoaded] = useState(false);
-  const [showRestorePrompt, setShowRestorePrompt] = useState(false);
 
   // Performance Guards: Throttling frequent handshakes and refreshes to prevent infinite loops
   const lastHandshakeTimesRef = useRef<Map<number, number>>(new Map());
@@ -756,21 +755,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             console.log("[SignalR] Skipping start — negotiation already in progress");
             return;
         }
-        // Guard 3: Key readiness — checked via REFS not state to avoid stale closures
-        if (!identityKeysRef.current || !myRSAKeysRef.current) {
-            if (isRetryingRef.current) return;
-            isRetryingRef.current = true;
-
-            if (Math.random() < 0.1) { 
-                console.log("[SignalR] Keys not yet loaded — deferring connection start");
-            }
-            
-            setTimeout(() => {
-                isRetryingRef.current = false;
-                startConnectionRef.current?.();
-            }, 3000);
-            return;
-        }
+        // Guard 3: [ROLLBACK] Keys now generated on-demand, no longer blocking connection.
         isStartingRef.current = true;
         try {
             await connectionRef.current!.start();
@@ -898,10 +883,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       if (stored) {
         currentKey = stored;
       } else {
-        // [CRITICAL] MySenderKey missing — trigger PIN restore instead of just error
-        console.warn(`[E2EE] MySenderKey missing for conv ${conversationId}. Triggering Restore Prompt.`);
-        setShowRestorePrompt(true);
-        return;
+        // [ROLLBACK] Generate new key if missing from IDB
+        console.log(`[E2EE] MySenderKey missing for conv ${conversationId}. Generating new one.`);
+        currentKey = await generateSenderKey();
+        await saveOrLoadSenderKey(conversationId, currentKey);
       }
       mySenderKeysRef.current.set(conversationId, currentKey);
       setMySenderKey(currentKey);
@@ -1090,9 +1075,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         keyVersion,
         lastLeftConversationId,
         refreshPeerKey,
-        syncKeys,
-        showRestorePrompt,
-        setShowRestorePrompt
+        syncKeys
       }}
     >
       {!mounted ? <div style={{ visibility: 'hidden' }}>{children}</div> : children}
