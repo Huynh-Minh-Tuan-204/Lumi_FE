@@ -35,7 +35,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { meetingsApi } from '@/lib/api'
-import { CallLobby } from '@/features/chat/call-lobby'
+import { DecryptedSidebarText } from '@/features/chat/decrypted-sidebar-text'
 
 interface Conversation {
   id: number
@@ -394,7 +394,7 @@ function ConversationItem({ conversation, isSelected, onSelect, unreadCount, isO
         <p className={cn("text-[10px] truncate opacity-80 font-black tracking-tight", isSelected ? "text-primary-foreground/90 whitespace-nowrap" : "text-primary/60")}>
           {conversation.type === 'GlobalMeeting' 
             ? (conversation.meetingGuid ? `CODE: ${conversation.meetingGuid}` : `ID: #${conversation.id}`) 
-            : (lastContent.includes('[Attachment]') ? '📎 Gửi một tệp đính kèm' : lastContent)}
+            : <DecryptedSidebarText message={lastMsg} />}
         </p>
       </div>
 

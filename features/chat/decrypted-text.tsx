@@ -46,7 +46,7 @@ export function DecryptedText({
                 return;
             }
 
-            const content = message.encryptedContent || message.message || message.Content;
+            const content = message.encryptedContent || message.message || message.Content || message.EncryptedContent || "";
             let iv = message.iv || message.Iv || message.IV;
             let sig = message.signature || message.sig || message.Signature || message.Sig;
             const metadata = message.metadata || message.Metadata;
@@ -75,11 +75,16 @@ export function DecryptedText({
             }
 
             try {
-                const senderIdNum = Number(message.senderId);
-                const conversationIdNum = Number(message.conversationId);
+                const senderIdNum = Number(message.senderId || message.SenderId || message.sender_id);
+                const conversationIdNum = Number(message.conversationId || message.ConversationId || message.conversation_id);
                 const currentUserId = user?.id ? Number(user.id) : null;
                 const isMessageOwn = currentUserId !== null && senderIdNum === currentUserId;
 
+                if (!conversationIdNum || isNaN(conversationIdNum)) {
+                   // Fallback for some message objects that might not have convId directly
+                   if (isMounted) setDecrypted(content);
+                   return;
+                }
                 // 3. Tra cứu Key từ Bộ nhớ (Maps)
                 let currentSenderKey: CryptoKey | undefined;
                 if (isMessageOwn) {
