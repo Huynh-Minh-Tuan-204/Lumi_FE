@@ -186,8 +186,8 @@ export function E2EERestorePrompt({ conversationId, onRestored, onDismiss, isMan
                 <div>
                     <p className="font-black mb-1">Chưa có backup E2EE</p>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                        Tài khoản này chưa từng tạo mã PIN backup.
-                        Hãy đăng nhập trên thiết bị cũ và tạo backup trong Cài đặt → Bảo mật.
+                        Tài khoản này chưa có bản sao lưu khóa. 
+                        Nếu đây là thiết bị duy nhất, hãy chọn <b>"Thiết lập lại từ đầu"</b> ở phía dưới để tạo mã PIN mới.
                     </p>
                 </div>
                 {onDismiss && !isMandatory && (
