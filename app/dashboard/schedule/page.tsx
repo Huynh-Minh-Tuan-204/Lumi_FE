@@ -678,8 +678,18 @@ export default function SchedulePage() {
                               </div>
                             ) : (
                               <div className="text-center py-2">
-                                <Badge variant={myStatus === 'Accepted' ? 'default' : 'destructive'} className="bg-opacity-10 text-xs px-4 py-1.5 rounded-lg border-none font-bold">
-                                  {myStatus === 'Accepted' ? '✓ Đã tham gia' : '✕ Đã từ chối'}
+                                <Badge variant={myStatus === 'Accepted' ? 'default' : 'destructive'} className="bg-opacity-10 text-xs px-4 py-1.5 rounded-lg border-none font-bold flex items-center gap-1.5 mx-auto w-fit">
+                                  {myStatus === 'Accepted' ? (
+                                    <>
+                                      <Check className="h-3 w-3" /> 
+                                      <span>Đã tham gia</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <X className="h-3 w-3" />
+                                      <span>Đã từ chối</span>
+                                    </>
+                                  )}
                                 </Badge>
                               </div>
                             )

@@ -1,5 +1,5 @@
 /**
- * Lumi Pro Crypto - ROLLBACK VERSION (PIN DISABLED)
+ * Hệ thống mã hóa Lumi (Phiên bản đồng bộ)
  */
 
 const DB_NAME = 'LumiCryptoDB';
@@ -11,7 +11,7 @@ const PEER_IDENTITY_KEY_ALIAS = 'PeerIdentityKey';
 const PEER_SENDER_KEY_ALIAS = 'PeerSenderKey';
 
 // ==========================================
-// SESSION STATE (ROLLBACK: PIN DISABLED)
+// QUẢN LÝ SESSION
 // ==========================================
 export function setPinKey(key: any) {}
 export function getPinKey() { return null; }
@@ -199,15 +199,14 @@ export async function decryptMessagePro(
     const ciphertextBuffer = base64ToBuffer(contentBase64);
     const ivBuffer = base64ToBuffer(ivBase64);
     
-    // Soft signature check — AES-GCM auth tag provides integrity.
-    // Don't throw on SIG_INVALID to support key rotation scenarios.
+    // Kiểm tra chữ ký số (ECDSA)
     try {
         const isValid = await verifySignature(contentBase64, sigBase64, senderIdentityPubKey);
         if (!isValid) {
-            console.warn('[decryptMessagePro] Signature mismatch (key rotation?). Proceeding with AES-GCM decrypt.');
+            console.warn('[decryptMessagePro] Signature mismatch. Có thể do xoay vòng khóa.');
         }
     } catch (sigErr) {
-        console.warn('[decryptMessagePro] Signature check threw:', sigErr);
+        console.warn('[decryptMessagePro] Verify error:', sigErr);
     }
 
     const decrypted = await window.crypto.subtle.decrypt(
@@ -240,18 +239,15 @@ export async function decryptFilePro(
 ): Promise<Blob> {
     const arrayBuffer = await blob.arrayBuffer();
 
-    // AES-GCM provides built-in cryptographic integrity via its auth tag.
-    // We attempt ECDSA signature verification as an additional check,
-    // but do NOT throw on failure to handle key rotation scenarios gracefully.
-    // If the wrong SenderKey is used, AES-GCM decrypt will fail with its own error.
+    // Xác thực bằng ECDSA Signature
     try {
         const contentBase64 = bufferToBase64(new Uint8Array(arrayBuffer));
         const isValid = await verifySignature(contentBase64, sigBase64, senderIdentityPubKey);
         if (!isValid) {
-            console.warn('[decryptFilePro] Signature mismatch (key rotation?). Attempting AES-GCM decrypt anyway.');
+            console.warn('[decryptFilePro] Signature mismatch. Đang thử giải mã AES-GCM...');
         }
     } catch (sigErr) {
-        console.warn('[decryptFilePro] Signature verification threw:', sigErr);
+        console.warn('[decryptFilePro] Verify error:', sigErr);
     }
 
     const decrypted = await window.crypto.subtle.decrypt(
@@ -275,7 +271,7 @@ export async function decryptSessionKey(encryptedBase64: string, myRSAPrivKey: C
 }
 
 // ==========================================
-// PHẦN 6: [ROLLBACK] HELPER functions - Mocked or Removed
+// CÁC HÀM PHỤ TRỢ (Dự phòng)
 // ==========================================
 export async function deriveKeyFromPin() { throw new Error("PIN Disabled"); }
 export async function backupKeysToPin() { throw new Error("PIN Disabled"); }

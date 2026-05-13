@@ -434,14 +434,14 @@ export function ChatArea({
       const resp = await meetingsApi.startMeeting(token, conversation.id, title, [], type)
       const mGuid = resp?.meetingGuid || resp?.id;
       if (mGuid) {
-        // [Fix 7] Gửi tin nhắn với meeting URL đầy đủ để người khác click join
+        // Gửi tin nhắn chứa thông tin cuộc họp
         const meetingUrl = `${window.location.origin}/call/${mGuid}?type=${type}`;
         sendMessage(conversation.id, `📹 ${title}\nNhấn để tham gia ngay!\n[MEETING_GUID:${mGuid}]\n🔗 ${meetingUrl}`, 'Text');
         setShowLobby({ meetingId: mGuid, type, title })
         // Copy link vào clipboard
         try {
           await navigator.clipboard.writeText(meetingUrl);
-          toast.success('📋 Đã copy link phòng họp!', { duration: 3000 });
+          toast.success('Đã copy link phòng họp!', { duration: 3000 });
         } catch { /* clipboard không bắt buộc */ }
       }
     } catch { toast.error(`Không thể bắt đầu cuộc gọi.`) }

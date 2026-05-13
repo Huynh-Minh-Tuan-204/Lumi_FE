@@ -8,6 +8,13 @@ import { announcementsApi, usersApi, conversationsApi, e2eeApi } from '@/lib/api
 import { ChatMessage, SignalRHookReturn } from '@/types/chat.types'
 import { HUB_URL } from '@/constants/api.constants'
 import { 
+  ShieldAlert, 
+  MessageSquare, 
+  Video as VideoIcon, 
+  Bell, 
+  Calendar as CalendarIcon 
+} from 'lucide-react'
+import { 
   loadKey, IDENTITY_KEY_ALIAS, exportIdentityPublicKey, importIdentityPublicKey,
   getOrCreateIdentityKey, getOrCreateRSAKeyPair,
   exportPublicKey, importPublicKey,
@@ -109,7 +116,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      // [FIX] Ensure isKeysLoaded is true and version is bumped
+      // Cập nhật trạng thái khóa
       setIsKeysLoaded(true);
       setKeyVersion(v => v + 1);
       
@@ -139,7 +146,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     }
   }, [loadAllKeysSequentially]);
 
-  // [LOGOUT CLEANUP] Force SignalR to stop immediately when token is cleared
+  // Xử lý khi đăng xuất
   useEffect(() => {
     if (!token && connectionRef.current) {
         console.log("[SignalR] Logout detected, killing connection...");
@@ -244,7 +251,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                 if (convId) initiateE2EEHandshake(convId).catch(() => {});
             }
 
-            // ZKB RECEIVER-SIDE: Fetch and decrypt any key backup blobs from offline senders
+            // Khôi phục khóa từ bản sao lưu (ZKB)
             if (myRSAKeysRef.current?.privateKey) {
                 let totalZkbRecovered = 0;
                 for (const conv of convs) {
@@ -259,7 +266,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                             const senderIdNum = Number(entry.senderId);
                             const mapKey = `${conv.id}:${senderIdNum}`;
                             
-                            // ZKB RECOVERY GUARD: Skip if we already have a valid key in memory
+                            // Kiểm tra khóa đã có trong bộ nhớ chưa
                             if (peerSenderKeysRef.current.has(mapKey)) continue;
 
                             try {
@@ -294,7 +301,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
 
   useEffect(() => {
-    // ─── STABLE CONNECTION: only re-run when the auth token changes ──────────
+    // Khởi tạo kết nối SignalR
     // Keys (identityKeys, myRSAKeys, isKeysLoaded) are intentionally EXCLUDED
     // from this dependency array. Their readiness is checked via REFS inside
     // startConnection(), not via React state — this prevents the race condition
@@ -340,7 +347,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Delay fetching history (Announcements) to 5s to ensure <3s Finish time
+    // Lấy lịch sử thông báo hệ thống
     const historyTimer = setTimeout(() => {
         fetchHistory();
     }, 5000);
@@ -401,7 +408,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         
         await connection.invoke("SendSecureSenderKey", conversationIdNum, senderIdNum, encryptedKey);
 
-        // ZKB SENDER-SIDE: Store encrypted blob on server so offline peers can recover it later
+        // Lưu bản sao lưu khóa lên máy chủ
         // This is fire-and-forget — don't block the handshake
         if (token) {
           e2eeApi.storeKeyBackup(token, conversationIdNum, senderIdNum, encryptedKey)
@@ -455,7 +462,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       // 2. Logic giải mã thông minh
       if (messageType === 'PLAIN' || !messageType || messageType === 'Text' || messageType === 'PLAIN_SECURE') {
         
-        // [PRE-KEY] Kiểm tra xem trong metadata có chìa khóa cho mình không
+        // Kiểm tra khóa trong metadata
         if (data.metadata) {
             try {
                 const meta = JSON.parse(data.metadata);
@@ -490,7 +497,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                 ? mySenderKeysRef.current.get(conversationIdNum) 
                 : peerSenderKeysRef.current.get(`${conversationIdNum}:${senderIdNum}`);
             
-            // [FIX Task 1] Nếu là tin nhắn của mình gửi từ máy khác/phiên khác nhưng mình đã có key trong IndexedDB
+            // Kiểm tra khóa trong IndexedDB
             if (!senderSessionKey && userRef.current && senderIdNum === userRef.current?.id && conversationIdNum) {
                 const stored = await saveOrLoadSenderKey(conversationIdNum);
                 if (stored) {
@@ -539,14 +546,16 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       const { id, title, sender, message, category, forceConfirmed, createdAt, isSystem, iv, sig, senderId } = data;
 
       if (category === "Security" && forceConfirmed) {
-        toast.error(`🚨 CẢNH BÁO: ${title || "Security Alert"}`, {
+        toast.error(`CẢNH BÁO: ${title || "Security Alert"}`, {
           description: message,
           duration: 30000,
+          icon: <ShieldAlert className="h-5 w-5 text-destructive" />
         });
       } else {
-        toast.info(`📢 THÔNG BÁO: ${message}`, {
+        toast.info(`THÔNG BÁO: ${message}`, {
           description: `Từ: ${sender || 'Admin'}`,
           duration: 10000,
+          icon: <MessageSquare className="h-5 w-5 text-primary" />
         });
       }
 
@@ -566,16 +575,16 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       ])
     })
 
-    connection.on("receiveSecurityAlert", (data: any) => {
-      toast.error(`🚨 BẢO MẬT: ${data.title}`, {
+      toast.error(`BẢO MẬT: ${data.title}`, {
         description: data.message,
         duration: 0,
+        icon: <ShieldAlert className="h-5 w-5 text-destructive" />
       });
-    })
 
     connection.on("receiveGeneralAnnouncement", (data: any) => {
-      toast.info(`📢 ${data.title || "Thông báo"}`, {
+      toast.info(data.title || "Thông báo", {
         description: data.message,
+        icon: <MessageSquare className="h-5 w-5 text-primary" />
       });
     })
 
@@ -607,9 +616,10 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       setActiveMeeting({ meetingId: mIdString, conversationId, title, callType, hostName })
 
       if (userRef.current && hostId !== userRef.current.id) {
-        toast.info(`🚀 CUỘC HỌP MỚI: ${title}`, {
+        toast.info(`CUỘC HỌP MỚI: ${title}`, {
           description: `Bởi ${hostName}. Tham gia ngay!`,
           duration: 5000,
+          icon: <VideoIcon className="h-5 w-5 text-primary" />,
           action: {
             label: "THAM GIA",
             onClick: () => window.location.href = `/call/${mIdString}?type=${callType || 'video'}`
@@ -635,8 +645,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
       setActiveMeeting({ meetingId: mIdString, conversationId, title, callType: type || 'video', hostName });
 
-      toast.info(`🚀 CUỘC HỌP MỚI: ${title}`, {
+      toast.info(`CUỘC HỌP MỚI: ${title}`, {
         description: `Bởi ${hostName}. Bạn đã được mời tham gia!`,
+        icon: <VideoIcon className="h-5 w-5 text-primary" />,
         action: {
           label: "THAM GIA",
           onClick: () => {
@@ -694,15 +705,17 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     })
 
     connection.on("ReminderTriggered", (data: { conversationId: number, content: string }) => {
-      toast.info(`🔔 NHẮC NHỞ: ${data.content}`, {
+      toast.info(`NHẮC NHỞ: ${data.content}`, {
         duration: 10000,
+        icon: <Bell className="h-5 w-5 text-primary" />
       })
     })
 
     connection.on('ScheduleCreated', (data: any) => {
-      toast.info(`📅 Lịch mời mới: ${data.title}`, {
+      toast.info(`Lịch mời mới: ${data.title}`, {
         description: `Bởi: ${data.createdBy} | Bắt đầu: ${new Date(data.startTime).toLocaleString('vi-VN', { hour12: false })}`,
         duration: 8000,
+        icon: <CalendarIcon className="h-5 w-5 text-primary" />
       });
       setLastScheduleUpdate({ type: 'created', data })
     })
@@ -740,7 +753,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         initiateE2EEHandshake(Number(convId)).catch(() => {});
     });
 
-    // ─── NEGOTIATION-SAFE startConnection ───────────────────────────────────
+    // Hàm kết nối an toàn
     // Key insight: set connectionRef BEFORE calling startConnection so that
     // the ref check inside startConnection sees the new object immediately.
     connectionRef.current = connection;
