@@ -162,12 +162,38 @@ export function DecryptedText({
                 // 5. Tiến hành giải mã
                 if (iv && sig && currentSenderKey && senderIdPubKey) {
                     try {
-                        const result = await decryptMessagePro(content, iv, sig, currentSenderKey, senderIdPubKey);
+                        let result = await decryptMessagePro(content, iv, sig, currentSenderKey, senderIdPubKey);
                         if (isMounted) {
                             setDecrypted(result);
                             setNeedsRestore(false);
                         }
                     } catch (e: any) {
+                        // [RECOVERY] If decryption failed, check if metadata has a key for us
+                        if (metadata && myRSAKeys?.privateKey) {
+                            try {
+                                const meta = JSON.parse(metadata);
+                                const myIdStr = user?.id ? String(user.id) : "";
+                                const myIdNum = user?.id ? Number(user.id) : 0;
+                                const encryptedKeyB64 = meta.keys?.[myIdStr] || (meta.keys ? meta.keys[myIdNum] : null);
+                                
+                                if (encryptedKeyB64) {
+                                    console.log(`[DecryptedText] Decryption failed, attempting emergency recovery from metadata...`);
+                                    const recovered = await decryptSessionKey(encryptedKeyB64, myRSAKeys.privateKey);
+                                    if (recovered) {
+                                        const retryResult = await decryptMessagePro(content, iv, sig, recovered, senderIdPubKey);
+                                        if (isMounted) {
+                                            setDecrypted(retryResult);
+                                            setNeedsRestore(false);
+                                            // Update local cache with working key
+                                            if (isMessageOwn) await saveOrLoadSenderKey(conversationIdNum, recovered);
+                                            else await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum, recovered);
+                                            return;
+                                        }
+                                    }
+                                }
+                            } catch (metaErr) { console.warn("Emergency recovery failed", metaErr); }
+                        }
+
                         if (!isMounted) return;
                         console.error(`[DecryptedText] Decryption failed for msg ${message.id}:`, e);
                         const errorCode = e?.code || e?.name;

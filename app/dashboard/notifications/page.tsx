@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/lib/auth-context'
@@ -47,7 +47,7 @@ interface Announcement {
 import { decryptMessagePro } from '@/lib/crypto-utils'
 
 function DecryptedAnnouncement({ announcement, mySenderKey, peerSenderKeys, peerIdentityKeys, identityKeys, user }: any) {
-  const [decrypted, setDecrypted] = useState<string>("âŒ› [Äang giáº£i mĂ£...]");
+  const [decrypted, setDecrypted] = useState<string>("⏳ [Đang giải mã...]");
 
   useEffect(() => {
     const decrypt = async () => {
@@ -60,7 +60,7 @@ function DecryptedAnnouncement({ announcement, mySenderKey, peerSenderKeys, peer
       }
 
       try {
-        // Fix 4: Use user.id for ownership check â€” not a null/undefined check
+        // Fix 4: Use user.id for ownership check — not a null/undefined check
         const currentUserId = user?.id;
         const senderIdNum = Number(senderId || 0);
         const isOwn = senderIdNum > 0 && senderIdNum === currentUserId;
@@ -72,9 +72,9 @@ function DecryptedAnnouncement({ announcement, mySenderKey, peerSenderKeys, peer
            const result = await decryptMessagePro(message, iv, signature, senderKey, senderPubKey);
            setDecrypted(result);
         } else {
-           setDecrypted("â³ [MĂ£ hĂ³a Ä‘áº§u cuá»‘i]");
+           setDecrypted("⏳ [Mã hóa đầu cuối]");
         }
-      } catch (e) { setDecrypted(message || "[Lá»—i giáº£i mĂ£]"); }
+      } catch (e) { setDecrypted(message || "[Lỗi giải mã]"); }
     };
     decrypt();
   }, [announcement.id, announcement.message, mySenderKey, user?.id]);
@@ -92,7 +92,7 @@ function AvatarStack({ userIds, allUsers }: { userIds: string[] | null | undefin
                 <Globe className="h-3 w-3 text-blue-500" />
             </div>
           </TooltipTrigger>
-          <TooltipContent>Gá»­i cho táº¥t cáº£</TooltipContent>
+          <TooltipContent>Gửi cho tất cả</TooltipContent>
         </Tooltip>
       </TooltipProvider>
     )
@@ -163,8 +163,8 @@ export default function NotificationsPage() {
       const data: any = await announcementsApi.getAnnouncements(token)
       const mapped = data.map((a: any) => ({
         id: a.Id || a.id,
-        title: a.Title || a.title || 'ThĂ´ng bĂ¡o',
-        sender: a.SenderName || a.senderName || 'Há»‡ thá»‘ng',
+        title: a.Title || a.title || 'Thông báo',
+        sender: a.SenderName || a.senderName || 'Hệ thống',
         senderId: a.SenderId || a.senderId,
         message: a.Message || a.message,
         iv: a.IV || a.iv,
@@ -176,7 +176,7 @@ export default function NotificationsPage() {
       setAnnouncements(mapped)
     } catch (error) {
       console.error('Failed to load announcements:', error)
-      toast.error('KhĂ´ng thá»ƒ táº£i thĂ´ng bĂ¡o')
+      toast.error('Không thể tải thông báo')
     } finally {
       setIsLoading(false)
     }
@@ -185,17 +185,17 @@ export default function NotificationsPage() {
   const handleSendAnnouncement = async () => {
     if (!title.trim() || !newAnnouncement.trim() || isSending || !token) return
     if (!mySenderKey || !identityKeys) {
-        toast.error("Vui lĂ²ng Ä‘á»£i 1 giĂ¢y Ä‘á»ƒ thiáº¿t láº­p mĂ£ hĂ³a báº£o máº­t...");
+        toast.error("Vui lòng đợi 1 giây để thiết lập mã hóa bảo mật...");
         return;
     }
 
     setIsSending(true)
     try {
-      // 1. MĂ£ hĂ³a ná»™i dung trÆ°á»›c khi gá»­i (E2EE)
+      // 1. Mã hóa nội dung trước khi gửi (E2EE)
       const { encryptMessagePro } = await import('@/lib/crypto-utils');
       const encrypted = await encryptMessagePro(newAnnouncement, mySenderKey, identityKeys.privateKey);
 
-      // 2. Gá»­i dá»¯ liá»‡u Ä‘Ă£ mĂ£ hĂ³a lĂªn server
+      // 2. Gửi dữ liệu đã mã hóa lên server
       await adminApi.sendAnnouncement(token, {
         title,
         encryptedContent: encrypted.content, 
@@ -204,14 +204,14 @@ export default function NotificationsPage() {
         userIds: targetType === 'all' ? undefined : selectedUserIds
       });
 
-      toast.success('Gá»­i thĂ´ng bĂ¡o thĂ nh cĂ´ng (ÄĂ£ mĂ£ hĂ³a Ä‘áº§u cuá»‘i)')
+      toast.success('Gửi thông báo thành công (Đã mã hóa đầu cuối)')
       setNewAnnouncement('')
       setTitle('')
       setSelectedUserIds([])
       await loadAnnouncements()
     } catch (error) {
       console.error('Failed to send announcement:', error)
-      toast.error('KhĂ´ng thá»ƒ gá»­i thĂ´ng bĂ¡o')
+      toast.error('Không thể gửi thông báo')
     } finally {
       setIsSending(false)
     }
@@ -225,18 +225,18 @@ export default function NotificationsPage() {
     const hours = Math.floor(diff / (1000 * 60 * 60))
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
 
-    if (minutes < 1) return `Vá»«a xong`
-    if (minutes < 60) return `${minutes} phĂºt trÆ°á»›c`
-    if (hours < 24) return `${hours} giá» trÆ°á»›c`
-    if (days < 7) return `${days} ngĂ y trÆ°á»›c`
+    if (minutes < 1) return `Vừa xong`
+    if (minutes < 60) return `${minutes} phút trước`
+    if (hours < 24) return `${hours} giờ trước`
+    if (days < 7) return `${days} ngày trước`
     return date.toLocaleDateString('vi-VN', { month: '2-digit', day: '2-digit' })
   }
 
   const filteredHistory = useMemo(() => {
     const realtimeItems = realtimeNotifications.map(n => ({
         id: n.id,
-        title: n.title || 'ThĂ´ng bĂ¡o má»›i',
-        sender: n.sender || 'Há»‡ thá»‘ng',
+        title: n.title || 'Thông báo mới',
+        sender: n.sender || 'Hệ thống',
         message: n.message,
         isSystem: true,
         time: n.time.toISOString(),
@@ -266,9 +266,9 @@ export default function NotificationsPage() {
     <div className="space-y-8 animate-in fade-in duration-500 p-2 lg:p-4">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black tracking-tight uppercase">ThĂ´ng bĂ¡o</h2>
+          <h2 className="text-3xl font-black tracking-tight uppercase">Thông báo</h2>
           <p className="text-muted-foreground font-medium text-sm mt-1">
-            Gá»­i thĂ´ng bĂ¡o toĂ n cĂ´ng ty vĂ  quáº£n lĂ½ lá»‹ch sá»­ phĂ¡t tin
+            Gửi thông báo toàn công ty và quản lý lịch sử phát tin
           </p>
         </div>
         
@@ -276,7 +276,7 @@ export default function NotificationsPage() {
            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
            <input 
               type="text" 
-              placeholder="TĂ¬m kiáº¿m thĂ´ng bĂ¡o..." 
+              placeholder="Tìm kiếm thông báo..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-muted/20 border-2 border-primary/5 rounded-xl pl-10 pr-4 py-2 text-xs font-bold focus:border-primary outline-none transition-all placeholder:font-medium"
@@ -292,10 +292,10 @@ export default function NotificationsPage() {
                 <div className="h-10 w-10 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
                    <Megaphone className="h-5 w-5 text-white" />
                 </div>
-                PhĂ¡t thĂ´ng bĂ¡o
+                Phát thông báo
               </CardTitle>
               <CardDescription className="font-medium">
-                Táº¡o tin nháº¯n há»‡ thá»‘ng Ä‘áº¿n nhĂ¢n viĂªn Ä‘Æ°á»£c chá»n hoáº·c toĂ n bá»™ tá»• chá»©c
+                Tạo tin nhắn hệ thống đến nhân viên được chọn hoặc toàn bộ tổ chức
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
@@ -308,7 +308,7 @@ export default function NotificationsPage() {
                       targetType === 'all' ? "bg-background shadow-lg text-primary" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    Táº¥t cáº£
+                    Tất cả
                   </button>
                   <button 
                     onClick={() => setTargetType('specific')}
@@ -317,14 +317,14 @@ export default function NotificationsPage() {
                       targetType === 'specific' ? "bg-background shadow-lg text-primary" : "text-muted-foreground hover:text-foreground"
                     )}
                   >
-                    Äá»‘i tÆ°á»£ng cá»¥ thá»ƒ
+                    Đối tượng cụ thể
                   </button>
                 </div>
 
                 {targetType === 'specific' && (
                   <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
                     <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground flex justify-between">
-                       NgÆ°á»i nháº­n <span>({selectedUserIds.length})</span>
+                       Người nhận <span>({selectedUserIds.length})</span>
                     </Label>
                     <ScrollArea className="h-44 border-2 border-primary/5 rounded-2xl p-2 bg-muted/10">
                       <div className="grid grid-cols-2 gap-2">
@@ -358,11 +358,11 @@ export default function NotificationsPage() {
                 )}
 
                 <div className="space-y-3">
-                  <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">TiĂªu Ä‘á»</Label>
+                  <Label htmlFor="title" className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Tiêu đề</Label>
                   <input
                     id="title"
                     type="text"
-                    placeholder="VD: Cáº­p nháº­t lá»‹ch lĂ m viá»‡c"
+                    placeholder="VD: Cập nhật lịch làm việc"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     className="w-full bg-background border-2 border-primary/10 rounded-2xl px-4 py-3 text-sm font-bold focus:border-primary outline-none transition-all placeholder:font-medium shadow-inner"
@@ -370,10 +370,10 @@ export default function NotificationsPage() {
                 </div>
 
                 <div className="space-y-3">
-                  <Label htmlFor="announcement" className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Ná»™i dung thĂ´ng bĂ¡o</Label>
+                  <Label htmlFor="announcement" className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground">Nội dung thông báo</Label>
                   <Textarea
                     id="announcement"
-                    placeholder="Nháº­p ná»™i dung chi tiáº¿t..."
+                    placeholder="Nhập nội dung chi tiết..."
                     value={newAnnouncement}
                     onChange={(e) => setNewAnnouncement(e.target.value)}
                     rows={4}
@@ -387,12 +387,12 @@ export default function NotificationsPage() {
                   {isConnected ? (
                     <>
                       <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
-                      <span>Káº¿t ná»‘i trá»±c tiáº¿p</span>
+                      <span>Kết nối trực tiếp</span>
                     </>
                   ) : (
                     <>
                       <div className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
-                      <span>Máº¥t káº¿t ná»‘i</span>
+                      <span>Mất kết nối</span>
                     </>
                   )}
                 </div>
@@ -404,12 +404,12 @@ export default function NotificationsPage() {
                   {isSending ? (
                     <span className="flex items-center gap-2">
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Äang xá»­ lĂ½...
+                      Đang xử lý...
                     </span>
                   ) : (
                     <>
                       <Send className="h-4 w-4 mr-3" />
-                      Báº®T Äáº¦U Gá»¬I
+                      BẮT ĐẦU GỬI
                     </>
                   )}
                 </Button>
@@ -428,10 +428,10 @@ export default function NotificationsPage() {
                <div className="h-10 w-10 rounded-2xl bg-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
                   <Bell className="h-5 w-5" />
                </div>
-               Lá»‹ch sá»­ thĂ´ng bĂ¡o
+               Lịch sử thông báo
             </CardTitle>
             <CardDescription className="font-medium">
-               CĂ¡c tin nháº¯n Ä‘Ă£ Ä‘Æ°á»£c gá»­i Ä‘i trong há»‡ thá»‘ng
+               Các tin nhắn đã được gửi đi trong hệ thống
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
@@ -444,7 +444,7 @@ export default function NotificationsPage() {
                 <div className="h-24 w-24 bg-muted/40 rounded-full flex items-center justify-center mb-6">
                   <Bell className="h-12 w-12 opacity-20" />
                 </div>
-                <p className="text-sm font-black uppercase tracking-widest opacity-40">ChÆ°a cĂ³ thĂ´ng bĂ¡o nĂ o</p>
+                <p className="text-sm font-black uppercase tracking-widest opacity-40">Chưa có thông báo nào</p>
               </div>
             ) : (
               <ScrollArea className="h-[500px] pr-4">
@@ -462,9 +462,9 @@ export default function NotificationsPage() {
                             <div className="min-w-0">
                                <p className="text-[12px] font-black uppercase text-primary tracking-tight truncate pr-2">{announcement.title}</p>
                                <div className="flex items-center gap-2 mt-0.5">
-                                 <span className="text-[11px] font-bold opacity-60">bá»Ÿi {announcement.sender}</span>
+                                 <span className="text-[11px] font-bold opacity-60">bởi {announcement.sender}</span>
                                  {announcement.isSystem && (
-                                   <Badge variant="outline" className="text-[8px] h-4 font-black uppercase bg-primary/5 text-primary border-primary/20">Há»‡ thá»‘ng</Badge>
+                                   <Badge variant="outline" className="text-[8px] h-4 font-black uppercase bg-primary/5 text-primary border-primary/20">Hệ thống</Badge>
                                  )}
                                </div>
                             </div>
