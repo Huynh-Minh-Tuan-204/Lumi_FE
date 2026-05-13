@@ -276,13 +276,13 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                                 );
                                 // State Update Optimization: Only store if we successfully decrypted
                                 peerSenderKeysRef.current.set(mapKey, recovered);
-                                await saveOrLoadPeerSenderKey(conv.id, senderIdNum, recovered);
+                                await saveOrLoadPeerSenderKey(convId, senderIdNum, recovered);
                                 totalZkbRecovered++;
                                 convZkbRecovered++;
                             } catch { /* Corrupted backup or wrong key — skip */ }
                         }
                         if (convZkbRecovered > 0) {
-                            console.log(`[ZKB] Recovered ${convZkbRecovered} keys for conv ${conv.id}`);
+                            console.log(`[ZKB] Recovered ${convZkbRecovered} keys for conv ${convId}`);
                         }
                     } catch { /* Silent: conversation might not have backups */ }
                 }

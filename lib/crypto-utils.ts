@@ -196,6 +196,16 @@ export async function decryptMessagePro(
     senderKey: CryptoKey,
     senderIdentityPubKey: CryptoKey
 ) {
+    if (!contentBase64 || !ivBase64 || !senderKey || !senderIdentityPubKey) {
+        console.error('[decryptMessagePro] Missing required params:', { 
+            hasContent: !!contentBase64, 
+            hasIV: !!ivBase64, 
+            hasKey: !!senderKey, 
+            hasID: !!senderIdentityPubKey 
+        });
+        throw new Error('MISSING_E2EE_PARAMS');
+    }
+
     const ciphertextBuffer = base64ToBuffer(contentBase64);
     const ivBuffer = base64ToBuffer(ivBase64);
     
@@ -209,12 +219,17 @@ export async function decryptMessagePro(
         console.warn('[decryptMessagePro] Verify error:', sigErr);
     }
 
-    const decrypted = await window.crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: ivBuffer as ArrayBuffer },
-        senderKey,
-        ciphertextBuffer as ArrayBuffer
-    );
-    return new TextDecoder().decode(decrypted);
+    try {
+        const decrypted = await window.crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: ivBuffer as ArrayBuffer },
+            senderKey,
+            ciphertextBuffer as ArrayBuffer
+        );
+        return new TextDecoder().decode(decrypted);
+    } catch (err) {
+        console.error('[decryptMessagePro] Decrypt failed:', err);
+        throw err;
+    }
 }
 
 export async function encryptFilePro(file: File, senderKey: CryptoKey, identityPrivateKey: CryptoKey) {
@@ -237,6 +252,16 @@ export async function decryptFilePro(
     senderKey: CryptoKey, 
     senderIdentityPubKey: CryptoKey
 ): Promise<Blob> {
+    if (!blob || !ivBase64 || !senderKey || !senderIdentityPubKey) {
+        console.error('[decryptFilePro] Missing required params:', { 
+            hasBlob: !!blob, 
+            hasIV: !!ivBase64, 
+            hasKey: !!senderKey, 
+            hasID: !!senderIdentityPubKey 
+        });
+        throw new Error('MISSING_E2EE_FILE_PARAMS');
+    }
+
     const arrayBuffer = await blob.arrayBuffer();
 
     // Xác thực bằng ECDSA Signature
@@ -250,12 +275,17 @@ export async function decryptFilePro(
         console.warn('[decryptFilePro] Verify error:', sigErr);
     }
 
-    const decrypted = await window.crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: base64ToBuffer(ivBase64) as ArrayBuffer },
-        senderKey,
-        arrayBuffer as ArrayBuffer
-    );
-    return new Blob([decrypted]);
+    try {
+        const decrypted = await window.crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: base64ToBuffer(ivBase64) as ArrayBuffer },
+            senderKey,
+            arrayBuffer as ArrayBuffer
+        );
+        return new Blob([decrypted]);
+    } catch (err) {
+        console.error('[decryptFilePro] Decrypt failed:', err);
+        throw err;
+    }
 }
 
 export async function encryptSessionKeyForPeer(sessionKey: CryptoKey, peerRSAPubKey: CryptoKey): Promise<string> {
@@ -276,11 +306,111 @@ export async function decryptSessionKey(encryptedBase64: string, myRSAPrivKey: C
 export async function deriveKeyFromPin() { throw new Error("PIN Disabled"); }
 export async function backupKeysToPin() { throw new Error("PIN Disabled"); }
 export async function restoreKeysFromPin() { throw new Error("PIN Disabled"); }
-export async function encryptKeyForBackup() { throw new Error("PIN Disabled"); }
-export async function decryptKeyFromBackup() { throw new Error("PIN Disabled"); }
-export async function loadAllMySenderKeys() { return new Map(); }
-export async function loadAllPeerIdentityKeys() { return new Map(); }
-export async function loadAllPeerSenderKeys() { return new Map(); }
+export async function encryptKeyForBackup(key: CryptoKey, pinKey: CryptoKey) {
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const exported = await window.crypto.subtle.exportKey("raw", key);
+    const encrypted = await window.crypto.subtle.encrypt(
+        { name: "AES-GCM", iv },
+        pinKey,
+        exported
+    );
+    return {
+        encryptedSenderKey: bufferToBase64(encrypted),
+        iv: bufferToBase64(iv)
+    };
+}
+
+export async function decryptKeyFromBackup(encryptedBase64: string, ivBase64: string, pinKey: CryptoKey) {
+    const encrypted = base64ToBuffer(encryptedBase64);
+    const iv = base64ToBuffer(ivBase64);
+    const decrypted = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: iv as ArrayBuffer },
+        pinKey,
+        encrypted
+    );
+    return await window.crypto.subtle.importKey(
+        "raw",
+        decrypted,
+        { name: "AES-GCM", length: 256 },
+        true,
+        ["encrypt", "decrypt"]
+    );
+}
+export async function loadAllMySenderKeys(): Promise<Map<number, CryptoKey>> {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const result = new Map<number, CryptoKey>();
+
+    return new Promise((resolve) => {
+        const request = store.openCursor();
+        request.onsuccess = (event: any) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                const alias = cursor.key as string;
+                if (alias.startsWith(MY_SENDER_KEY_ALIAS + ':')) {
+                    const convId = parseInt(alias.split(':')[1]);
+                    result.set(convId, cursor.value);
+                }
+                cursor.continue();
+            } else {
+                resolve(result);
+            }
+        };
+    });
+}
+
+export async function loadAllPeerIdentityKeys(): Promise<Map<number, CryptoKey>> {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const result = new Map<number, CryptoKey>();
+
+    return new Promise((resolve) => {
+        const request = store.openCursor();
+        request.onsuccess = (event: any) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                const alias = cursor.key as string;
+                if (alias.startsWith(PEER_IDENTITY_KEY_ALIAS + ':')) {
+                    const userId = parseInt(alias.split(':')[1]);
+                    result.set(userId, cursor.value);
+                }
+                cursor.continue();
+            } else {
+                resolve(result);
+            }
+        };
+    });
+}
+
+export async function loadAllPeerSenderKeys(): Promise<Map<number, Map<number, CryptoKey>>> {
+    const db = await getDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const result = new Map<number, Map<number, CryptoKey>>();
+
+    return new Promise((resolve) => {
+        const request = store.openCursor();
+        request.onsuccess = (event: any) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                const alias = cursor.key as string;
+                if (alias.startsWith(PEER_SENDER_KEY_ALIAS + ':')) {
+                    const parts = alias.split(':');
+                    const convId = parseInt(parts[1]);
+                    const userId = parseInt(parts[2]);
+                    
+                    if (!result.has(userId)) result.set(userId, new Map());
+                    result.get(userId)!.set(convId, cursor.value);
+                }
+                cursor.continue();
+            } else {
+                resolve(result);
+            }
+        };
+    });
+}
 
 // ==========================================
 // HELPERS
