@@ -33,13 +33,9 @@ export function useE2EEAuth() {
             if (!localIdentity) {
                 // Trường hợp mất khóa local -> Kiểm tra xem có PIN trên server không
                 let hasPinBackup = false;
-                try {
-                    const saltData = await e2eeApi.getMyPinSalt(token);
-                    if (saltData && saltData.salt) {
-                        hasPinBackup = true;
-                    }
-                } catch (e) {
-                    // 404 hoặc lỗi khác -> coi như chưa có PIN
+                const saltData = await e2eeApi.getMyPinSalt(token);
+                if (saltData && saltData.salt) {
+                    hasPinBackup = true;
                 }
 
                 if (hasPinBackup) {

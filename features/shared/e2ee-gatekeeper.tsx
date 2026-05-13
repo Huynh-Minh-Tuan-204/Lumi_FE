@@ -52,8 +52,8 @@ export function E2EEGatekeeper({ children }: E2EEGatekeeperProps) {
                         <button 
                             onClick={async () => {
                                 if (confirm("Cảnh báo: Nếu bỏ qua, bạn sẽ KHÔNG THỂ đọc được các tin nhắn cũ đã bị mã hóa. Bạn có chắc chắn muốn bỏ qua?")) {
+                                    console.log("[E2EE] User chose to skip restore. Generating fresh keys.");
                                     const { getOrCreateIdentityKey, getOrCreateRSAKeyPair } = await import('@/lib/crypto-utils');
-                                    // Sinh bộ khóa mới để có thể tham gia chat (chấp nhận mất lịch sử cũ)
                                     await getOrCreateIdentityKey();
                                     await getOrCreateRSAKeyPair();
                                     window.location.reload();
@@ -100,6 +100,42 @@ export function E2EEGatekeeper({ children }: E2EEGatekeeperProps) {
                         <p className="text-[11px] text-amber-600 dark:text-amber-400 font-bold leading-relaxed">
                             ⚠️ LƯU Ý: Nếu không thiết lập PIN, bạn sẽ mất toàn bộ tin nhắn khi đăng xuất hoặc chuyển sang thiết bị khác.
                         </p>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    if (status === 'error') {
+        return (
+            <div className="absolute inset-0 z-[200] flex items-center justify-center p-6 bg-background/95 backdrop-blur-md">
+                <div className="w-full max-w-md text-center">
+                    <div className="inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-destructive/10 mb-4 border border-destructive/20 shadow-2xl shadow-destructive/10">
+                        <ShieldAlert className="h-10 w-10 text-destructive" />
+                    </div>
+                    <h2 className="text-xl font-black mb-2">Lỗi Hệ Thống E2EE</h2>
+                    <p className="text-sm text-muted-foreground mb-6">
+                        {error || "Không thể kiểm tra trạng thái bảo mật. Vui lòng kiểm tra kết nối Backend (404/500)."}
+                    </p>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="px-6 py-2 bg-primary text-primary-foreground rounded-xl font-bold text-xs uppercase"
+                    >
+                        Thử lại
+                    </button>
+                    <div className="mt-4">
+                        <button 
+                            onClick={async () => {
+                                console.log("[E2EE] Forcing key generation to bypass error...");
+                                const { getOrCreateIdentityKey, getOrCreateRSAKeyPair } = await import('@/lib/crypto-utils');
+                                await getOrCreateIdentityKey();
+                                await getOrCreateRSAKeyPair();
+                                window.location.reload();
+                            }}
+                            className="text-[10px] text-muted-foreground/60 underline uppercase font-bold"
+                        >
+                            Bỏ qua lỗi (Vào chế độ không mã hóa tin nhắn cũ)
+                        </button>
                     </div>
                 </div>
             </div>

@@ -757,9 +757,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         }
         // Guard 3: Key readiness — checked via REFS not state to avoid stale closures
         if (!identityKeysRef.current || !myRSAKeysRef.current) {
-            console.log("[SignalR] Keys not yet loaded — deferring connection start");
+            if (Math.random() < 0.1) { // Log only 10% of the time to avoid spam
+                console.log("[SignalR] Keys not yet loaded — deferring connection start");
+            }
             // Schedule a retry after key-loading is expected to complete
-            setTimeout(() => startConnectionRef.current?.(), 1500);
+            setTimeout(() => startConnectionRef.current?.(), 3000);
             return;
         }
         isStartingRef.current = true;
