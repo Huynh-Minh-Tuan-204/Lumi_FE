@@ -110,11 +110,14 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
+      // [FIX] Ensure isKeysLoaded is true and version is bumped
       setIsKeysLoaded(true);
-      setKeyVersion(v => v + 1); // First update
-      requestAnimationFrame(() => {
-          setKeyVersion(v => v + 1); // Force second update to flush React state
-      });
+      setKeyVersion(v => v + 1);
+      
+      // Secondary update for React reconciliation
+      setTimeout(() => {
+          setKeyVersion(v => v + 1);
+      }, 100);
 
       // 5. [PRE-KEY] Sync Public Keys to Server
       if (token && idKeys && rsaKeys) {

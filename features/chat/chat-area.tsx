@@ -170,11 +170,13 @@ function DecryptedAttachment({
 
                     // [PRE-KEY] Try to recover key from metadata if missing (for files)
                     const metadata = (attachment as any).metadata || (attachment as any).Metadata;
+                    
                     if (!currentSenderKey && metadata && myRSAKeys?.privateKey) {
                         try {
                             const meta = JSON.parse(metadata);
-                            if (meta.keys && meta.keys[user?.id]) {
-                                const encryptedKeyForMe = meta.keys[user.id];
+                            const myId = user?.id;
+                            if (myId && meta.keys && meta.keys[myId]) {
+                                const encryptedKeyForMe = meta.keys[myId];
                                 const decryptedKey = await decryptSessionKey(encryptedKeyForMe, myRSAKeys.privateKey);
                                 currentSenderKey = decryptedKey;
                                 // Save for later
@@ -182,6 +184,12 @@ function DecryptedAttachment({
                                 await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum, decryptedKey);
                             }
                         } catch (e) { }
+                    }
+
+                    // [FALLBACK] If still no identity key for own message, load it
+                    if (isOwn && !senderIdPubKey) {
+                        const stored = await loadKey(IDENTITY_KEY_ALIAS);
+                        if (stored) senderIdPubKey = stored.publicKey;
                     }
 
                     if (currentSenderKey && senderIdPubKey) {
@@ -409,15 +417,29 @@ export function ChatArea({
     if (!file || !conversation || !token) return
     setIsUploading(true)
     try {
-      if (!mySenderKey || !identityKeys) {
-          toast.error("Vui lòng đợi thiết lập mã hóa...");
+      // [FIX] Get key for this specific conversation instead of relying on global mySenderKey state
+      let activeSenderKey = mySenderKeys?.get(conversation.id);
+      if (!activeSenderKey) {
+          // Try loading from IndexedDB
+          const stored = await saveOrLoadSenderKey(conversation.id);
+          if (stored) {
+              activeSenderKey = stored;
+          } else {
+              // Generate new one if missing
+              activeSenderKey = await generateSenderKey();
+              await saveOrLoadSenderKey(conversation.id, activeSenderKey);
+          }
+      }
+
+      if (!activeSenderKey || !identityKeys) {
+          toast.error("Vui lòng đợi thiết lập mã hóa (Thiếu Identity hoặc Sender Key)...");
           return;
       }
 
       toast.info('Đang mã hóa và tải lên...')
       
       // 1. Client-side E2EE Encryption
-      const { encryptedBlob, iv, sig } = await encryptFilePro(file, mySenderKey, identityKeys.privateKey);
+      const { encryptedBlob, iv, sig } = await encryptFilePro(file, activeSenderKey, identityKeys.privateKey);
 
       // 2. Upload Encrypted Blob
       await attachmentsApi.upload(token, encryptedBlob, conversation.id, undefined, iv, sig, file.name)
@@ -431,12 +453,13 @@ export function ChatArea({
         sig: m.sig || m.Signature || m.Sig
       })))
       toast.success('Gửi tệp thành công!')
-    } catch (err) { 
+    } catch (err: any) { 
       console.error(err);
-      toast.error('Gửi tệp thất bại.') 
+      const errorMsg = err?.message || err?.details || 'Lỗi không xác định';
+      toast.error(`Gửi tệp thất bại: ${errorMsg}`);
     } finally {
       setIsUploading(false)
-      event.target.value = ''
+      if (event.target) event.target.value = ''
     }
   }
 

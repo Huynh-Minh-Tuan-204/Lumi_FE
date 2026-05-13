@@ -111,6 +111,10 @@ export function DecryptedText({
                 if (!isMessageOwn && !senderIdPubKey) {
                     const stored = await saveOrLoadPeerIdentityKey(senderIdNum);
                     if (stored) senderIdPubKey = stored;
+                } else if (isMessageOwn && !senderIdPubKey) {
+                    // [FALLBACK] Own identity key missing from context, load from IndexedDB
+                    const stored = await loadKey(IDENTITY_KEY_ALIAS);
+                    if (stored) senderIdPubKey = stored.publicKey;
                 }
 
                 // [PRE-KEY Recovery] 
@@ -155,8 +159,8 @@ export function DecryptedText({
                             setDecrypted(content);
                         } else {
                             setDecrypted('⏳ [Đang chờ khóa mã hóa...]');
-                            // Tự động handshake nếu thiếu Identity Key
-                            if (!isMessageOwn && !senderIdPubKey && initiateHandshake && conversationIdNum) {
+                            // Tự động handshake nếu thiếu Identity Key HOẶC Sender Key
+                            if (!isMessageOwn && (!senderIdPubKey || !currentSenderKey) && initiateHandshake && conversationIdNum) {
                                 initiateHandshake(conversationIdNum).catch(() => {});
                             }
                         }
