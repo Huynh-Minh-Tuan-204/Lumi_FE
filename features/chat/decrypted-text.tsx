@@ -80,6 +80,11 @@ export function DecryptedText({
                 const currentUserId = user?.id ? Number(user.id) : null;
                 const isMessageOwn = currentUserId !== null && senderIdNum === currentUserId;
 
+                // [DEBUG] Log decryption context for failed messages
+                if (iv && sig) {
+                    console.log(`[DecryptedText] Processing message ${message.id}: isOwn=${isMessageOwn}, conv=${conversationIdNum}, sender=${senderIdNum}`);
+                }
+
                 if (!conversationIdNum || isNaN(conversationIdNum)) {
                    // Fallback for some message objects that might not have convId directly
                    if (isMounted) setDecrypted(content);
@@ -114,7 +119,10 @@ export function DecryptedText({
                 } else if (isMessageOwn && !senderIdPubKey) {
                     // [FALLBACK] Own identity key missing from context, load from IndexedDB
                     const stored = await loadKey(IDENTITY_KEY_ALIAS);
-                    if (stored) senderIdPubKey = stored.publicKey;
+                    if (stored) {
+                        senderIdPubKey = (stored as any).publicKey;
+                        console.log(`[DecryptedText] Recovered own IdentityKey from IndexedDB for msg ${message.id}`);
+                    }
                 }
 
                 // [PRE-KEY Recovery] 
