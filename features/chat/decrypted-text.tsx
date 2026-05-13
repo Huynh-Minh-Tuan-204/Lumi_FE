@@ -136,20 +136,27 @@ export function DecryptedText({
                     try {
                         const meta = JSON.parse(metadata);
                         const myIdStr = user?.id ? String(user.id) : "";
-                        if (myIdStr && meta.keys && meta.keys[myIdStr]) {
-                            console.log(`[DecryptedText] Found encrypted session key in metadata for user ${myIdStr}`);
-                            const encryptedKeyForMe = meta.keys[myIdStr];
-                            const decryptedKey = await decryptSessionKey(encryptedKeyForMe, myRSAKeys.privateKey);
-                            currentSenderKey = decryptedKey;
-                            
-                            // Persist for future use
-                            peerSenderKeys?.set(`${conversationIdNum}:${senderIdNum}`, decryptedKey);
-                            await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum, decryptedKey);
-                            console.log(`[DecryptedText] Successfully recovered session key from metadata for msg ${message.id}`);
-                        } else {
-                            console.warn(`[DecryptedText] Metadata found but no key for current user ${myIdStr}. Available keys:`, Object.keys(meta.keys || {}));
+                        const myIdNum = user?.id ? Number(user.id) : 0;
+                        
+                        const encryptedKeyB64 = meta.keys?.[myIdStr] || (meta.keys ? meta.keys[myIdNum] : null);
+                        
+                        if (encryptedKeyB64) {
+                            console.log(`[DecryptedText] Found encrypted session key in metadata for user ${myIdStr}. Attempting recovery...`);
+                            const recovered = await decryptSessionKey(encryptedKeyB64, myRSAKeys.privateKey);
+                            if (recovered) {
+                                currentSenderKey = recovered;
+                                console.log(`[DecryptedText] Successfully recovered session key from metadata for msg ${message.id}`);
+                                // Save to IndexedDB for future use
+                                if (isMessageOwn) {
+                                    await saveOrLoadSenderKey(conversationIdNum, recovered);
+                                } else {
+                                    await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum, recovered);
+                                }
+                            }
                         }
-                    } catch (e) { console.warn("[E2EE UI] Key recovery from metadata failed:", e); }
+                    } catch (e) {
+                        console.warn(`[DecryptedText] Metadata recovery failed for msg ${message.id}:`, e);
+                    }
                 }
 
                 // 5. Tiến hành giải mã

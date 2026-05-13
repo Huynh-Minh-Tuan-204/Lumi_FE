@@ -662,6 +662,7 @@ export async function restoreKeysFromPin(
 
     // 6. Import lại tất cả SenderKeys
     const senderKeys: Record<string, any> = bundle.senderKeys || {};
+    let count = 0;
     for (const [alias, keyData] of Object.entries(senderKeys)) {
         try {
             let key: CryptoKey;
@@ -703,8 +704,10 @@ export async function restoreKeysFromPin(
                 }
             }
             await saveKey(alias, key);
+            count++;
         } catch { /* skip corrupted keys */ }
     }
-
+    
+    console.log(`[E2EE] Restored ${count} keys from PIN backup.`);
     return true;
 }

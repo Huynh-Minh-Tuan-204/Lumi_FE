@@ -917,10 +917,13 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             
             for (const member of members) {
                 const mid = Number(member.UserId || member.userId);
-                if (mid === userRef.current?.id) continue;
                 
-                // Nếu chưa có khóa bắt tay với người này trong hội thoại này
-                if (!peerSenderKeysRef.current.has(`${conversationId}:${mid}`)) {
+                // [MULTI-DEVICE] Always include own key in metadata so our other devices can recover history
+                // if (!peerSenderKeysRef.current.has(`${conversationId}:${mid}`)) { ... }
+                
+                // For simplicity and multi-device support, let's always include everyone's RSA key if we don't have their peerSenderKey
+                // OR if it's our own ID (to ensure multi-device sync)
+                if (mid === userRef.current?.id || !peerSenderKeysRef.current.has(`${conversationId}:${mid}`)) {
                     let rsaPubKeyB64 = "";
                     
                     if (member.PublicKey && member.PublicKey.startsWith('{')) {
@@ -929,9 +932,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                     }
 
                     if (rsaPubKeyB64) {
-                        const peerRSAPubKey = await importPublicKey(rsaPubKeyB64);
-                        const encryptedKey = await encryptSessionKeyForPeer(currentKey!, peerRSAPubKey);
-                        offlineKeys[mid] = encryptedKey;
+                        try {
+                            const peerRSAPubKey = await importPublicKey(rsaPubKeyB64);
+                            const encryptedKey = await encryptSessionKeyForPeer(currentKey!, peerRSAPubKey);
+                            offlineKeys[mid] = encryptedKey;
+                        } catch (e) { console.warn(`[E2EE] Failed to encrypt for member ${mid}`, e); }
                     }
                 }
             }
