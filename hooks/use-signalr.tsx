@@ -14,7 +14,8 @@ import {
   encryptSessionKeyForPeer, decryptSessionKey,
   encryptMessagePro, decryptMessagePro, signData, verifySignature,
   base64ToBuffer, bufferToBase64,
-  loadAllMySenderKeys, loadAllPeerIdentityKeys, loadAllPeerSenderKeys
+  loadAllMySenderKeys, loadAllPeerIdentityKeys, loadAllPeerSenderKeys,
+  getPinKey, encryptKeyForBackup
 } from '@/lib/crypto-utils'
 
 const SignalRContext = createContext<SignalRHookReturn | null>(null)
@@ -63,6 +64,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
   const mySenderKeysRef = useRef<Map<number, CryptoKey>>(new Map());
   const [mySenderKey, setMySenderKey] = useState<CryptoKey | null>(null); 
   const [isKeysLoaded, setIsKeysLoaded] = useState(false);
+  const [showRestorePrompt, setShowRestorePrompt] = useState(false);
 
   // Performance Guards: Throttling frequent handshakes and refreshes to prevent infinite loops
   const lastHandshakeTimesRef = useRef<Map<number, number>>(new Map());
@@ -380,6 +382,17 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
           mySenderKeysRef.current.set(conversationIdNum, myKey);
           setMySenderKey(myKey);
           setKeyVersion(v => v + 1);
+
+          // AUTO-BACKUP: Nếu đã có PIN key trong memory, tự động backup khóa mới lên server
+          const pinKey = getPinKey();
+          if (pinKey && token) {
+              encryptKeyForBackup(myKey, pinKey).then(backup => {
+                  e2eeApi.backupSenderKey(token, {
+                      conversationId: conversationIdNum,
+                      ...backup
+                  }).catch(console.warn);
+              });
+          }
         }
 
         // 2. Bọc SenderKey CỦA MÌNH bằng RSA của A, và gửi đích danh cho A
@@ -876,11 +889,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       if (stored) {
         currentKey = stored;
       } else {
-        // [CRITICAL] Do NOT generate a new key if we are still syncing. 
-        // Only generate for brand NEW conversations (size 0 and no history).
-        // For safety in this bug fix, let's just warn and block.
-        console.warn(`[E2EE] MySenderKey missing for conv ${conversationId}. Blocking auto-generation to prevent overwrite.`);
-        toast.error("Vui lòng đợi giây lát để hệ thống đồng bộ khóa bảo mật.");
+        // [CRITICAL] MySenderKey missing — trigger PIN restore instead of just error
+        console.warn(`[E2EE] MySenderKey missing for conv ${conversationId}. Triggering Restore Prompt.`);
+        setShowRestorePrompt(true);
         return;
       }
       mySenderKeysRef.current.set(conversationId, currentKey);
@@ -1070,7 +1081,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
         keyVersion,
         lastLeftConversationId,
         refreshPeerKey,
-        syncKeys
+        syncKeys,
+        showRestorePrompt,
+        setShowRestorePrompt
       }}
     >
       {!mounted ? <div style={{ visibility: 'hidden' }}>{children}</div> : children}

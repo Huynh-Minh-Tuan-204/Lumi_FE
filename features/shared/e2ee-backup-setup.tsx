@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { ShieldCheck, KeyRound, Eye, EyeOff, Loader2, X, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { backupKeysToPin } from '@/lib/crypto-utils'
+import { deriveKeyFromPin, encryptKeyForBackup, setPinKey, bufferToBase64, loadAllMySenderKeys } from '@/lib/crypto-utils'
 import { e2eeApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 
@@ -103,8 +103,34 @@ export function E2EEBackupSetup({ onClose, isMandatory = false }: E2EEBackupSetu
 
         setStep('saving')
         try {
-            const { payload, salt, iv } = await backupKeysToPin(pin)
-            await e2eeApi.saveBackup(token, { payload, salt, iv })
+            // 1. Tạo Salt ngẫu nhiên
+            const salt = window.crypto.getRandomValues(new Uint8Array(16))
+            const saltBase64 = bufferToBase64(salt)
+
+            // 2. Derive pinKey (AES-256)
+            const pinKey = await deriveKeyFromPin(pin, salt)
+            
+            // 3. Đọc tất cả SenderKeys hiện có trong IndexedDB
+            const allMyKeys = await loadAllMySenderKeys()
+            const initialBackups: any[] = []
+
+            for (const [convId, key] of allMyKeys.entries()) {
+                const encrypted = await encryptKeyForBackup(key, pinKey)
+                initialBackups.push({
+                    conversationId: Number(convId),
+                    ...encrypted
+                })
+            }
+
+            // 4. Lưu lên server
+            await e2eeApi.setupPin(token, {
+                salt: saltBase64,
+                initialBackups
+            })
+
+            // 5. Lưu pinKey vào memory
+            setPinKey(pinKey)
+
             setStep('done')
             toast.success('🔐 Backup E2EE đã được lưu thành công!')
         } catch (err: any) {

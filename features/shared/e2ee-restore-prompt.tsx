@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { LockKeyhole, Loader2, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { restoreKeysFromPin } from '@/lib/crypto-utils'
+import { restoreKeysFromPin, setPinKey, saveKey, decryptKeyFromBackup, deriveKeyFromPin } from '@/lib/crypto-utils'
 import { e2eeApi } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { useSignalR } from '@/hooks/use-signalr'
@@ -89,16 +89,36 @@ export function E2EERestorePrompt({ conversationId, onRestored, onDismiss, isMan
 
         setStep('loading')
         try {
-            // 1. Lấy backup từ server
-            const backup = await e2eeApi.getBackup(token)
+            // 1. Lấy Salt từ server
+            const { salt: saltBase64 } = await e2eeApi.getMyPinSalt(token)
+            const salt = new Uint8Array(atob(saltBase64).split('').map(c => c.charCodeAt(0)))
 
-            // 2. Giải mã với PIN
-            await restoreKeysFromPin(pin, backup.payload, backup.salt, backup.iv)
+            // 2. Derive pinKey (AES-256)
+            const pinKey = await deriveKeyFromPin(pin, salt)
+            
+            // 3. Lấy danh sách backups lẻ
+            const backups = await e2eeApi.getMySenderKeyBackups(token)
+
+            // 4. Giải mã và import từng khóa vào IndexedDB
+            let count = 0
+            for (const b of backups) {
+                try {
+                    const decryptedKey = await decryptKeyFromBackup(b.encryptedSenderKey, b.iv, pinKey)
+                    const alias = `MySenderKey:${b.conversationId}`
+                    await saveKey(alias, decryptedKey)
+                    count++
+                } catch (err) {
+                    console.error(`Failed to decrypt key for conversation ${b.conversationId}`, err)
+                }
+            }
+
+            // 5. Lưu pinKey vào memory để tự động backup khóa mới sau này
+            setPinKey(pinKey)
 
             setStep('done')
-            toast.success('🔓 Khôi phục khóa E2EE thành công!')
+            toast.success(`🔓 Khôi phục thành công ${count} khóa E2EE!`)
 
-            // 3. Manual sync instead of full reload for premium UX
+            // 6. Manual sync instead of full reload for premium UX
             await syncKeys();
             if (onRestored) onRestored();
             setTimeout(() => {
@@ -110,7 +130,7 @@ export function E2EERestorePrompt({ conversationId, onRestored, onDismiss, isMan
                 setStep('no-backup')
                 return
             }
-            // PIN sai
+            // PIN sai hoặc lỗi khác
             const newAttempts = attempts + 1
             setAttempts(newAttempts)
             setPin('')

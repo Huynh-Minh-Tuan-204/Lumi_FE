@@ -16,6 +16,19 @@ const PEER_IDENTITY_KEY_ALIAS = 'PeerIdentityKey';
 const PEER_SENDER_KEY_ALIAS = 'PeerSenderKey';
 
 // ==========================================
+// SESSION STATE (IN-MEMORY ONLY)
+// ==========================================
+let cachedPinKey: CryptoKey | null = null;
+
+export function setPinKey(key: CryptoKey | null) {
+    cachedPinKey = key;
+}
+
+export function getPinKey(): CryptoKey | null {
+    return cachedPinKey;
+}
+
+// ==========================================
 // PHẦN 1: INDEXEDDB PERSISTENCE
 // ==========================================
 
@@ -461,12 +474,51 @@ export async function deriveKeyFromPin(pin: string, salt: Uint8Array): Promise<C
         {
             name: 'PBKDF2',
             salt: salt.buffer as ArrayBuffer,
-            iterations: 100_000,
+            iterations: 310_000, // Updated to 310k as requested
             hash: 'SHA-256',
         },
         baseKey,
         { name: 'AES-GCM', length: 256 },
-        false, // Không cho export key này
+        true, // Allow export if needed for individual backups
+        ['encrypt', 'decrypt']
+    );
+}
+
+/**
+ * Mã hóa một CryptoKey (AES-GCM) bằng pinKey để backup lẻ.
+ */
+export async function encryptKeyForBackup(key: CryptoKey, pinKey: CryptoKey): Promise<{ encryptedSenderKey: string; iv: string }> {
+    const rawKey = await window.crypto.subtle.exportKey('raw', key);
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        pinKey,
+        rawKey
+    );
+    return {
+        encryptedSenderKey: bufferToBase64(encrypted),
+        iv: bufferToBase64(iv)
+    };
+}
+
+/**
+ * Giải mã một SenderKey từ bản backup bằng pinKey.
+ */
+export async function decryptKeyFromBackup(encryptedBase64: string, ivBase64: string, pinKey: CryptoKey): Promise<CryptoKey> {
+    const ciphertext = base64ToBuffer(encryptedBase64);
+    const iv = base64ToBuffer(ivBase64);
+    
+    const decrypted = await window.crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv as ArrayBuffer },
+        pinKey,
+        ciphertext as ArrayBuffer
+    );
+
+    return await window.crypto.subtle.importKey(
+        'raw',
+        decrypted as ArrayBuffer,
+        { name: 'AES-GCM', length: 256 },
+        true,
         ['encrypt', 'decrypt']
     );
 }

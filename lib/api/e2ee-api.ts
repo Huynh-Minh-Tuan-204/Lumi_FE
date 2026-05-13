@@ -62,5 +62,37 @@ export const e2eeApi = {
             method: 'GET',
             token,
         }),
+
+    // ── NEW PIN-BASED BACKUP MECHANISM ──────────────────────────────────────
+
+    /** Thiết lập mã PIN: Lưu Salt và danh sách khóa backup ban đầu */
+    setupPin: (token: string, data: { salt: string; initialBackups: any[] }) =>
+        request<{ success: boolean }>('/e2ee/setup-pin', {
+            method: 'POST',
+            token,
+            body: JSON.stringify(data),
+        }),
+
+    /** Lấy Salt của user hiện tại */
+    getMyPinSalt: (token: string) =>
+        request<{ salt: string }>('/e2ee/my-pin-salt', {
+            method: 'GET',
+            token,
+        }),
+
+    /** Lấy toàn bộ danh sách khóa đã mã hóa của user */
+    getMySenderKeyBackups: (token: string) =>
+        request<any[]>('/e2ee/my-sender-key-backups', {
+            method: 'GET',
+            token,
+        }),
+
+    /** Backup lẻ một khóa (dùng khi tạo conversation mới) */
+    backupSenderKey: (token: string, data: { conversationId: number; encryptedSenderKey: string; iv: string }) =>
+        request<{ success: boolean }>('/e2ee/backup-sender-key', {
+            method: 'POST',
+            token,
+            body: JSON.stringify(data),
+        }),
 }
 

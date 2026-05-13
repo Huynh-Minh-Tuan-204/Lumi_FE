@@ -13,6 +13,13 @@ import {
   AvatarImage,
 } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { 
+    Dialog,
+    DialogContent,
+    DialogTitle,
+    DialogDescription,
+    DialogHeader
+} from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { 
   MoreVertical, 
@@ -62,6 +69,7 @@ import { CallLobby } from '@/features/chat/call-lobby'
 import { SystemMessageGroup } from '@/features/chat/system-message-group'
 import { decryptMessagePro, decryptFilePro, encryptFilePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, generateSenderKey, IDENTITY_KEY_ALIAS, loadKey, decryptSessionKey } from '@/lib/crypto-utils'
 import { DecryptedText } from '@/features/chat/decrypted-text'
+import { E2EERestorePrompt } from '@/features/shared/e2ee-restore-prompt'
 import { AttachmentImage } from '@/features/chat/attachment-image'
 import { MessageItem } from '@/features/chat/message-item'
 
@@ -360,7 +368,9 @@ export function ChatArea({
     peerIdentityKeys, 
     identityKeys, 
     myRSAKeys,
-    keyVersion 
+    keyVersion,
+    showRestorePrompt,
+    setShowRestorePrompt 
   } = signalRData
 
   const {
@@ -452,9 +462,9 @@ export function ChatArea({
           if (stored) {
               activeSenderKey = stored;
           } else {
-              // [CRITICAL] Do NOT generate a new key if we are still syncing or if history exists
-              console.warn(`[E2EE] SenderKey missing for upload in conv ${conversation.id}.`);
-              toast.error("Đang đồng bộ khóa bảo mật. Vui lòng thử lại sau giây lát.");
+              // [CRITICAL] MySenderKey missing — trigger PIN restore instead of just error
+              console.warn(`[E2EE] MySenderKey missing for upload in conv ${conversation.id}. Triggering Restore Prompt.`);
+              setShowRestorePrompt(true);
               setIsUploading(false);
               return;
           }
@@ -747,9 +757,9 @@ export function ChatArea({
     )}
 
     {/* ── Floating mini-call overlay (when minimized) ── */}
-    {activeCallId && isMinimized && (
-      <div className="fixed bottom-6 right-6 w-64 md:w-80 bg-[#1A1A1A] rounded-[2rem] overflow-hidden border border-primary/30 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[99999] animate-in slide-in-from-bottom-5">
-         <div className="relative aspect-video bg-black flex items-center justify-center">
+      {activeCallId && isMinimized && (
+        <div className="fixed bottom-6 right-6 w-64 md:w-80 bg-[#1A1A1A] rounded-[2rem] overflow-hidden border border-primary/30 shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[99999] animate-in slide-in-from-bottom-5">
+           <div className="relative aspect-video bg-black flex items-center justify-center">
             <video 
               autoPlay playsInline muted 
               ref={(v) => { if(v && localStream) v.srcObject = localStream; }}
@@ -776,6 +786,19 @@ export function ChatArea({
             <Button onClick={() => endCall()} variant="destructive" size="sm" className="h-8 rounded-xl px-4 font-black uppercase text-[9px] tracking-widest">Kết thúc</Button>
          </div>
       </div>
+    )}
+
+    {/* ── Restore Prompt Modal ── */}
+    {showRestorePrompt && (
+      <Dialog open={showRestorePrompt} onOpenChange={setShowRestorePrompt}>
+        <DialogContent className="p-0 border-none bg-transparent shadow-none max-w-sm">
+          <DialogTitle className="sr-only">Khôi phục khóa mã hóa</DialogTitle>
+          <E2EERestorePrompt 
+            onRestored={() => setShowRestorePrompt(false)} 
+            onDismiss={() => setShowRestorePrompt(false)}
+          />
+        </DialogContent>
+      </Dialog>
     )}
     </TooltipProvider>
   )
