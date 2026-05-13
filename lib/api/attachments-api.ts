@@ -25,8 +25,7 @@ export const attachmentsApi = {
     return fetch(`${API_BASE_URL}/Attachments/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        "ngrok-skip-browser-warning": "true"
+        'Authorization': `Bearer ${token}`
       },
       body: formData
     }).then(async res => {

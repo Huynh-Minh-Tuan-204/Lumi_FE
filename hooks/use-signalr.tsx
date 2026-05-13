@@ -511,8 +511,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
                } catch (e) { displayContent = "🚨 [Lỗi giải mã E2EE]"; }
             } else {
                displayContent = "⏳ [Đang đợi bắt tay hoặc khôi phục khóa...]";
-               // Tự động yêu cầu khóa nếu chưa có public key của người gửi
-               if (!senderIdKey && conversationIdNum) {
+               // Tự động yêu cầu khóa nếu thiếu Identity Key HOẶC Sender Key
+               const isOwnMsg = userRef.current && senderIdNum === userRef.current?.id;
+               if ((!senderIdKey || !senderSessionKey) && conversationIdNum && !isOwnMsg) {
                   initiateE2EEHandshake(conversationIdNum).catch(() => {});
                }
             }
