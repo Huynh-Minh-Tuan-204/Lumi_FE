@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth-context'
 import { toast } from 'sonner'
 import { announcementsApi, usersApi, conversationsApi, e2eeApi } from '@/lib/api'
 import { ChatMessage, SignalRHookReturn } from '@/types/chat.types'
-import { HUB_URL } from '@/constants/api.constants'
+import { HUB_URL, API_BASE_URL } from '@/constants/api.constants'
 import { 
   ShieldAlert, 
   MessageSquare, 
@@ -320,7 +320,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
     const fetchHistory = async () => {
       try {
-        const url = process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api';
+        const url = API_BASE_URL;
         const response = await fetch(`${url}/Announcements`, {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -575,11 +575,13 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       ])
     })
 
+    connection.on("receiveSecurityAlert", (data: any) => {
       toast.error(`BẢO MẬT: ${data.title}`, {
         description: data.message,
         duration: 0,
         icon: <ShieldAlert className="h-5 w-5 text-destructive" />
       });
+    });
 
     connection.on("receiveGeneralAnnouncement", (data: any) => {
       toast.info(data.title || "Thông báo", {

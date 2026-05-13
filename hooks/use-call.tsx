@@ -7,6 +7,7 @@ import { CallSignalR } from '@/lib/call-signalr'
 import * as signalR from '@microsoft/signalr'
 import { UserPeer, PeerState, CallContextType } from '@/types/call.types'
 import { RTC_FALLBACK_CONFIG as RTC_CONFIG } from '@/constants/call.constants'
+import { API_BASE_URL } from '@/constants/api.constants'
 
 const CallContext = createContext<CallContextType | undefined>(undefined)
 
@@ -445,7 +446,7 @@ export function CallProvider({ children }: { children: React.ReactNode }) {
         if (activeCallId && token) {
           try {
             // Fix 404: Use API_BASE_URL (which is already configured correctly)
-            const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'https://mintuan-001-site1.ktempurl.com/api').replace(/\/$/, "");
+            const baseUrl = API_BASE_URL.replace(/\/$/, "");
             
             const meetingRes = await fetch(
               `${baseUrl}/Meetings/${activeCallId}`,
