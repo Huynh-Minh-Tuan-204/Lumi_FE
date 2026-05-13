@@ -27,7 +27,11 @@ export const attachmentsApi = {
       },
       body: formData
     }).then(async res => {
-      if (!res.ok) throw new ApiError(await res.text(), res.status);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error(`[AttachmentsAPI] Upload failed (${res.status}):`, errorText);
+        throw new ApiError(errorText, res.status);
+      }
       return res.json() as Promise<AttachmentUploadResponseDto>;
     });
   },
