@@ -49,20 +49,40 @@ export function E2EEGatekeeper({ children }: E2EEGatekeeperProps) {
                     />
                     
                     <div className="mt-6 text-center">
-                        <button 
-                            onClick={async () => {
-                                if (confirm("Cảnh báo: Nếu bỏ qua, bạn sẽ KHÔNG THỂ đọc được các tin nhắn cũ đã bị mã hóa. Bạn có chắc chắn muốn bỏ qua?")) {
-                                    console.log("[E2EE] User chose to skip restore. Generating fresh keys.");
-                                    const { getOrCreateIdentityKey, getOrCreateRSAKeyPair } = await import('@/lib/crypto-utils');
-                                    await getOrCreateIdentityKey();
-                                    await getOrCreateRSAKeyPair();
-                                    window.location.reload();
-                                }
-                            }}
-                            className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-destructive transition-colors underline underline-offset-4"
-                        >
-                            Bỏ qua (chấp nhận mất tin nhắn cũ)
-                        </button>
+                        <div className="flex flex-col gap-3">
+                            <button 
+                                onClick={async () => {
+                                    if (confirm("Cảnh báo: Nếu bỏ qua, bạn sẽ KHÔNG THỂ đọc được các tin nhắn cũ đã bị mã hóa. Bạn có chắc chắn muốn bỏ qua?")) {
+                                        console.log("[E2EE] User chose to skip restore. Generating fresh keys.");
+                                        const { getOrCreateIdentityKey, getOrCreateRSAKeyPair } = await import('@/lib/crypto-utils');
+                                        await getOrCreateIdentityKey();
+                                        await getOrCreateRSAKeyPair();
+                                        window.location.reload();
+                                    }
+                                }}
+                                className="text-[11px] font-black uppercase tracking-widest text-muted-foreground/60 hover:text-destructive transition-colors underline underline-offset-4"
+                            >
+                                Bỏ qua (chấp nhận mất tin nhắn cũ)
+                            </button>
+
+                            <button 
+                                onClick={async () => {
+                                    if (confirm("XÁC NHẬN RESET: Hành động này sẽ xóa vĩnh viễn bản backup cũ trên server và yêu cầu bạn tạo mã PIN mới. Bạn sẽ không thể đọc lại tin nhắn cũ. Tiếp tục?")) {
+                                        try {
+                                            const token = localStorage.getItem('token') || '';
+                                            const { e2eeApi } = await import('@/lib/api');
+                                            await e2eeApi.deleteBackup(token);
+                                            window.location.reload();
+                                        } catch (e) {
+                                            alert("Lỗi khi reset: " + (e as any).message);
+                                        }
+                                    }
+                                }}
+                                className="text-[11px] font-black uppercase tracking-widest text-destructive/60 hover:text-destructive transition-colors"
+                            >
+                                Quên mã PIN? Thiết lập lại từ đầu
+                            </button>
+                        </div>
                     </div>
 
                     <p className="mt-8 text-[10px] text-center text-muted-foreground uppercase tracking-widest font-bold opacity-50">
