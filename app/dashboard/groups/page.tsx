@@ -226,12 +226,12 @@ export default function GroupsPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Tạo nhóm mới</DialogTitle>
-                <DialogDescription>
-                  Tạo nhóm trò chuyện mới để trao đổi trong nhóm
-                </DialogDescription>
-              </DialogHeader>
+            <DialogHeader>
+              <DialogTitle>Tạo nhóm mới</DialogTitle>
+              <DialogDescription>
+                Tạo nhóm trò chuyện mới để trao đổi trong nội bộ Lumi.
+              </DialogDescription>
+            </DialogHeader>
               <form onSubmit={handleCreateGroup} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="groupName">Tên nhóm</Label>

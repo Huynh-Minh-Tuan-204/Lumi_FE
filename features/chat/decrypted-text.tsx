@@ -80,54 +80,55 @@ export function DecryptedText({
                 const currentUserId = user?.id ? Number(user.id) : null;
                 const isMessageOwn = currentUserId !== null && senderIdNum === currentUserId;
 
-                // [DEBUG] Log decryption context for failed messages
-                if (iv && sig) {
-                    console.log(`[DecryptedText] Processing message ${message.id}: isOwn=${isMessageOwn}, conv=${conversationIdNum}, sender=${senderIdNum}`);
-                }
-
                 if (!conversationIdNum || isNaN(conversationIdNum)) {
-                   // Fallback for some message objects that might not have convId directly
                    if (isMounted) setDecrypted(content);
                    return;
                 }
+
+                // [DEBUG] Log context for identifying missing key issue
+                console.log(`[E2EE] Processing msg ${message.id}: isOwn=${isMessageOwn}, conv=${conversationIdNum}, sender=${senderIdNum}`);
+
                 // 3. Tra cứu Key từ Bộ nhớ (Maps)
                 let currentSenderKey: CryptoKey | undefined;
                 if (isMessageOwn) {
+                    // Ưu tiên tìm trong Map mySenderKeys của useSignalR
                     currentSenderKey = mySenderKeys?.get(conversationIdNum);
                 } else {
                     currentSenderKey = peerSenderKeys?.get(`${conversationIdNum}:${senderIdNum}`);
                 }
 
-                let senderIdPubKey: CryptoKey | undefined = isMessageOwn
-                    ? identityKeys?.publicKey
-                    : peerIdentityKeys?.get(senderIdNum);
-
-                // 4. FALLBACK: Nếu thiếu key trong bộ nhớ, nạp trực tiếp từ IndexedDB
-                if (conversationIdNum) {
-                    if (isMessageOwn && !currentSenderKey) {
+                // 4. FALLBACK QUYẾT LIỆT: Nếu Map thiếu, truy vấn trực tiếp IndexedDB
+                if (!currentSenderKey) {
+                    if (isMessageOwn) {
+                        // Tìm MySenderKey:{convId}
                         const stored = await saveOrLoadSenderKey(conversationIdNum);
                         if (stored) {
                             currentSenderKey = stored;
-                            console.log(`[DecryptedText] Recovered own SenderKey from IndexedDB for msg ${message.id}`);
+                            console.log(`[E2EE] Recovered MY SenderKey for conv ${conversationIdNum} from DB`);
                         }
-                    } else if (!isMessageOwn && !currentSenderKey) {
+                    } else {
+                        // Tìm PeerSenderKey:{convId}:{senderId}
                         const stored = await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum);
                         if (stored) {
                             currentSenderKey = stored;
-                            console.log(`[DecryptedText] Recovered peer SenderKey from IndexedDB for msg ${message.id}`);
+                            console.log(`[E2EE] Recovered PEER SenderKey for ${senderIdNum} in conv ${conversationIdNum} from DB`);
                         }
                     }
                 }
 
-                if (!isMessageOwn && !senderIdPubKey) {
-                    const stored = await saveOrLoadPeerIdentityKey(senderIdNum);
-                    if (stored) senderIdPubKey = stored;
-                } else if (isMessageOwn && !senderIdPubKey) {
-                    // [FALLBACK] Own identity key missing from context, load from IndexedDB
-                    const stored = await loadKey(IDENTITY_KEY_ALIAS);
-                    if (stored) {
-                        senderIdPubKey = (stored as any).publicKey;
-                        console.log(`[DecryptedText] Recovered own IdentityKey from IndexedDB for msg ${message.id}`);
+                // 5. Xác định Identity Key của người gửi
+                let senderIdPubKey: CryptoKey | undefined;
+                if (isMessageOwn) {
+                    senderIdPubKey = identityKeys?.publicKey;
+                    if (!senderIdPubKey) {
+                         const stored = await loadKey(IDENTITY_KEY_ALIAS);
+                         if (stored) senderIdPubKey = (stored as any).publicKey;
+                    }
+                } else {
+                    senderIdPubKey = peerIdentityKeys?.get(senderIdNum);
+                    if (!senderIdPubKey) {
+                        const stored = await saveOrLoadPeerIdentityKey(senderIdNum);
+                        if (stored) senderIdPubKey = stored;
                     }
                 }
 

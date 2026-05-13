@@ -265,7 +265,7 @@ export default function UsersPage() {
             <DialogHeader>
               <DialogTitle>Tạo người dùng mới</DialogTitle>
               <DialogDescription>
-                Thêm một tài khoản nhân viên mới vào hệ thống
+                Nhập thông tin chi tiết để thêm tài khoản nhân viên mới vào hệ thống Lumi.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateUser} className="space-y-4">

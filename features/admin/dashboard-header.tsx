@@ -81,6 +81,9 @@ export function DashboardHeader() {
           <SheetContent side="left" className="w-64 p-0 bg-sidebar">
             <SheetHeader className="p-4 border-b border-sidebar-border">
               <SheetTitle className="text-sidebar-foreground text-left">Bảng quản trị</SheetTitle>
+              <SheetDescription className="sr-only">
+                Menu điều hướng dành cho quản trị viên và quản lý.
+              </SheetDescription>
             </SheetHeader>
             <nav className="p-3 space-y-1">
               {adminNavItems.map((item) => {
