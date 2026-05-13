@@ -59,7 +59,7 @@ import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 import { CallLobby } from '@/features/chat/call-lobby'
 import { SystemMessageGroup } from '@/features/chat/system-message-group'
-import { decryptMessagePro, decryptFilePro, encryptFilePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, generateSenderKey } from '@/lib/crypto-utils'
+import { decryptMessagePro, decryptFilePro, encryptFilePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, generateSenderKey, IDENTITY_KEY_ALIAS, loadKey, decryptSessionKey } from '@/lib/crypto-utils'
 import { DecryptedText } from '@/features/chat/decrypted-text'
 import { AttachmentImage } from '@/features/chat/attachment-image'
 import { MessageItem } from '@/features/chat/message-item'
@@ -194,18 +194,44 @@ function DecryptedAttachment({
 
                     if (currentSenderKey && senderIdPubKey) {
                         try {
+                           console.log(`[Attachment] Decrypting file ${attachment.id}...`);
                            const decryptedBlob = await decryptFilePro(blob, iv, sig, currentSenderKey, senderIdPubKey);
                            if (!cancelled) {
                                objectUrl = URL.createObjectURL(decryptedBlob);
                                setUrl(objectUrl);
+                               console.log(`[Attachment] Successfully decrypted file ${attachment.id}`);
                            }
                         } catch (e) {
-                           console.error('Decryption failed', e);
+                           console.error(`[Attachment] Decryption failed for file ${attachment.id}`, e);
                            if (!cancelled) setError(true);
                         }
                     } else {
                         // Keys not ready — wait for keyVersion to trigger re-run
-                        console.log('[Attachment] Keys not ready for decryption...');
+                        console.warn(`[Attachment] Keys not ready for file ${attachment.id}: senderKey=${!!currentSenderKey}, idKey=${!!senderIdPubKey}`);
+                        
+                        // [FORCE RECOVERY] Try loading from IndexedDB if Maps failed
+                        if (isOwn && !senderIdPubKey) {
+                            const stored = await loadKey(IDENTITY_KEY_ALIAS);
+                            if (stored && (stored as any).publicKey) {
+                                senderIdPubKey = (stored as any).publicKey;
+                            }
+                        }
+                        if (isOwn && !currentSenderKey) {
+                            const stored = await saveOrLoadSenderKey(conversationIdNum);
+                            if (stored) currentSenderKey = stored;
+                        }
+
+                        // Re-check after recovery attempt
+                        if (currentSenderKey && senderIdPubKey) {
+                             console.log(`[Attachment] Recovered keys for file ${attachment.id}, retrying...`);
+                             try {
+                                const decryptedBlob = await decryptFilePro(blob, iv, sig, currentSenderKey, senderIdPubKey);
+                                if (!cancelled) {
+                                    objectUrl = URL.createObjectURL(decryptedBlob);
+                                    setUrl(objectUrl);
+                                }
+                             } catch (e) { console.error('Decryption failed after recovery', e); }
+                        }
                     }
                 } else {
                     // Legacy or plain file

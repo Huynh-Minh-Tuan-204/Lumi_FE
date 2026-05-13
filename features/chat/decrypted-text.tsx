@@ -106,10 +106,16 @@ export function DecryptedText({
                 if (conversationIdNum) {
                     if (isMessageOwn && !currentSenderKey) {
                         const stored = await saveOrLoadSenderKey(conversationIdNum);
-                        if (stored) currentSenderKey = stored;
+                        if (stored) {
+                            currentSenderKey = stored;
+                            console.log(`[DecryptedText] Recovered own SenderKey from IndexedDB for msg ${message.id}`);
+                        }
                     } else if (!isMessageOwn && !currentSenderKey) {
                         const stored = await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum);
-                        if (stored) currentSenderKey = stored;
+                        if (stored) {
+                            currentSenderKey = stored;
+                            console.log(`[DecryptedText] Recovered peer SenderKey from IndexedDB for msg ${message.id}`);
+                        }
                     }
                 }
 
@@ -150,9 +156,10 @@ export function DecryptedText({
                             setDecrypted(result);
                             setNeedsRestore(false);
                         }
-                    } catch (e) {
+                    } catch (e: any) {
                         if (!isMounted) return;
-                        const errorCode = (e as any)?.code || (e as any)?.name;
+                        console.error(`[DecryptedText] Decryption failed for msg ${message.id}:`, e);
+                        const errorCode = e?.code || e?.name;
                         if (errorCode === 'SIG_INVALID' || errorCode === 'OperationError') {
                             setDecrypted('🔑 [Đang khôi phục/Đồng bộ khóa bảo mật...]');
                             if (refreshPeerKey) refreshPeerKey(senderIdNum, conversationIdNum).catch(() => {});
@@ -167,6 +174,7 @@ export function DecryptedText({
                             setDecrypted(content);
                         } else {
                             setDecrypted('⏳ [Đang chờ khóa mã hóa...]');
+                            console.warn(`[DecryptedText] Missing keys for msg ${message.id}: senderKey=${!!currentSenderKey}, idKey=${!!senderIdPubKey}`);
                             // Tự động handshake nếu thiếu Identity Key HOẶC Sender Key
                             if (!isMessageOwn && (!senderIdPubKey || !currentSenderKey) && initiateHandshake && conversationIdNum) {
                                 initiateHandshake(conversationIdNum).catch(() => {});
