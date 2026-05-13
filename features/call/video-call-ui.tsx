@@ -189,12 +189,15 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
         setDisplayId(secureId);
         setConvId(cid); setConversationId(cid); setHostId(finalHostId);
         const history = await conversationsApi.getMessages(token, cid)
-        setCallMessages(history.map((d: any) => ({
-          id: d.id || d.Id, conversationId: cid, senderId: d.senderId || d.SenderId,
-          sender: d.senderName || d.sender || 'User', message: d.content || d.encryptedContent || "",
-          time: new Date(d.createdAt), iv: d.iv, sig: d.signature || d.sig, 
-          messageType: d.messageType, attachments: d.attachments || d.Attachments || []
-        })))
+        const filteredHistory = history
+          .filter((d: any) => (d.messageType || d.MessageType) !== 'System')
+          .map((d: any) => ({
+            id: d.id || d.Id, conversationId: cid, senderId: d.senderId || d.SenderId,
+            sender: d.senderName || d.sender || 'User', message: d.content || d.encryptedContent || "",
+            time: new Date(d.createdAt), iv: d.iv, sig: d.signature || d.sig, 
+            messageType: d.messageType, attachments: d.attachments || d.Attachments || []
+          }));
+        setCallMessages(filteredHistory);
         // Auto-handshake for E2EE messages
         if (initiateE2EEHandshake) initiateE2EEHandshake(cid);
         
@@ -220,7 +223,7 @@ export function VideoCallUI({ callId, callType, participantName, onEndCall, init
   }, [initialMic, initialCam, setIsMuted, setIsCameraOn]);
 
   useEffect(() => {
-    if (lastMessage && lastMessage.conversationId === convId) {
+    if (lastMessage && lastMessage.conversationId === convId && lastMessage.messageType !== 'System') {
       setCallMessages(prev => [...prev.filter(m => m.id !== lastMessage.id), lastMessage]);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }

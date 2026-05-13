@@ -68,6 +68,63 @@ interface LeftTabbarProps {
   setActiveTab: (tab: string | null) => void
 }
 
+interface DecryptedNotificationProps {
+  notification: any;
+}
+
+function DecryptedNotification({ notification }: DecryptedNotificationProps) {
+  const { user } = useAuth();
+  const { peerSenderKeys, peerIdentityKeys, mySenderKeys, identityKeys } = useSignalR();
+  const [decrypted, setDecrypted] = useState<string>("⏳ [Đang giải mã...]");
+
+  useEffect(() => {
+    const decrypt = async () => {
+      const { message, iv, signature, senderId } = notification;
+
+      // Nếu không có IV hoặc Signature thì đây là tin nhắn cũ hoặc không mã hóa
+      if (!iv || !signature) {
+        setDecrypted(message);
+        return;
+      }
+
+      try {
+        const { decryptMessagePro } = await import('@/lib/crypto-utils');
+        const senderIdNum = Number(senderId);
+        const currentUserId = user?.id ? Number(user.id) : null;
+        const isOwn = currentUserId !== null && senderIdNum === currentUserId;
+
+        // Đối với thông báo hệ thống, chúng ta thường tìm khóa trong các cuộc hội thoại "System"
+        // Nhưng nếu là Admin gửi trực tiếp, chúng ta thử tìm khóa của Admin trong bộ nhớ
+        // Vì thông báo hệ thống không có conversationId cụ thể trong bảng Notify, 
+        // chúng ta sẽ thử tìm khóa của người gửi trong toàn bộ các phiên bắt tay hiện có.
+        
+        let senderKey: CryptoKey | undefined;
+        // Thử tìm trong tất cả các key của người gửi này ở mọi conversation (thường Admin chỉ dùng 1 key)
+        for (const [key, val] of Array.from(peerSenderKeys.entries())) {
+            if (key.endsWith(`:${senderIdNum}`)) {
+                senderKey = val;
+                break;
+            }
+        }
+
+        let senderPubKey = isOwn ? identityKeys?.publicKey : peerIdentityKeys?.get(senderIdNum);
+
+        if (iv && signature && senderKey && senderPubKey) {
+          const result = await decryptMessagePro(message, iv, signature, senderKey, senderPubKey);
+          setDecrypted(result);
+        } else {
+          setDecrypted("⏳ [Đang đợi bắt tay với Admin để giải mã...]");
+        }
+      } catch (e) {
+        setDecrypted(message || "[Lỗi giải mã]");
+      }
+    };
+    decrypt();
+  }, [notification.id, notification.message, peerSenderKeys, peerIdentityKeys]);
+
+  return <p className="text-sm mt-2 leading-relaxed opacity-80">{decrypted}</p>;
+}
+
 function ThemeToggle() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -460,7 +517,7 @@ export default function ChatPage() {
                               <p className="font-black text-sm uppercase tracking-tight text-primary">{n.sender || 'Hệ thống'}</p>
                               <span className="text-[10px] font-black opacity-30 uppercase">{new Date(n.time).toLocaleString('vi-VN', { hour12: false })}</span>
                            </div>
-                           <p className="text-sm mt-2 leading-relaxed opacity-80">{n.message}</p>
+                            <DecryptedNotification notification={n} />
                         </div>
                       ))
                    ) : (

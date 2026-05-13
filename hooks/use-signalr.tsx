@@ -326,6 +326,9 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
             id: n.Id || n.id || `temp-${n.Timestamp || Date.now()}`,
             sender: n.SenderName || n.senderName || 'System',
             message: n.Message || n.message || '',
+            iv: n.IV || n.iv,
+            signature: n.Signature || n.signature,
+            senderId: n.SenderId || n.senderId,
             time: n.Timestamp || n.timestamp ? new Date(n.Timestamp || n.timestamp) : new Date(),
             isSystem: true,
             isRead: n.IsRead || n.isRead || false
@@ -532,7 +535,7 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
     })
 
     connection.on('ReceiveNotification', (data: any) => {
-      const { id, title, sender, message, category, forceConfirmed, createdAt, isSystem } = data;
+      const { id, title, sender, message, category, forceConfirmed, createdAt, isSystem, iv, sig, senderId } = data;
 
       if (category === "Security" && forceConfirmed) {
         toast.error(`🚨 CẢNH BÁO: ${title || "Security Alert"}`, {
@@ -549,10 +552,11 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
       setNotifications(prev => [
         {
           id: id || Date.now(),
-          conversationId: 0,
-          senderId: 0,
+          senderId: senderId || 0,
           sender: sender || 'System',
           message: message,
+          iv: iv || data.iv,
+          signature: sig || data.sig || data.signature,
           time: new Date(createdAt || Date.now()),
           isSystem: isSystem || true,
           isRead: false
