@@ -488,13 +488,18 @@ export async function deriveKeyFromPin(pin: string, salt: Uint8Array): Promise<C
  * Mã hóa một CryptoKey (AES-GCM) bằng pinKey để backup lẻ.
  */
 export async function encryptKeyForBackup(key: CryptoKey, pinKey: CryptoKey): Promise<{ encryptedSenderKey: string; iv: string }> {
-    const rawKey = await window.crypto.subtle.exportKey('raw', key);
+    // Export key sang JWK để giữ nguyên type/alg
+    const exported = await window.crypto.subtle.exportKey("jwk", key);
+    const json = JSON.stringify(exported);
+    const data = new TextEncoder().encode(json);
+    
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
     const encrypted = await window.crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv },
+        { name: "AES-GCM", iv },
         pinKey,
-        rawKey
+        data
     );
+
     return {
         encryptedSenderKey: bufferToBase64(encrypted),
         iv: bufferToBase64(iv)
@@ -514,12 +519,27 @@ export async function decryptKeyFromBackup(encryptedBase64: string, ivBase64: st
         ciphertext as ArrayBuffer
     );
 
+    const json = new TextDecoder().decode(decrypted);
+    const jwk = JSON.parse(json);
+
+    // Tự động nhận diện thuật toán từ JWK
+    let alg: any = { name: "AES-GCM" };
+    let usages: KeyUsage[] = ["encrypt", "decrypt"];
+
+    if (jwk.kty === "EC") {
+        alg = { name: "ECDSA", namedCurve: "P-256" };
+        usages = ["sign", "verify"];
+    } else if (jwk.kty === "RSA") {
+        alg = { name: "RSA-OAEP", hash: "SHA-256" };
+        usages = jwk.d ? ["decrypt"] : ["encrypt"];
+    }
+
     return await window.crypto.subtle.importKey(
-        'raw',
-        decrypted as ArrayBuffer,
-        { name: 'AES-GCM', length: 256 },
+        "jwk",
+        jwk,
+        alg,
         true,
-        ['encrypt', 'decrypt']
+        usages
     );
 }
 

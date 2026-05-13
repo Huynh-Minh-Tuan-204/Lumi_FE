@@ -31,13 +31,22 @@ export function useE2EEAuth() {
             }
 
             if (!localIdentity) {
-                // Trường hợp mất khóa local
-                if (remoteBackup) {
-                    // Đã có backup trên server -> Yêu cầu khôi phục
-                    setBackupData(remoteBackup)
+                // Trường hợp mất khóa local -> Kiểm tra xem có PIN trên server không
+                let hasPinBackup = false;
+                try {
+                    const saltData = await e2eeApi.getMyPinSalt(token);
+                    if (saltData && saltData.salt) {
+                        hasPinBackup = true;
+                    }
+                } catch (e) {
+                    // 404 hoặc lỗi khác -> coi như chưa có PIN
+                }
+
+                if (hasPinBackup) {
+                    // Đã có mã PIN trên server -> Yêu cầu khôi phục
                     setStatus('needs-restore')
                 } else {
-                    // Chưa có khóa local cũng chưa có backup -> Yêu cầu thiết lập lần đầu
+                    // Chưa có khóa local cũng chưa có PIN -> Yêu cầu thiết lập lần đầu
                     setStatus('needs-setup')
                 }
             } else {

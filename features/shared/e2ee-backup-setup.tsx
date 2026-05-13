@@ -122,6 +122,23 @@ export function E2EEBackupSetup({ onClose, isMandatory = false }: E2EEBackupSetu
                 })
             }
 
+            // [ADD] Backup cả Identity Key và RSA Key để khôi phục hoàn toàn trên thiết bị mới
+            const idKeys = await loadKey(IDENTITY_KEY_ALIAS);
+            if (idKeys) {
+                const encIdPriv = await encryptKeyForBackup(idKeys.privateKey, pinKey);
+                initialBackups.push({ conversationId: -1, ...encIdPriv }); // -1: Identity Private
+                const encIdPub = await encryptKeyForBackup(idKeys.publicKey, pinKey);
+                initialBackups.push({ conversationId: -11, ...encIdPub }); // -11: Identity Public
+            }
+
+            const rsaKeys = await loadKey('EphemeralRSAKey');
+            if (rsaKeys) {
+                const encRsaPriv = await encryptKeyForBackup(rsaKeys.privateKey, pinKey);
+                initialBackups.push({ conversationId: -2, ...encRsaPriv }); // -2: RSA Private
+                const encRsaPub = await encryptKeyForBackup(rsaKeys.publicKey, pinKey);
+                initialBackups.push({ conversationId: -22, ...encRsaPub }); // -22: RSA Public
+            }
+
             // 4. Lưu lên server
             await e2eeApi.setupPin(token, {
                 salt: saltBase64,

@@ -52,13 +52,10 @@ export function E2EEGatekeeper({ children }: E2EEGatekeeperProps) {
                         <button 
                             onClick={async () => {
                                 if (confirm("Cảnh báo: Nếu bỏ qua, bạn sẽ KHÔNG THỂ đọc được các tin nhắn cũ đã bị mã hóa. Bạn có chắc chắn muốn bỏ qua?")) {
-                                    // Set status to ready or clear data if needed
-                                    // For now, we can just reload the page and maybe bypass in context
-                                    // Actually, if we just want to bypass, we should probably set a local storage flag or generate new keys.
-                                    // To simplify, let's just create new IdentityKeys so we can chat again.
-                                    const { generateIdentityKeyPair, saveKey, IDENTITY_KEY_ALIAS } = await import('@/lib/crypto-utils');
-                                    const newKeys = await generateIdentityKeyPair();
-                                    await saveKey(IDENTITY_KEY_ALIAS, newKeys);
+                                    const { getOrCreateIdentityKey, getOrCreateRSAKeyPair } = await import('@/lib/crypto-utils');
+                                    // Sinh bộ khóa mới để có thể tham gia chat (chấp nhận mất lịch sử cũ)
+                                    await getOrCreateIdentityKey();
+                                    await getOrCreateRSAKeyPair();
                                     window.location.reload();
                                 }
                             }}

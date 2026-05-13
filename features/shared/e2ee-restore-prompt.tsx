@@ -101,15 +101,41 @@ export function E2EERestorePrompt({ conversationId, onRestored, onDismiss, isMan
 
             // 4. Giải mã và import từng khóa vào IndexedDB
             let count = 0
+            const restoredIdKeys: any = {}
+            const restoredRsaKeys: any = {}
+
             for (const b of backups) {
                 try {
                     const decryptedKey = await decryptKeyFromBackup(b.encryptedSenderKey, b.iv, pinKey)
-                    const alias = `MySenderKey:${b.conversationId}`
-                    await saveKey(alias, decryptedKey)
-                    count++
+                    
+                    if (b.conversationId === -1) restoredIdKeys.privateKey = decryptedKey;
+                    else if (b.conversationId === -11) restoredIdKeys.publicKey = decryptedKey;
+                    else if (b.conversationId === -2) restoredRsaKeys.privateKey = decryptedKey;
+                    else if (b.conversationId === -22) restoredRsaKeys.publicKey = decryptedKey;
+                    else {
+                        const alias = `MySenderKey:${b.conversationId}`
+                        await saveKey(alias, decryptedKey)
+                        count++
+                    }
                 } catch (err) {
-                    console.error(`Failed to decrypt key for conversation ${b.conversationId}`, err)
+                    console.error(`Failed to decrypt key for id ${b.conversationId}`, err)
                 }
+            }
+
+            // Lưu Identity và RSA keys nếu đã restore đủ bộ
+            if (restoredIdKeys.privateKey && restoredIdKeys.publicKey) {
+                await saveKey(IDENTITY_KEY_ALIAS, restoredIdKeys);
+            } else {
+                // Nếu không có backup identity (user cũ), hãy sinh mới để SignalR có thể chạy
+                const { getOrCreateIdentityKey } = await import('@/lib/crypto-utils');
+                await getOrCreateIdentityKey();
+            }
+
+            if (restoredRsaKeys.privateKey && restoredRsaKeys.publicKey) {
+                await saveKey('EphemeralRSAKey', restoredRsaKeys);
+            } else {
+                const { getOrCreateRSAKeyPair } = await import('@/lib/crypto-utils');
+                await getOrCreateRSAKeyPair();
             }
 
             // 5. Lưu pinKey vào memory để tự động backup khóa mới sau này
