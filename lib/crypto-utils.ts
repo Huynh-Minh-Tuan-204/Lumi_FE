@@ -189,9 +189,20 @@ export async function encryptMessagePro(plaintext: string, senderKey: CryptoKey,
     };
 }
 
-export async function decryptMessagePro(contentBase64: string, ivBase64: string, senderKey: CryptoKey) {
+export async function decryptMessagePro(
+    contentBase64: string, 
+    ivBase64: string, 
+    sigBase64: string,
+    senderKey: CryptoKey,
+    senderIdentityPubKey: CryptoKey
+) {
     const ciphertextBuffer = base64ToBuffer(contentBase64);
     const ivBuffer = base64ToBuffer(ivBase64);
+    
+    // Verify Signature first
+    const isValid = await verifySignature(contentBase64, sigBase64, senderIdentityPubKey);
+    if (!isValid) throw { code: 'SIG_INVALID', message: 'Chữ ký không hợp lệ!' };
+
     const decrypted = await window.crypto.subtle.decrypt(
         { name: 'AES-GCM', iv: ivBuffer as ArrayBuffer },
         senderKey,
@@ -213,8 +224,20 @@ export async function encryptFilePro(file: File, senderKey: CryptoKey, identityP
     };
 }
 
-export async function decryptFilePro(blob: Blob, ivBase64: string, sigBase64: string, senderKey: CryptoKey, senderIdentityPubKey: CryptoKey): Promise<Blob> {
+export async function decryptFilePro(
+    blob: Blob, 
+    ivBase64: string, 
+    sigBase64: string, 
+    senderKey: CryptoKey, 
+    senderIdentityPubKey: CryptoKey
+): Promise<Blob> {
     const arrayBuffer = await blob.arrayBuffer();
+    const contentBase64 = bufferToBase64(new Uint8Array(arrayBuffer));
+
+    // Verify Signature
+    const isValid = await verifySignature(contentBase64, sigBase64, senderIdentityPubKey);
+    if (!isValid) throw new Error("Chữ ký tệp không hợp lệ!");
+
     const decrypted = await window.crypto.subtle.decrypt(
         { name: "AES-GCM", iv: base64ToBuffer(ivBase64) as ArrayBuffer },
         senderKey,

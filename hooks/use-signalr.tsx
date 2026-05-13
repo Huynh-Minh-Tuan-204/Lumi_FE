@@ -9,6 +9,7 @@ import { ChatMessage, SignalRHookReturn } from '@/types/chat.types'
 import { HUB_URL } from '@/constants/api.constants'
 import { 
   loadKey, IDENTITY_KEY_ALIAS, exportIdentityPublicKey, importIdentityPublicKey,
+  getOrCreateIdentityKey, getOrCreateRSAKeyPair,
   exportPublicKey, importPublicKey,
   generateSenderKey, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey,
   encryptSessionKeyForPeer, decryptSessionKey,
@@ -77,18 +78,14 @@ export function SignalRProvider({ children }: { children: React.ReactNode }) {
 
   const loadAllKeysSequentially = useCallback(async () => {
     try {
-      // 1. Load own identity + RSA keys
-      const idKeys = await loadKey(IDENTITY_KEY_ALIAS);
-      if (idKeys) {
-        setIdentityKeys(idKeys);
-        identityKeysRef.current = idKeys;
-      }
+      // 1. Ensure own identity + RSA keys exist (Create if new device)
+      const idKeys = await getOrCreateIdentityKey();
+      setIdentityKeys(idKeys);
+      identityKeysRef.current = idKeys;
 
-      const rsaKeys = await loadKey('EphemeralRSAKey');
-      if (rsaKeys) {
-        setMyRSAKeys(rsaKeys);
-        myRSAKeysRef.current = rsaKeys;
-      }
+      const rsaKeys = await getOrCreateRSAKeyPair();
+      setMyRSAKeys(rsaKeys);
+      myRSAKeysRef.current = rsaKeys;
 
       // 2. Preload Sender Keys
       const mySenderKeys = await loadAllMySenderKeys();

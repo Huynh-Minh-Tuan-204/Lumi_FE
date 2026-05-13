@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, decryptSessionKey, importPublicKey, importIdentityPublicKey, encryptSessionKeyForPeer } from '@/lib/crypto-utils'
+import { decryptMessagePro, saveOrLoadSenderKey, saveOrLoadPeerIdentityKey, saveOrLoadPeerSenderKey, decryptSessionKey, importPublicKey, importIdentityPublicKey, encryptSessionKeyForPeer, loadKey, IDENTITY_KEY_ALIAS } from '@/lib/crypto-utils'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Video as VideoIcon } from 'lucide-react'
