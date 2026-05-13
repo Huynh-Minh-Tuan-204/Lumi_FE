@@ -135,17 +135,21 @@ export function DecryptedText({
                 if (!currentSenderKey && metadata && myRSAKeys?.privateKey) {
                     try {
                         const meta = JSON.parse(metadata);
-                        const myId = user?.id;
-                        if (myId && meta.keys && meta.keys[myId]) {
-                            const encryptedKeyForMe = meta.keys[myId];
+                        const myIdStr = user?.id ? String(user.id) : "";
+                        if (myIdStr && meta.keys && meta.keys[myIdStr]) {
+                            console.log(`[DecryptedText] Found encrypted session key in metadata for user ${myIdStr}`);
+                            const encryptedKeyForMe = meta.keys[myIdStr];
                             const decryptedKey = await decryptSessionKey(encryptedKeyForMe, myRSAKeys.privateKey);
                             currentSenderKey = decryptedKey;
                             
                             // Persist for future use
                             peerSenderKeys?.set(`${conversationIdNum}:${senderIdNum}`, decryptedKey);
                             await saveOrLoadPeerSenderKey(conversationIdNum, senderIdNum, decryptedKey);
+                            console.log(`[DecryptedText] Successfully recovered session key from metadata for msg ${message.id}`);
+                        } else {
+                            console.warn(`[DecryptedText] Metadata found but no key for current user ${myIdStr}. Available keys:`, Object.keys(meta.keys || {}));
                         }
-                    } catch (e) { console.warn("[E2EE UI] Key recovery failed:", e); }
+                    } catch (e) { console.warn("[E2EE UI] Key recovery from metadata failed:", e); }
                 }
 
                 // 5. Tiến hành giải mã
