@@ -46,7 +46,7 @@ interface Announcement {
 
 import { decryptMessagePro } from '@/lib/crypto-utils'
 
-function DecryptedAnnouncement({ announcement, mySenderKey, peerSenderKeys, peerIdentityKeys, identityKeys, user }: any) {
+function DecryptedAnnouncement({ announcement, mySenderKey, peerSenderKeys, peerIdentityKeys, identityKeys, user, keyVersion }: any) {
   const [decrypted, setDecrypted] = useState<string>("⏳ [Đang giải mã...]");
 
   useEffect(() => {
@@ -89,7 +89,7 @@ function DecryptedAnnouncement({ announcement, mySenderKey, peerSenderKeys, peer
       } catch (e) { setDecrypted(message || "[Lỗi giải mã]"); }
     };
     decrypt();
-  }, [announcement.id, announcement.message, mySenderKey, peerSenderKeys, user?.id]);
+  }, [announcement.id, announcement.message, mySenderKey, peerSenderKeys, user?.id, keyVersion]);
 
   return <p className="text-sm text-foreground/80 font-medium leading-relaxed">{decrypted}</p>;
 }
@@ -145,7 +145,7 @@ import {
 
 export default function NotificationsPage() {
   const { token, user } = useAuth()
-  const { isConnected, notifications: realtimeNotifications, mySenderKey, identityKeys, peerSenderKeys, peerIdentityKeys } = useSignalR()
+  const { isConnected, notifications: realtimeNotifications, mySenderKey, identityKeys, peerSenderKeys, peerIdentityKeys, keyVersion } = useSignalR()
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [title, setTitle] = useState('')
   const [newAnnouncement, setNewAnnouncement] = useState('')
@@ -498,6 +498,7 @@ export default function NotificationsPage() {
                             peerIdentityKeys={peerIdentityKeys} 
                             identityKeys={identityKeys}
                             user={user}
+                            keyVersion={keyVersion}
                          />
                       </div>
                     </div>

@@ -450,15 +450,19 @@ export function ChatArea({
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file || !conversation || !token) return
+    
     setIsUploading(true)
     try {
-      // [ROLLBACK] Direct key fetching without PIN backup triggers
+      console.log(`[ChatArea] Preparing upload for ${file.name} (${file.size} bytes)`);
+      
       let activeSenderKey = mySenderKeys?.get(conversation.id);
       if (!activeSenderKey) {
+          console.log(`[ChatArea] MySenderKey missing for conv ${conversation.id}, checking DB...`);
           activeSenderKey = await saveOrLoadSenderKey(conversation.id) || undefined;
       }
 
       if (!activeSenderKey || !identityKeys) {
+          console.error("[ChatArea] Security keys missing for upload", { hasKey: !!activeSenderKey, hasIdentity: !!identityKeys });
           toast.error("Vui lòng đợi thiết lập mã hóa (Thiếu Identity hoặc Sender Key)...");
           return;
       }
@@ -467,26 +471,21 @@ export function ChatArea({
       
       // 1. Client-side E2EE Encryption
       const { encryptedBlob, iv, sig } = await encryptFilePro(file, activeSenderKey, identityKeys.privateKey);
+      console.log(`[ChatArea] File encrypted. IV=${iv.substring(0, 10)}..., Sig=${sig.substring(0, 10)}...`);
 
       // 2. Upload Encrypted Blob
       await attachmentsApi.upload(token, encryptedBlob, conversation.id, undefined, iv, sig, file.name)
       
-      const news = await conversationsApi.getMessages(token, conversation.id)
-      setMessages(news.map((m: any) => ({
-        ...m, id: m.id || m.Id, conversationId: m.conversationId || conversation.id,
-        isPinned: m.isPinned || m.IsPinned, 
-        encryptedContent: m.encryptedContent || m.EncryptedContent || m.content || "",
-        iv: m.iv || m.Iv,
-        sig: m.sig || m.Signature || m.Sig
-      })))
       toast.success('Gửi tệp thành công!')
+      // Clear input immediately
+      if (event.target) event.target.value = ''
+      
     } catch (err: any) { 
-      console.error(err);
-      const errorMsg = err?.message || err?.details || 'Lỗi không xác định';
+      console.error("[ChatArea] Upload Error:", err);
+      const errorMsg = err?.message || err?.error || 'Lỗi không xác định';
       toast.error(`Gửi tệp thất bại: ${errorMsg}`);
     } finally {
       setIsUploading(false)
-      if (event.target) event.target.value = ''
     }
   }
 

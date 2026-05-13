@@ -74,7 +74,7 @@ interface DecryptedNotificationProps {
 
 function DecryptedNotification({ notification }: DecryptedNotificationProps) {
   const { user } = useAuth();
-  const { peerSenderKeys, peerIdentityKeys, mySenderKeys, identityKeys } = useSignalR();
+  const { peerSenderKeys, peerIdentityKeys, mySenderKeys, identityKeys, keyVersion } = useSignalR();
   const [decrypted, setDecrypted] = useState<string>("⏳ [Đang giải mã...]");
 
   useEffect(() => {
@@ -120,7 +120,7 @@ function DecryptedNotification({ notification }: DecryptedNotificationProps) {
       }
     };
     decrypt();
-  }, [notification.id, notification.message, peerSenderKeys, peerIdentityKeys]);
+  }, [notification.id, notification.message, peerSenderKeys, peerIdentityKeys, keyVersion]);
 
   return <p className="text-sm mt-2 leading-relaxed opacity-80">{decrypted}</p>;
 }

@@ -20,17 +20,27 @@ export const attachmentsApi = {
     if (iv) formData.append('iv', iv)
     if (signature) formData.append('signature', signature)
 
+    console.log(`[AttachmentsAPI] Starting upload: ${fileName}, size=${(file as any).size || '?'}, conv=${conversationId}, hasIV=${!!iv}, hasSig=${!!signature}`);
+
     return fetch(`${API_BASE_URL}/Attachments/upload`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
+        "ngrok-skip-browser-warning": "true"
       },
       body: formData
     }).then(async res => {
       if (!res.ok) {
         const errorText = await res.text();
-        console.error(`[AttachmentsAPI] Upload failed (${res.status}):`, errorText);
-        throw new ApiError(errorText, res.status);
+        let errorMessage = errorText;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorJson.message || errorText;
+        } catch (e) {
+          // not json
+        }
+        console.error(`[AttachmentsAPI] Upload failed (${res.status}):`, errorMessage);
+        throw new ApiError(errorMessage, res.status);
       }
       return res.json() as Promise<AttachmentUploadResponseDto>;
     });
